@@ -2,4 +2,4 @@
 
 mkdir -p build
 
-gcc -g main.c -o build/main.out
+gcc -g src/main.c -I. -o build/main.out
