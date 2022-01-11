@@ -10,8 +10,8 @@ typedef enum
     TOKEN_MUL,
     TOKEN_DIV,
 
-    TOKEN_PAREN_BEGIN,
-    TOKEN_PAREN_END,
+    TOKEN_LEFT_PAREN,
+    TOKEN_RIGHT_PAREN,
 
     TOKEN_EOF,
 
@@ -71,14 +71,14 @@ static void log_token(Token token)
         token_type = "TOKEN_NUMBER";
     }
     break;
-    case TOKEN_PAREN_BEGIN:
+    case TOKEN_LEFT_PAREN:
     {
-        token_type = "TOKEN_PAREN_BEGIN";
+        token_type = "TOKEN_LEFT_PAREN";
     }
     break;
-    case TOKEN_PAREN_END:
+    case TOKEN_RIGHT_PAREN:
     {
-        token_type = "TOKEN_PAREN_END";
+        token_type = "TOKEN_RIGHT_PAREN";
     }
     break;
     case TOKEN_ERROR:
@@ -207,8 +207,8 @@ static Token scan_token(Lexer* lexer)
     case '-': return make_token(lexer, TOKEN_SUB);
     case '*': return make_token(lexer, TOKEN_MUL);
     case '/': return make_token(lexer, TOKEN_DIV);
-    case '(': return make_token(lexer, TOKEN_PAREN_BEGIN);
-    case ')': return make_token(lexer, TOKEN_PAREN_END);
+    case '(': return make_token(lexer, TOKEN_LEFT_PAREN);
+    case ')': return make_token(lexer, TOKEN_RIGHT_PAREN);
     }
 
     return error_token(lexer, "Unexpected token.");
