@@ -5,10 +5,10 @@
 typedef enum
 {
     TOKEN_NUMBER,
-    TOKEN_ADD,
-    TOKEN_SUB,
-    TOKEN_MUL,
-    TOKEN_DIV,
+    TOKEN_PLUS,
+    TOKEN_MINUS,
+    TOKEN_STAR,
+    TOKEN_SLASH,
 
     TOKEN_LEFT_PAREN,
     TOKEN_RIGHT_PAREN,
@@ -46,22 +46,22 @@ static void log_token(Token token)
     char *token_type;
     switch(token.type)
     {
-    case TOKEN_ADD:
+    case TOKEN_PLUS:
     {
         token_type = "TOKEN_ADD";
     }
     break;
-    case TOKEN_SUB:
+    case TOKEN_MINUS:
     {
         token_type = "TOKEN_SUB";
     }
     break;
-    case TOKEN_MUL:
+    case TOKEN_STAR:
     {
         token_type = "TOKEN_MUL";
     }
     break;
-    case TOKEN_DIV:
+    case TOKEN_SLASH:
     {
         token_type = "TOKEN_DIV";
     }
@@ -203,10 +203,10 @@ static Token scan_token(Lexer* lexer)
 
     switch(c)
     {
-    case '+': return make_token(lexer, TOKEN_ADD);
-    case '-': return make_token(lexer, TOKEN_SUB);
-    case '*': return make_token(lexer, TOKEN_MUL);
-    case '/': return make_token(lexer, TOKEN_DIV);
+    case '+': return make_token(lexer, TOKEN_PLUS);
+    case '-': return make_token(lexer, TOKEN_MINUS);
+    case '*': return make_token(lexer, TOKEN_STAR);
+    case '/': return make_token(lexer, TOKEN_SLASH);
     case '(': return make_token(lexer, TOKEN_LEFT_PAREN);
     case ')': return make_token(lexer, TOKEN_RIGHT_PAREN);
     }
