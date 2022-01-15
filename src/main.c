@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <stdbool.h>
+#include <assert.h>
 
 typedef int32_t i32;
 typedef int64_t i64;

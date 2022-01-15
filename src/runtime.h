@@ -15,6 +15,14 @@ void repl()
         }
         i32 token_count;
         Token* tokens = tokenize(line_buffer, sizeof(line_buffer), &token_count);
+        if(parse(tokens, token_count))
+        {
+            log_info("Parsing succeeded");
+        }
+        else
+        {
+            log_error("Parsing failed with errors");
+        }
         free(tokens);
     }
 }

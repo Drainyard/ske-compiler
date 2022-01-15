@@ -10,6 +10,8 @@ typedef enum
     TOKEN_STAR,
     TOKEN_SLASH,
 
+    TOKEN_BANG,
+
     TOKEN_LEFT_PAREN,
     TOKEN_RIGHT_PAREN,
 
