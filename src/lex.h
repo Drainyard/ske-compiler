@@ -83,10 +83,20 @@ static void log_token(Token token)
         token_type = "TOKEN_RIGHT_PAREN";
     }
     break;
+    case TOKEN_BANG:
+    {
+        token_type = "TOKEN_BANG";
+    }
+    break;
     case TOKEN_ERROR:
     {
         token_type = "TOKEN_ERROR";
     }
+    case TOKEN_EOF:
+    {
+        token_type = "TOKEN_EOF";
+    }
+    break;
     }
 
     char token_value[32];
@@ -134,20 +144,24 @@ static bool match_character(Lexer* lexer, char expected)
 
 static Token make_token(Lexer* lexer, Token_Type type)
 {
-    Token token = {};
-    token.type = type;
-    token.start = lexer->start;
-    token.line = lexer->line;
-    token.length = (i32)(lexer->current - lexer->start);
+    Token token =
+        {
+            .type   = type,
+            .start  = lexer->start,
+            .line   = lexer->line,
+            .length = (i32)(lexer->current - lexer->start)
+        };
     return token;
 }
 
 static Token error_token(Lexer* lexer, char* message)
 {
-    Token token = {};
-    token.type = TOKEN_ERROR;
-    token.start = message;
-    token.length = strlen(message);
+    Token token =
+        {
+            .type   = TOKEN_ERROR,
+            .start  = message,
+            .length = strlen(message)
+        };
     return token;
 }
 
@@ -221,7 +235,7 @@ Token* tokenize(char* input, size_t input_length, i32 *token_count)
     Token* tokens = malloc(sizeof(Token) * input_length); //@Note(niels): String length might be too long
     *token_count = 0;
 
-    Lexer lexer = {};
+    Lexer lexer;
     init_lexer(&lexer, input);
 
     Token token = scan_token(&lexer);

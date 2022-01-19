@@ -2,4 +2,6 @@
 
 mkdir -p build
 
-gcc -g -O0 src/main.c -Isrc -o build/main.out
+COMPILER_FLAGS="-Wall -Wpedantic -O0 -g"
+
+gcc $COMPILER_FLAGS src/main.c -Isrc -o build/main.out
