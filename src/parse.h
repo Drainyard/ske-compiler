@@ -27,8 +27,7 @@ typedef struct
 static AST_Node_Handle INVALID_HANDLE = { .handle = -1 };
 #define AST_HANDLE_VALID(handle) (handle.handle != -1)
 
-struct AST_Node;
-struct AST_Node
+typedef struct
 {
     AST_Node_Type type;
 
@@ -38,7 +37,7 @@ struct AST_Node
         struct
         {
             AST_Node_Handle expression;
-            Token_Type unary_token;
+            Token_Type operator;
         } unary;
         struct
         {
@@ -74,7 +73,7 @@ struct AST_Node
             AST_Node_Handle rest;
         } error;
     };
-};
+} AST_Node;
 
 typedef enum
 {
@@ -91,23 +90,14 @@ typedef enum
     PREC_PRIMARY
 } Precedence;
 
-struct Parser;
-typedef AST_Node_Handle (*Parse_Fn)(struct Parser*, AST_Node_Handle left_handle);
 typedef struct
 {
-    Parse_Fn prefix;
-    Parse_Fn infix;
-    Precedence precedence;
-} Parse_Rule;
-
-typedef struct
-{
-    struct AST_Node* nodes;
+    AST_Node* nodes;
     i32 capacity;
     i32 count;
 } AST_Store;
 
-struct Parser
+typedef struct
 {
     Token current;
     Token previous;
@@ -120,10 +110,18 @@ struct Parser
     bool had_error;
     bool panic_mode;
 
-    struct AST_Node* root;
-};
+    AST_Node_Handle root;
+} Parser;
 
-static void error_at(struct Parser* parser, Token* token, const char* message)
+typedef AST_Node_Handle (*Parse_Fn)(Parser*, AST_Node_Handle left_handle);
+typedef struct
+{
+    Parse_Fn prefix;
+    Parse_Fn infix;
+    Precedence precedence;
+} Parse_Rule;
+
+static void error_at(Parser* parser, Token* token, const char* message)
 {
     if (parser->panic_mode) return;
     parser->panic_mode = true;
@@ -146,17 +144,17 @@ static void error_at(struct Parser* parser, Token* token, const char* message)
     parser->had_error = true;
 }
 
-void error(struct Parser* parser, const char* message)
+void error(Parser* parser, const char* message)
 {
     error_at(parser, &parser->previous, message);
 }
 
-void error_at_current(struct Parser* parser, const char* message)
+void error_at_current(Parser* parser, const char* message)
 {
     error_at(parser, &parser->current, message);
 }
 
-void advance_parser(struct Parser* parser)
+void advance_parser(Parser* parser)
 {
     parser->previous = parser->current;
 
@@ -172,7 +170,7 @@ void advance_parser(struct Parser* parser)
 static void init_ast_store_with_capacity(AST_Store* store, i32 initial_capacity)
 {
     store->capacity = initial_capacity;
-    store->nodes = malloc(sizeof(struct AST_Node) * store->capacity);
+    store->nodes = malloc(sizeof(AST_Node) * store->capacity);
     store->count = 0;
 }
 
@@ -189,13 +187,19 @@ static AST_Node_Handle add_node(AST_Store* store, AST_Node_Type type)
         store->nodes = realloc(store->nodes, store->capacity);
     }
 
-    struct AST_Node* new_node = &store->nodes[store->count++];
+    AST_Node* new_node = &store->nodes[store->count++];
     new_node->type = type;
     AST_Node_Handle handle = { .handle = store->count - 1 };
     return handle;
 }
 
-void init_parser(struct Parser* parser, Token* tokens, i32 token_count)
+static AST_Node* get_node(AST_Store* store, AST_Node_Handle handle)
+{
+    assert(AST_HANDLE_VALID(handle));
+    return &store->nodes[handle.handle];
+}
+
+void init_parser(Parser* parser, Token* tokens, i32 token_count)
 {
     parser->current = tokens[0];
     parser->token_stream = tokens;
@@ -206,7 +210,15 @@ void init_parser(struct Parser* parser, Token* tokens, i32 token_count)
     init_ast_store(&parser->ast_store);
 }
 
-static void consume(struct Parser* parser, Token_Type token_type, const char* message)
+void free_parser(Parser* parser)
+{
+    parser->ast_store.count = 0;
+    parser->token_stream = NULL;
+    parser->had_error = false;
+    parser->panic_mode = false;
+}
+
+static void consume(Parser* parser, Token_Type token_type, const char* message)
 {
     if (parser->current.type == token_type)
     {
@@ -218,10 +230,10 @@ static void consume(struct Parser* parser, Token_Type token_type, const char* me
 }
 
 static Parse_Rule* get_rule(Token_Type type);
-static AST_Node_Handle parse_expression(struct Parser* parser);
-static AST_Node_Handle parse_precedence(struct Parser* parser, Precedence precedence);
+static AST_Node_Handle parse_expression(Parser* parser);
+static AST_Node_Handle parse_precedence(Parser* parser, Precedence precedence);
 
-static AST_Node_Handle parse_precedence(struct Parser* parser, Precedence precedence)
+static AST_Node_Handle parse_precedence(Parser* parser, Precedence precedence)
 {
     advance_parser(parser);
     Parse_Fn prefix_rule = get_rule(parser->previous.type)->prefix;
@@ -244,28 +256,31 @@ static AST_Node_Handle parse_precedence(struct Parser* parser, Precedence preced
     return left;
 }
 
-static struct AST_Node* parse_number(struct Parser* parser, struct AST_Node* _)
+static AST_Node_Handle parse_number(Parser* parser, AST_Node_Handle _)
 {
     i32 value = strtol(parser->previous.start, NULL, 10);
-    AST_Node_Handle numer_handle = add_node(&parser->ast_store, AST_NODE_NUMBER);
+    AST_Node_Handle handle = add_node(&parser->ast_store, AST_NODE_NUMBER);
+    AST_Node* number_node = get_node(&parser->ast_store, handle);
     number_node->number = value;
 
-    return number_node;
+    return handle;
 }
 
-static struct AST_Node* parse_expression(struct Parser* parser)
+static AST_Node_Handle parse_expression(Parser* parser)
 {
-    struct AST_Node* expression = add_node(&parser->ast_store, AST_NODE_EXPRESSION);
+    AST_Node_Handle handle = add_node(&parser->ast_store, AST_NODE_EXPRESSION);
+    AST_Node* expression = get_node(&parser->ast_store, handle);
     expression->expression.expression = parse_precedence(parser, PREC_ASSIGNMENT);
-    return expression;
+    return handle;
 }
 
-static struct AST_Node* parse_binary(struct Parser* parser, struct AST_Node* left)
+static AST_Node_Handle parse_binary(Parser* parser, AST_Node_Handle left)
 {
     Token_Type operator_type = parser->previous.type;
     Parse_Rule* rule = get_rule(operator_type);
 
-    struct AST_Node* binary_expression = add_node(&parser->ast_store, AST_NODE_BINARY);
+    AST_Node_Handle handle = add_node(&parser->ast_store, AST_NODE_BINARY);
+    AST_Node* binary_expression = get_node(&parser->ast_store, handle);
 
     binary_expression->binary.left = left;
     binary_expression->binary.right = parse_precedence(parser, rule->precedence + 1);
@@ -283,13 +298,14 @@ static struct AST_Node* parse_binary(struct Parser* parser, struct AST_Node* lef
     default:
     binary_expression->binary.operator = TOKEN_ERROR;
     }
-    return binary_expression;
+    return handle;
 }
 
-static struct AST_Node* parse_unary(struct Parser* parser, struct AST_Node* rest)
+static AST_Node_Handle parse_unary(Parser* parser, AST_Node_Handle rest)
 {
     Token_Type operator_type = parser->previous.type;
-    struct AST_Node* unary_expression = add_node(&parser->ast_store, AST_NODE_UNARY);
+    AST_Node_Handle handle = add_node(&parser->ast_store, AST_NODE_UNARY);
+    AST_Node* unary_expression = get_node(&parser->ast_store, handle);
 
     unary_expression->unary.expression = parse_precedence(parser, PREC_UNARY);
 
@@ -297,28 +313,28 @@ static struct AST_Node* parse_unary(struct Parser* parser, struct AST_Node* rest
     {
     case TOKEN_MINUS:
     {
-        unary_expression->unary.unary_token = TOKEN_MINUS;
+        unary_expression->unary.operator = TOKEN_MINUS;
     }
     break;
     case TOKEN_BANG:
     {
-        unary_expression->unary.unary_token = TOKEN_BANG;
+        unary_expression->unary.operator = TOKEN_BANG;
     }
     break;
     default:
     {
-        unary_expression->unary.unary_token = TOKEN_ERROR;
+        unary_expression->unary.operator = TOKEN_ERROR;
     }
     break;
     }
-    return unary_expression;
+    return handle;
 }
 
-static struct AST_Node* parse_grouping(struct Parser* parser, struct AST_Node* previous)
+static AST_Node_Handle parse_grouping(Parser* parser, AST_Node_Handle previous)
 {
-    struct AST_Node* node = parse_expression(parser);
+    AST_Node_Handle handle = parse_expression(parser);
     consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
-    return node;
+    return handle;
 }
 
 Parse_Rule rules[] = {
@@ -395,12 +411,7 @@ static char* type_string(AST_Node_Type type)
     return "";
 }
 
-static void pretty_print_unary(struct AST_Node* node, i32 indentation)
-{
-    
-}
-
-static void pretty_print_binary(struct AST_Node* node, i32 indentation)
+static void indent(i32 indentation)
 {
     for(i32 i = 0; i < indentation; i++)
     {
@@ -408,23 +419,73 @@ static void pretty_print_binary(struct AST_Node* node, i32 indentation)
     }
 }
 
-static void pretty_print_expression(struct AST_Node* node, i32 indentation)
+static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation);
+static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation);
+static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indentation);
+
+static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation)
 {
-    printf("Expression(\n");
+    indent(indentation);
+    printf("Unary(Op: ");
+    switch (node->unary.operator)
+    {
+    case TOKEN_PLUS: printf(" + "); break;
+    case TOKEN_MINUS: printf(" - "); break;
+    case TOKEN_BANG: printf(" * "); break;
+    case TOKEN_ERROR: printf(" ERROR "); break;
+    default: assert(false);
+    }
+    printf(", ");
+    pretty_print_expression(store, get_node(store, node->unary.expression), 0);
+    printf(")\n");
+}
+
+static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation)
+{
+    indent(indentation);
+    printf("Binary(");
+    pretty_print_expression(store, get_node(store, binary->binary.left), 0);
+    switch (binary->binary.operator)
+    {
+    case TOKEN_PLUS: printf(" + "); break;
+    case TOKEN_MINUS: printf(" - "); break;
+    case TOKEN_STAR: printf(" * "); break;
+    case TOKEN_SLASH: printf(" / "); break;
+    case TOKEN_ERROR: printf(" ERROR "); break;
+    default: assert(false);
+    }
+    pretty_print_expression(store, get_node(store, binary->binary.right), 0);
+    printf(")\n");
+}
+
+static void pretty_print_number(AST_Store* store, AST_Node* number, i32 indentation)
+{
+    indent(indentation);
+    printf("Number: %d", number->number);
+}
+
+static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indentation)
+{
+    indent(indentation);
     indentation++;
 
-    struct AST_Node* child = node->expression.expression;
+    AST_Node* child = get_node(store, node->expression.expression);
 
     switch(child->type)
     {
     case AST_NODE_UNARY:
     {
-        pretty_print_unary(child, indentation);
+        pretty_print_unary(store, child, 0);
     }
     break;
     case AST_NODE_BINARY:
     {
-        pretty_print_binary(child, indentation);
+        pretty_print_binary(store, child, 0);
+    }
+    break;
+    case AST_NODE_NUMBER:
+    {
+        pretty_print_number(store, child, 0);
     }
     break;
     default:
@@ -439,24 +500,21 @@ static void pretty_print_expression(struct AST_Node* node, i32 indentation)
 static void pretty_print_ast(AST_Store* store)
 {
     assert(store->count > 0);
-    struct AST_Node* root = &store->nodes[0];
+    AST_Node* root = &store->nodes[0];
 
     assert(root->type == AST_NODE_EXPRESSION);
-    pretty_print_expression(root, 0);
+    pretty_print_expression(store, root, 0);
 }
 
-bool parse(Token* tokens, i32 token_count)
+bool parse(Parser* parser)
 {
-    struct Parser parser;
-    init_parser(&parser, tokens, token_count);
+    advance_parser(parser);
+    parser->root = parse_expression(parser);
+    consume(parser, TOKEN_EOF, "Expect end of expression");
 
-    advance_parser(&parser);
-    parser.root = parse_expression(&parser);
-    consume(&parser, TOKEN_EOF, "Expect end of expression");
+    pretty_print_ast(&parser->ast_store);
 
-    pretty_print_ast(&parser.ast_store);
-
-    return !parser.had_error;
+    return !parser->had_error;
 }
 
 
