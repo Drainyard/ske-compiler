@@ -443,8 +443,10 @@ static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation
 {
     indent(indentation);
     printf("(Unary\t\n ");
+    
     indentation++;
     indent(indentation);
+    
     printf(" (Op: ");
     switch (node->unary.operator)
     {
