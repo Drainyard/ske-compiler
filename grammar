@@ -1,0 +1,24 @@
+### Current state of the AR Language Grammar 
+
+<program>		  	 	 ::= <expression>
+
+<expression			 	 ::= <binary-expression>
+					 	 |	 <unary-expression>
+					 	 |	 <constant-expression>
+
+<binary-expression>	 	 ::= <expression> <binary-operator> <expression>
+
+<binary-operator>	 	 ::= +
+					 	 |	 -
+					 	 |	 *
+					 	 |	 /
+
+<unary-expression>	 	 ::= <unary-operator> <expression>
+
+<unary-operator>	 	 ::= -
+					 	 |	 +
+
+<constant-expression>	 ::= <constant>
+
+<constant>				 ::= <integer-constant>
+

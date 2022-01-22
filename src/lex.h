@@ -246,6 +246,8 @@ Token* tokenize(char* input, size_t input_length, i32 *token_count)
         token = scan_token(&lexer);
     }
 
+    tokens[(*token_count)++] = token;
+
     log_info("Tokens: %d\n", *token_count);
 
     for(int i = 0; i < *token_count; i++)

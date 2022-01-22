@@ -4,7 +4,7 @@
 typedef enum
 {
     AST_NODE_STATEMENT,
-    AST_NODE_EXPRESSION,
+    /* AST_NODE_EXPRESSION, */
     AST_NODE_PROGRAM,
     AST_NODE_FUN_DECL,
     AST_NODE_NUMBER,
@@ -49,6 +49,10 @@ typedef struct
         struct
         {
             AST_Node_Handle expression;
+        } program;
+        struct
+        {
+            AST_Node_Handle expression;
         } expression;
         struct
         {
@@ -60,10 +64,10 @@ typedef struct
             AST_Node_Handle type_specifier;
             AST_Node_Handle arguments;
         } fun_decl;
-        struct
-        {
-            AST_Node_Handle fun_decl;
-        } program;
+        /* struct */
+        /* { */
+        /*     AST_Node_Handle fun_decl; */
+        /* } program; */
         struct
         {
             Type_Specifier type;
@@ -229,6 +233,18 @@ static void consume(Parser* parser, Token_Type token_type, const char* message)
     error_at_current(parser, message);
 }
 
+static bool check(Parser* parser, Token_Type type)
+{
+    return parser->current.type == type;
+}
+
+static bool match(Parser* parser, Token_Type type)
+{
+    if (!check(parser, type)) return false;
+    advance_parser(parser);
+    return true;
+}
+
 static Parse_Rule* get_rule(Token_Type type);
 static AST_Node_Handle parse_expression(Parser* parser);
 static AST_Node_Handle parse_precedence(Parser* parser, Precedence precedence);
@@ -268,10 +284,10 @@ static AST_Node_Handle parse_number(Parser* parser, AST_Node_Handle _)
 
 static AST_Node_Handle parse_expression(Parser* parser)
 {
-    AST_Node_Handle handle = add_node(&parser->ast_store, AST_NODE_EXPRESSION);
-    AST_Node* expression = get_node(&parser->ast_store, handle);
-    expression->expression.expression = parse_precedence(parser, PREC_ASSIGNMENT);
-    return handle;
+    /* AST_Node_Handle handle = add_node(&parser->ast_store, AST_NODE_EXPRESSION); */
+    /* AST_Node* expression = get_node(&parser->ast_store, handle); */
+    /* expression->expression.expression = parse_precedence(parser, PREC_ASSIGNMENT); */
+    return parse_precedence(parser, PREC_ASSIGNMENT);
 }
 
 static AST_Node_Handle parse_binary(Parser* parser, AST_Node_Handle left)
@@ -391,8 +407,8 @@ static char* type_string(AST_Node_Type type)
     {
     case AST_NODE_STATEMENT:
     return "AST_NODE_STATEMENT";
-    case AST_NODE_EXPRESSION:
-    return "AST_NODE_EXPRESSION";
+    /* case AST_NODE_EXPRESSION: */
+    /* return "AST_NODE_EXPRESSION"; */
     case AST_NODE_PROGRAM:
     return "AST_NODE_PROGRAM";
     case AST_NODE_FUN_DECL:
@@ -415,7 +431,7 @@ static void indent(i32 indentation)
 {
     for(i32 i = 0; i < indentation; i++)
     {
-        printf("\t");
+        printf("  ");
     }
 }
 
@@ -426,66 +442,69 @@ static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indent
 static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation)
 {
     indent(indentation);
-    printf("Unary(Op: ");
+    printf("(Unary\t\n ");
+    indentation++;
+    indent(indentation);
+    printf(" (Op: ");
     switch (node->unary.operator)
     {
-    case TOKEN_PLUS: printf(" + "); break;
-    case TOKEN_MINUS: printf(" - "); break;
-    case TOKEN_BANG: printf(" * "); break;
-    case TOKEN_ERROR: printf(" ERROR "); break;
+    case TOKEN_PLUS: printf("+"); break;
+    case TOKEN_MINUS: printf("-"); break;
+    case TOKEN_BANG: printf("*"); break;
+    case TOKEN_ERROR: printf("ERROR"); break;
     default: assert(false);
     }
-    printf(", ");
-    pretty_print_expression(store, get_node(store, node->unary.expression), 0);
-    printf(")\n");
+    printf(",\n ");
+    pretty_print_expression(store, get_node(store, node->unary.expression), indentation);
+    printf(")");
 }
 
 static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation)
 {
     indent(indentation);
-    printf("Binary(");
-    pretty_print_expression(store, get_node(store, binary->binary.left), 0);
+    printf("(Binary\t\n ");
+    indentation++;
+    pretty_print_expression(store, get_node(store, binary->binary.left), indentation);
+    printf(",\n");
+    indent(indentation);
+    printf(" (Op: ");
     switch (binary->binary.operator)
     {
-    case TOKEN_PLUS: printf(" + "); break;
-    case TOKEN_MINUS: printf(" - "); break;
-    case TOKEN_STAR: printf(" * "); break;
-    case TOKEN_SLASH: printf(" / "); break;
-    case TOKEN_ERROR: printf(" ERROR "); break;
+    case TOKEN_PLUS: printf("+"); break;
+    case TOKEN_MINUS: printf("-"); break;
+    case TOKEN_STAR: printf("*"); break;
+    case TOKEN_SLASH: printf("/"); break;
+    case TOKEN_ERROR: printf("ERROR"); break;
     default: assert(false);
     }
-    pretty_print_expression(store, get_node(store, binary->binary.right), 0);
-    printf(")\n");
+    printf("),\n ");
+    pretty_print_expression(store, get_node(store, binary->binary.right), indentation);
+    printf(")");
 }
 
 static void pretty_print_number(AST_Store* store, AST_Node* number, i32 indentation)
 {
     indent(indentation);
-    printf("Number: %d", number->number);
+    printf("(Number: %d)", number->number);
 }
 
 static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indentation)
 {
-    indent(indentation);
-    indentation++;
-
-    AST_Node* child = get_node(store, node->expression.expression);
-
-    switch(child->type)
+    switch(node->type)
     {
     case AST_NODE_UNARY:
     {
-        pretty_print_unary(store, child, 0);
+        pretty_print_unary(store, node, indentation);
     }
     break;
     case AST_NODE_BINARY:
     {
-        pretty_print_binary(store, child, 0);
+        pretty_print_binary(store, node, indentation);
     }
     break;
     case AST_NODE_NUMBER:
     {
-        pretty_print_number(store, child, 0);
+        pretty_print_number(store, node, indentation);
     }
     break;
     default:
@@ -497,22 +516,43 @@ static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indent
     }
 }
 
+static void pretty_print_program(AST_Store* store, AST_Node* program_node, i32 indentation)
+{
+    printf("(Program\t\n ");
+    indentation++;
+    pretty_print_expression(store, get_node(store, program_node->program.expression), indentation);
+    printf(")");
+}
+
 static void pretty_print_ast(AST_Store* store)
 {
     assert(store->count > 0);
     AST_Node* root = &store->nodes[0];
 
-    assert(root->type == AST_NODE_EXPRESSION);
-    pretty_print_expression(store, root, 0);
+    assert(root->type == AST_NODE_PROGRAM);
+    pretty_print_program(store, root, 0);
+    /* pretty_print_expression(store, get_node(store, root->program.expression), 0); */
+    printf("\n");
 }
 
 bool parse(Parser* parser)
 {
     advance_parser(parser);
-    parser->root = parse_expression(parser);
+
+    if (!match(parser, TOKEN_EOF))
+    {
+        parser->root = add_node(&parser->ast_store, AST_NODE_PROGRAM);
+        AST_Node* root = get_node(&parser->ast_store, parser->root);
+    
+        root->program.expression = parse_expression(parser);
+    }
+    
     consume(parser, TOKEN_EOF, "Expect end of expression");
 
-    pretty_print_ast(&parser->ast_store);
+    if (!parser->had_error)
+    {
+        pretty_print_ast(&parser->ast_store);
+    }
 
     return !parser->had_error;
 }
