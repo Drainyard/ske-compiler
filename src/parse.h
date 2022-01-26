@@ -427,6 +427,7 @@ static char* type_string(AST_Node_Type type)
     return "";
 }
 
+
 static void indent(i32 indentation)
 {
     for(i32 i = 0; i < indentation; i++)
@@ -442,7 +443,8 @@ static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indent
 static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation)
 {
     indent(indentation);
-    printf("(Unary\t\n ");
+    printf("(");
+    printf("Unary\t\n ");
     
     indentation++;
     indent(indentation);
@@ -464,7 +466,8 @@ static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation
 static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation)
 {
     indent(indentation);
-    printf("(Binary\t\n ");
+    printf("(");
+    printf("Binary\t\n ");
     indentation++;
     pretty_print_expression(store, get_node(store, binary->binary.left), indentation);
     printf(",\n");
@@ -533,7 +536,6 @@ static void pretty_print_ast(AST_Store* store)
 
     assert(root->type == AST_NODE_PROGRAM);
     pretty_print_program(store, root, 0);
-    /* pretty_print_expression(store, get_node(store, root->program.expression), 0); */
     printf("\n");
 }
 

@@ -9,14 +9,14 @@
 <binary-expression>      ::= <expression> <binary-operator> <expression>
 
 <binary-operator>        ::= +
-                         |	 -
-                         |	 *
-                         |	 /
+                         |   -
+                         |   *
+                         |   /
 
 <unary-expression>       ::= <unary-operator> <expression>
 
 <unary-operator>         ::= -
-                         |	 +
+                         |   +
 
 <constant-expression>    ::= <constant>
 
