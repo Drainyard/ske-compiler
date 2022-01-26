@@ -428,88 +428,89 @@ static char* type_string(AST_Node_Type type)
 }
 
 
-static void indent(i32 indentation)
+static void indent(i32 indentation, String_Builder* builder)
 {
     for(i32 i = 0; i < indentation; i++)
     {
-        printf("  ");
+        sb_append(builder, "  ");
     }
 }
 
-static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation);
-static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation);
-static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indentation);
+static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation, String_Builder* builder);
+static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation, String_Builder* builder);
+static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indentation, String_Builder* builder);
 
-static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation)
+static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation, String_Builder* builder)
 {
-    indent(indentation);
-    printf("(");
-    printf("Unary\t\n ");
+    indent(indentation, builder);
+    sb_append(builder, "(");
+    sb_append(builder, "Unary\t\n ");
     
     indentation++;
-    indent(indentation);
-    
-    printf(" (Op: ");
+    indent(indentation, builder);
+
+    sb_append(builder, " (Op: ");
     switch (node->unary.operator)
     {
-    case TOKEN_PLUS: printf("+"); break;
-    case TOKEN_MINUS: printf("-"); break;
-    case TOKEN_BANG: printf("*"); break;
-    case TOKEN_ERROR: printf("ERROR"); break;
+    case TOKEN_PLUS:  sb_append(builder, "+"); break;
+    case TOKEN_MINUS: sb_append(builder, "-"); break;
+    case TOKEN_BANG:  sb_append(builder, "*"); break;
+    case TOKEN_ERROR: sb_append(builder, "ERROR"); break;
     default: assert(false);
     }
-    printf(",\n ");
-    pretty_print_expression(store, get_node(store, node->unary.expression), indentation);
-    printf(")");
+    sb_append(builder, ",\n ");
+    pretty_print_expression(store, get_node(store, node->unary.expression), indentation, builder);
+    sb_append(builder, ")");
 }
 
-static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation)
+static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation, String_Builder* builder)
 {
-    indent(indentation);
-    printf("(");
-    printf("Binary\t\n ");
+    indent(indentation, builder);
+    sb_append(builder, "(");
+    sb_append(builder, "Binary\t\n ");
     indentation++;
-    pretty_print_expression(store, get_node(store, binary->binary.left), indentation);
-    printf(",\n");
-    indent(indentation);
-    printf(" (Op: ");
+    pretty_print_expression(store, get_node(store, binary->binary.left), indentation, builder);
+    sb_append(builder, ",\n");
+    indent(indentation, builder);
+    sb_append(builder, " (Op: ");
     switch (binary->binary.operator)
     {
-    case TOKEN_PLUS: printf("+"); break;
-    case TOKEN_MINUS: printf("-"); break;
-    case TOKEN_STAR: printf("*"); break;
-    case TOKEN_SLASH: printf("/"); break;
-    case TOKEN_ERROR: printf("ERROR"); break;
+    case TOKEN_PLUS: sb_append(builder, "+"); break;
+    case TOKEN_MINUS: sb_append(builder, "-"); break;
+    case TOKEN_STAR:  sb_append(builder, "*"); break;
+    case TOKEN_SLASH: sb_append(builder, "/"); break;
+    case TOKEN_ERROR: sb_append(builder, "ERROR"); break;
     default: assert(false);
     }
-    printf("),\n ");
-    pretty_print_expression(store, get_node(store, binary->binary.right), indentation);
-    printf(")");
+    sb_append(builder, "),\n ");
+    pretty_print_expression(store, get_node(store, binary->binary.right), indentation, builder);
+    sb_append(builder, ")");
 }
 
-static void pretty_print_number(AST_Store* store, AST_Node* number, i32 indentation)
+static void pretty_print_number(AST_Store* store, AST_Node* number, i32 indentation, String_Builder* builder)
 {
-    indent(indentation);
-    printf("(Number: %d)", number->number);
+    indent(indentation, builder);
+    sb_appendf(builder, "(Number: %d)", number->number);
+    /* sb_append(builder, "(Number: #"); */
 }
 
-static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indentation)
+static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indentation, String_Builder* builder)
 {
     switch(node->type)
     {
     case AST_NODE_UNARY:
     {
-        pretty_print_unary(store, node, indentation);
+        pretty_print_unary(store, node, indentation, builder);
     }
     break;
     case AST_NODE_BINARY:
     {
-        pretty_print_binary(store, node, indentation);
+        pretty_print_binary(store, node, indentation, builder);
     }
     break;
     case AST_NODE_NUMBER:
     {
-        pretty_print_number(store, node, indentation);
+        pretty_print_number(store, node, indentation, builder);
     }
     break;
     default:
@@ -521,12 +522,13 @@ static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indent
     }
 }
 
-static void pretty_print_program(AST_Store* store, AST_Node* program_node, i32 indentation)
+static void pretty_print_program(AST_Store* store, AST_Node* program_node, i32 indentation, String_Builder* builder)
 {
-    printf("(Program\t\n ");
+    sb_append(builder, "(");
+    sb_append(builder, "Program\t\n ");
     indentation++;
-    pretty_print_expression(store, get_node(store, program_node->program.expression), indentation);
-    printf(")");
+    pretty_print_expression(store, get_node(store, program_node->program.expression), indentation, builder);
+    sb_append(builder, ")");
 }
 
 static void pretty_print_ast(AST_Store* store)
@@ -535,8 +537,16 @@ static void pretty_print_ast(AST_Store* store)
     AST_Node* root = &store->nodes[0];
 
     assert(root->type == AST_NODE_PROGRAM);
-    pretty_print_program(store, root, 0);
-    printf("\n");
+    String_Builder builder;
+    sb_init(&builder, 256);
+    pretty_print_program(store, root, 0, &builder);
+    sb_append(&builder, "\n");
+
+    String* string = sb_get_result(&builder);
+    string_print(string);
+
+    string_free(string);
+    sb_free(&builder);
 }
 
 bool parse(Parser* parser)
