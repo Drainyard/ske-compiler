@@ -1,3 +1,3 @@
 #!/bin/bash
 
-./build/main.out
+./build/main.out $@

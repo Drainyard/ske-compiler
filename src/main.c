@@ -26,8 +26,33 @@ int main(int argc, char** argv)
     {
         repl();
     }
-    else if(argc == 2)
+    else if(argc > 1)
     {
+        for (i32 i = 1; i < argc; i++)
+        {
+            char* arg = argv[i];
+            String* string = string_create(arg);
+
+            if (string->length >= 2)
+            {
+                if (string_equal_cstr(string, "--t") || string_equal_cstr(string, "-test"))
+                {
+                    printf("Running tests...\n");
+                }
+                else if (string_equal_cstr(string, "--h") || string_equal_cstr(string, "-help"))
+                {
+                    
+                }
+                else
+                {
+                    printf("Unknown argument '%s'. Try --h or -help to see available options.\n", arg);
+                    break;
+                }
+            }
+        }
+
+        
+        
         // @Incomplete: Run file here
     }
     
