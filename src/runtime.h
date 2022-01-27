@@ -20,6 +20,8 @@ void repl()
         if(parse(&parser))
         {
             log_info("Parsing succeeded\n");
+
+            x86_codegen_ast(&parser.ast_store, parser.root);
         }
         else
         {

@@ -4,7 +4,7 @@
 typedef struct
 {
     i32 length;
-    unsigned char str[1];
+    char str[1];
 } String;
 
 typedef struct
@@ -44,6 +44,25 @@ String* string_create(const char* input_string)
     return string_create_with_length(input_string, length);
 }
 
+String* string_createf(const char* format, ...)
+{
+    va_list arglist;
+    va_start(arglist, format);
+    i32 format_length = vsnprintf(NULL, 0, format, arglist);
+    if (format_length == 0)
+    {
+        va_end(arglist);
+        return NULL;
+    }
+
+    String* result = string_allocate(format_length);
+    va_start(arglist, format);
+    vsnprintf(result->str, format_length + 1, format, arglist);
+    result->str[format_length] = '\0';
+
+    return result;
+}
+
 bool string_equal_cstr(String* lhs, const char* rhs)
 {
     i32 len = strlen(rhs);
@@ -59,6 +78,11 @@ bool string_equal_cstr(String* lhs, const char* rhs)
 void string_print(String* string)
 {
     printf("%s", string->str);
+}
+
+void string_fprintf(String* string, FILE* file)
+{
+    fprintf(file, "%s", string->str);
 }
 
 void sb_init(String_Builder* builder, i32 initial_capacity)
@@ -156,6 +180,14 @@ String* sb_get_result(String_Builder* builder)
 void sb_free(String_Builder* builder)
 {
     free(builder->string);
+}
+
+static void sb_indent(i32 indentation, String_Builder* builder)
+{
+    for(i32 i = 0; i < indentation; i++)
+    {
+        sb_append(builder, "  ");
+    }
 }
 
 #endif

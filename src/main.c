@@ -15,6 +15,7 @@ typedef uint32_t u64;
 #include "compiler_string.h"
 #include "lex.h"
 #include "parse.h"
+#include "x86_codegen.h"
 #include "runtime.h"
 
 #define LINE_BUFFER_SIZE 256
