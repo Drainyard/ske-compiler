@@ -427,6 +427,11 @@ static char* type_string(AST_Node_Type type)
     return "";
 }
 
+static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation, String_Builder* builder);
+static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation, String_Builder* builder);
+static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indentation, String_Builder* builder);
+
+typedef void (*Pretty_Print_Fn)(AST_Store*, AST_Node*, i32, String_Builder*);
 
 static void indent(i32 indentation, String_Builder* builder)
 {
@@ -436,44 +441,19 @@ static void indent(i32 indentation, String_Builder* builder)
     }
 }
 
-static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation, String_Builder* builder);
-static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation, String_Builder* builder);
-static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indentation, String_Builder* builder);
-
-static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation, String_Builder* builder)
+static void paren(String_Builder* builder, Pretty_Print_Fn print_fn, AST_Store* store, AST_Node* node, i32 indentation)
 {
     indent(indentation, builder);
     sb_append(builder, "(");
-    sb_append(builder, "Unary\t\n ");
-    
-    indentation++;
-    indent(indentation, builder);
-
-    sb_append(builder, " (Op: ");
-    switch (node->unary.operator)
-    {
-    case TOKEN_PLUS:  sb_append(builder, "+"); break;
-    case TOKEN_MINUS: sb_append(builder, "-"); break;
-    case TOKEN_BANG:  sb_append(builder, "*"); break;
-    case TOKEN_ERROR: sb_append(builder, "ERROR"); break;
-    default: assert(false);
-    }
-    sb_append(builder, ",\n ");
-    pretty_print_expression(store, get_node(store, node->unary.expression), indentation, builder);
+    print_fn(store, node, indentation, builder);
     sb_append(builder, ")");
 }
 
-static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation, String_Builder* builder)
+static void pretty_print_operator(Token_Type operator, String_Builder* builder)
 {
-    indent(indentation, builder);
     sb_append(builder, "(");
-    sb_append(builder, "Binary\t\n ");
-    indentation++;
-    pretty_print_expression(store, get_node(store, binary->binary.left), indentation, builder);
-    sb_append(builder, ",\n");
-    indent(indentation, builder);
-    sb_append(builder, " (Op: ");
-    switch (binary->binary.operator)
+    sb_append(builder, "Op: ");
+    switch (operator)
     {
     case TOKEN_PLUS: sb_append(builder, "+"); break;
     case TOKEN_MINUS: sb_append(builder, "-"); break;
@@ -482,16 +462,41 @@ static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentat
     case TOKEN_ERROR: sb_append(builder, "ERROR"); break;
     default: assert(false);
     }
-    sb_append(builder, "),\n ");
-    pretty_print_expression(store, get_node(store, binary->binary.right), indentation, builder);
     sb_append(builder, ")");
+}
+
+static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation, String_Builder* builder)
+{
+    sb_append(builder, "Unary\t\n ");
+    
+    indentation++;
+    indent(indentation, builder);
+
+    pretty_print_operator(node->unary.operator, builder);
+
+    sb_append(builder, ",\n ");
+    pretty_print_expression(store, get_node(store, node->unary.expression), indentation, builder);
+    sb_append(builder, ")");
+}
+
+static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentation, String_Builder* builder)
+{
+    sb_append(builder, "Binary\t\n ");
+    indentation++;
+    pretty_print_expression(store, get_node(store, binary->binary.left), indentation, builder);
+    sb_append(builder, ",\n");
+    indent(indentation, builder);
+    sb_append(builder, " ");
+    
+    pretty_print_operator(binary->binary.operator, builder);
+
+    sb_append(builder, ",\n ");
+    pretty_print_expression(store, get_node(store, binary->binary.right), indentation, builder);
 }
 
 static void pretty_print_number(AST_Store* store, AST_Node* number, i32 indentation, String_Builder* builder)
 {
-    indent(indentation, builder);
-    sb_appendf(builder, "(Number: %d)", number->number);
-    /* sb_append(builder, "(Number: #"); */
+    sb_appendf(builder, "Number: %d", number->number);
 }
 
 static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indentation, String_Builder* builder)
@@ -500,17 +505,17 @@ static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indent
     {
     case AST_NODE_UNARY:
     {
-        pretty_print_unary(store, node, indentation, builder);
+        paren(builder, pretty_print_unary, store, node, indentation);
     }
     break;
     case AST_NODE_BINARY:
     {
-        pretty_print_binary(store, node, indentation, builder);
+        paren(builder, pretty_print_binary, store, node, indentation);
     }
     break;
     case AST_NODE_NUMBER:
     {
-        pretty_print_number(store, node, indentation, builder);
+        paren(builder, pretty_print_number, store, node, indentation);
     }
     break;
     default:
