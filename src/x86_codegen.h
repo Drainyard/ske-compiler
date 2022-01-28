@@ -236,20 +236,18 @@ void x86_codegen_program(AST_Store* store, AST_Node_Handle program_handle, Strin
     sb_append(sb, "main:\n");
 
     sb_indent(sb, 4);
-    sb_append(sb, "pushq %rbp\n");
-    
-    sb_indent(sb, 4);
-    sb_append(sb, "movq  %rsp, %rbp\n");
+    sb_append(sb, "pushq   %rbp\n");
+
+    x86_emit_move_name_to_name(sb, "%rsp", "%rbp");
 
     AST_Node* program_node = get_node(store, program_handle);
     Scratch_Register final_reg = x86_codegen_expression(store, program_node->program.expression, sb, table);
-    
-    sb_indent(sb, 4);
-    sb_appendf(sb, "movq %s, %rax\n", scratch_name(final_reg));
+
+    x86_emit_move_reg_to_name(sb, final_reg, "%rax");
     scratch_free(table, final_reg);
 
     sb_indent(sb, 4);
-    sb_append(sb, "popq %rbp\n");
+    sb_append(sb, "popq    %rbp\n");
 
     sb_indent(sb, 4);
     sb_append(sb, "ret\n");
