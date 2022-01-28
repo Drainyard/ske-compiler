@@ -75,7 +75,12 @@ String* label_name(i32 label)
     return string_createf(".L%d", label);
 }
 
-void x86_emit_move(String_Builder* sb, int src, int dst);
+void x86_emit_move_reg_to_reg(String_Builder* sb, int src, int dst);
+void x86_emit_move_lit_to_reg(String_Builder* sb, int num, int dst);
+void x86_emit_move_name_to_reg(String_Builder* sb, const char* src, int dst);
+void x86_emit_move_reg_to_name(String_Builder* sb, int src, const char* dst);
+void x86_emit_move_name_to_name(String_Builder* sb, const char* src, const char* dst);
+
 void x86_emit_unary(String_Builder* sb, int reg);
 void x86_emit_div(String_Builder* sb, int src, int dst);
 void x86_emit_mul(String_Builder* sb, int src, int dst);
@@ -85,54 +90,74 @@ void x86_emit_add(String_Builder* sb, int src, int dst);
 void x86_emit_add(String_Builder* sb, int src, int dst)
 {
     sb_indent(sb, 4);
-    sb_appendf(sb, "addq %s, %s\n", scratch_name(src), scratch_name(dst));
+    sb_appendf(sb, "addq    %s, %s\n", scratch_name(src), scratch_name(dst));
 }
 
 void x86_emit_sub(String_Builder* sb, int src, int dst)
 {
     sb_indent(sb, 4);
-    sb_appendf(sb, "subq %s, %s\n", scratch_name(dst), scratch_name(src));   
+    sb_appendf(sb, "subq    %s, %s\n", scratch_name(dst), scratch_name(src));   
 }
 
 void x86_emit_mul(String_Builder* sb, int src, int dst)
 {
-    sb_indent(sb, 4);
-    sb_appendf(sb, "movq %s, %%rax\n", scratch_name(src));
+    x86_emit_move_reg_to_name(sb, src, "%rax");
 
     const char* dst_name = scratch_name(dst);
     sb_indent(sb, 4);
-    sb_appendf(sb, "imulq %s\n", dst_name);
-    
-    sb_indent(sb, 4);
-    sb_appendf(sb, "movq %%rax, %s\n", dst_name);
+    sb_appendf(sb, "imulq   %s\n", dst_name);
+
+    x86_emit_move_name_to_name(sb, "%rax", dst_name);
 }
 
 void x86_emit_div(String_Builder* sb, int src, int dst) 
 {
-    sb_indent(sb, 4);
-    sb_appendf(sb, "movq %s, %%rax\n", scratch_name(src));
+    x86_emit_move_reg_to_name(sb, src, "%rax");
 
     sb_indent(sb, 4);
     sb_append(sb, "cqo\n");
 
     sb_indent(sb, 4);
     const char* dst_name = scratch_name(dst);
-    sb_appendf(sb, "idivq %s\n", dst_name);
+    sb_appendf(sb, "idivq   %s\n", dst_name);
 
-    sb_indent(sb, 4);
-    sb_appendf(sb, "movq %%rax, %s\n", dst_name);
+    x86_emit_move_name_to_name(sb, "%rax", dst_name);
 }
 
 void x86_emit_unary(String_Builder* sb, int src)
 {
     sb_indent(sb, 4);
-    sb_appendf(sb, "negq %s\n", scratch_name(src));
+    sb_appendf(sb, "negq    %s\n", scratch_name(src));
 }
 
-void x86_emit_move(String_Builder* sb, int src, int dst)
+void x86_emit_move_reg_to_reg(String_Builder* sb, int src, int dst)
 {
     sb_indent(sb, 4);
-    sb_appendf(sb, "movq %s, %s\n", scratch_name(src), scratch_name(dst));
+    sb_appendf(sb, "movq    %s, %s\n", scratch_name(src), scratch_name(dst));
+}
+
+void x86_emit_move_lit_to_reg(String_Builder* sb, int num, int dst)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "movq    $%d, %s\n", num, scratch_name(dst));
+}
+
+void x86_emit_move_name_to_reg(String_Builder* sb, const char* src, int dst)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "movq    %s, %s\n", src, scratch_name(dst));
+}
+
+void x86_emit_move_reg_to_name(String_Builder* sb, int src, const char* dst)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "movq    %s, %s\n", scratch_name(src), dst);
+}
+
+void x86_emit_move_name_to_name(String_Builder* sb, const char* src, const char* dst)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "movq    %s, %s\n", src, dst);
 }
 
 Scratch_Register x86_codegen_expression(AST_Store*, AST_Node_Handle, String_Builder*, Scratch_Register_Table*);
@@ -146,8 +171,7 @@ Scratch_Register x86_codegen_expression(AST_Store* store, AST_Node_Handle node_h
     case AST_NODE_NUMBER:
     {
         Scratch_Register reg = scratch_alloc(table);
-        sb_indent(sb, 4);
-        sb_appendf(sb, "movq $%d, %s\n", node->number, scratch_name(reg));
+        x86_emit_move_lit_to_reg(sb, node->number, reg);
         return reg;
     }
     case AST_NODE_BINARY:
