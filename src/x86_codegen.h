@@ -75,6 +75,66 @@ String* label_name(i32 label)
     return string_createf(".L%d", label);
 }
 
+void x86_emit_move(String_Builder* sb, int src, int dst);
+void x86_emit_unary(String_Builder* sb, int reg);
+void x86_emit_div(String_Builder* sb, int src, int dst);
+void x86_emit_mul(String_Builder* sb, int src, int dst);
+void x86_emit_sub(String_Builder* sb, int src, int dst);
+void x86_emit_add(String_Builder* sb, int src, int dst);
+
+void x86_emit_add(String_Builder* sb, int src, int dst)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "addq %s, %s\n", scratch_name(src), scratch_name(dst));
+}
+
+void x86_emit_sub(String_Builder* sb, int src, int dst)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "subq %s, %s\n", scratch_name(dst), scratch_name(src));   
+}
+
+void x86_emit_mul(String_Builder* sb, int src, int dst)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "movq %s, %%rax\n", scratch_name(src));
+
+    const char* dst_name = scratch_name(dst);
+    sb_indent(sb, 4);
+    sb_appendf(sb, "imulq %s\n", dst_name);
+    
+    sb_indent(sb, 4);
+    sb_appendf(sb, "movq %%rax, %s\n", dst_name);
+}
+
+void x86_emit_div(String_Builder* sb, int src, int dst) 
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "movq %s, %%rax\n", scratch_name(src));
+
+    sb_indent(sb, 4);
+    sb_append(sb, "cqo\n");
+
+    sb_indent(sb, 4);
+    const char* dst_name = scratch_name(dst);
+    sb_appendf(sb, "idivq %s\n", dst_name);
+
+    sb_indent(sb, 4);
+    sb_appendf(sb, "movq %%rax, %s\n", dst_name);
+}
+
+void x86_emit_unary(String_Builder* sb, int src)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "negq %s\n", scratch_name(src));
+}
+
+void x86_emit_move(String_Builder* sb, int src, int dst)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "movq %s, %s\n", scratch_name(src), scratch_name(dst));
+}
+
 Scratch_Register x86_codegen_expression(AST_Store*, AST_Node_Handle, String_Builder*, Scratch_Register_Table*);
 
 Scratch_Register x86_codegen_expression(AST_Store* store, AST_Node_Handle node_handle, String_Builder* sb, Scratch_Register_Table* table)
@@ -86,7 +146,7 @@ Scratch_Register x86_codegen_expression(AST_Store* store, AST_Node_Handle node_h
     case AST_NODE_NUMBER:
     {
         Scratch_Register reg = scratch_alloc(table);
-        sb_indent(4, sb);
+        sb_indent(sb, 4);
         sb_appendf(sb, "movq $%d, %s\n", node->number, scratch_name(reg));
         return reg;
     }
@@ -95,16 +155,45 @@ Scratch_Register x86_codegen_expression(AST_Store* store, AST_Node_Handle node_h
         Scratch_Register left_reg = x86_codegen_expression(store, node->binary.left, sb, table);
         Scratch_Register right_reg = x86_codegen_expression(store, node->binary.right, sb, table);
 
-        sb_indent(4, sb);
-        sb_appendf(sb, "addq %s, %s\n", scratch_name(left_reg), scratch_name(right_reg));
+        Token_Type operator = node->binary.operator;
+
+        switch(operator)
+        {
+        case TOKEN_PLUS:
+        {
+            x86_emit_add(sb, left_reg, right_reg);
+        }
+        break;
+        case TOKEN_MINUS:
+        {
+            // @Note: Subtract source from dest -> right from left
+            x86_emit_sub(sb, left_reg, right_reg);
+            i32 temp = right_reg;
+            right_reg = left_reg;
+            left_reg = temp;
+        }
+        break;
+        case TOKEN_STAR:
+        {
+            x86_emit_mul(sb, left_reg, right_reg);
+        }
+        break;
+        case TOKEN_SLASH:
+        {
+            x86_emit_div(sb, left_reg, right_reg);
+        }
+        break;
+        default:
+        assert("Invalid token type" && false);
+        }
+        
         scratch_free(table, left_reg);
         return right_reg;
     }
     case AST_NODE_UNARY:
     {
         Scratch_Register reg = x86_codegen_expression(store, node->unary.expression, sb, table);
-        sb_indent(4, sb);
-        sb_appendf(sb, "negq %s\n", scratch_name(reg));
+        x86_emit_unary(sb, reg);
         return reg;
     }
     default:
@@ -122,23 +211,23 @@ void x86_codegen_program(AST_Store* store, AST_Node_Handle program_handle, Strin
     sb_append(sb, ".global main\n");
     sb_append(sb, "main:\n");
 
-    sb_indent(4, sb);
+    sb_indent(sb, 4);
     sb_append(sb, "pushq %rbp\n");
     
-    sb_indent(4, sb);
+    sb_indent(sb, 4);
     sb_append(sb, "movq  %rsp, %rbp\n");
 
     AST_Node* program_node = get_node(store, program_handle);
     Scratch_Register final_reg = x86_codegen_expression(store, program_node->program.expression, sb, table);
     
-    sb_indent(4, sb);
+    sb_indent(sb, 4);
     sb_appendf(sb, "movq %s, %rax\n", scratch_name(final_reg));
     scratch_free(table, final_reg);
 
-    sb_indent(4, sb);
+    sb_indent(sb, 4);
     sb_append(sb, "popq %rbp\n");
 
-    sb_indent(4, sb);
+    sb_indent(sb, 4);
     sb_append(sb, "ret\n");
 }
 

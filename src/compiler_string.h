@@ -182,7 +182,7 @@ void sb_free(String_Builder* builder)
     free(builder->string);
 }
 
-static void sb_indent(i32 indentation, String_Builder* builder)
+static void sb_indent(String_Builder* builder, i32 indentation)
 {
     for(i32 i = 0; i < indentation; i++)
     {

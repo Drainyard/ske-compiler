@@ -435,7 +435,7 @@ typedef void (*Pretty_Print_Fn)(AST_Store*, AST_Node*, i32, String_Builder*);
 
 static void paren(String_Builder* builder, Pretty_Print_Fn print_fn, AST_Store* store, AST_Node* node, i32 indentation)
 {
-    sb_indent(indentation, builder);
+    sb_indent(builder, indentation);
     sb_append(builder, "(");
     print_fn(store, node, indentation, builder);
     sb_append(builder, ")");
@@ -462,7 +462,7 @@ static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation
     sb_append(builder, "Unary\t\n ");
     
     indentation++;
-    sb_indent(indentation, builder);
+    sb_indent(builder, indentation);
 
     pretty_print_operator(node->unary.operator, builder);
 
@@ -477,7 +477,7 @@ static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentat
     indentation++;
     pretty_print_expression(store, get_node(store, binary->binary.left), indentation, builder);
     sb_append(builder, ",\n");
-    sb_indent(indentation, builder);
+    sb_indent(builder, indentation);
     sb_append(builder, " ");
     
     pretty_print_operator(binary->binary.operator, builder);
