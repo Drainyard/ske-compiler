@@ -106,7 +106,7 @@ typedef struct
     Token current;
     Token previous;
 
-    Token* token_stream;
+    Token_List* token_stream;
     i32 current_token;
 
     AST_Store ast_store;
@@ -125,7 +125,7 @@ typedef struct
     Precedence precedence;
 } Parse_Rule;
 
-static void error_at(Parser* parser, Token* token, const char* message)
+static void parser_error_at(Parser* parser, Token* token, const char* message)
 {
     if (parser->panic_mode) return;
     parser->panic_mode = true;
@@ -148,42 +148,42 @@ static void error_at(Parser* parser, Token* token, const char* message)
     parser->had_error = true;
 }
 
-void error(Parser* parser, const char* message)
+void parser_error(Parser* parser, const char* message)
 {
-    error_at(parser, &parser->previous, message);
+    parser_error_at(parser, &parser->previous, message);
 }
 
-void error_at_current(Parser* parser, const char* message)
+void parser_error_at_current(Parser* parser, const char* message)
 {
-    error_at(parser, &parser->current, message);
+    parser_error_at(parser, &parser->current, message);
 }
 
-void advance_parser(Parser* parser)
+void parser_advance(Parser* parser)
 {
     parser->previous = parser->current;
 
     for (;;)
     {
-        parser->current = parser->token_stream[parser->current_token++];
+        parser->current = parser->token_stream->tokens[parser->current_token++];
         if (parser->current.type != TOKEN_ERROR) break;
 
-        error_at_current(parser, parser->current.start);
+        parser_error_at_current(parser, parser->current.start);
     }
 }
 
-static void init_ast_store_with_capacity(AST_Store* store, i32 initial_capacity)
+static void ast_store_init_with_capacity(AST_Store* store, i32 initial_capacity)
 {
     store->capacity = initial_capacity;
     store->nodes = malloc(sizeof(AST_Node) * store->capacity);
     store->count = 0;
 }
 
-static void init_ast_store(AST_Store* store)
+static void ast_store_init(AST_Store* store)
 {
-    init_ast_store_with_capacity(store, 32);
+    ast_store_init_with_capacity(store, 32);
 }
 
-static AST_Node_Handle add_node(AST_Store* store, AST_Node_Type type)
+static AST_Node_Handle ast_store_add_node(AST_Store* store, AST_Node_Type type)
 {
     if(store->capacity <= store->count + 1)
     {
@@ -197,24 +197,24 @@ static AST_Node_Handle add_node(AST_Store* store, AST_Node_Type type)
     return handle;
 }
 
-static AST_Node* get_node(AST_Store* store, AST_Node_Handle handle)
+static AST_Node* ast_store_get_node(AST_Store* store, AST_Node_Handle handle)
 {
     assert(AST_HANDLE_VALID(handle));
     return &store->nodes[handle.handle];
 }
 
-void init_parser(Parser* parser, Token* tokens, i32 token_count)
+void parser_init(Parser* parser, Token_List* tokens)
 {
-    parser->current = tokens[0];
+    parser->current = tokens->tokens[0];
     parser->token_stream = tokens;
     parser->current_token = 0;
     parser->had_error = false;
     parser->panic_mode = false;
 
-    init_ast_store(&parser->ast_store);
+    ast_store_init(&parser->ast_store);
 }
 
-void free_parser(Parser* parser)
+void parser_free(Parser* parser)
 {
     parser->ast_store.count = 0;
     parser->token_stream = NULL;
@@ -222,84 +222,84 @@ void free_parser(Parser* parser)
     parser->panic_mode = false;
 }
 
-static void consume(Parser* parser, Token_Type token_type, const char* message)
+static void parser_consume(Parser* parser, Token_Type token_type, const char* message)
 {
     if (parser->current.type == token_type)
     {
-        advance_parser(parser);
+        parser_advance(parser);
         return;
     }
 
-    error_at_current(parser, message);
+    parser_error_at_current(parser, message);
 }
 
-static bool check(Parser* parser, Token_Type type)
+static bool parser_check(Parser* parser, Token_Type type)
 {
     return parser->current.type == type;
 }
 
-static bool match(Parser* parser, Token_Type type)
+static bool parser_match(Parser* parser, Token_Type type)
 {
-    if (!check(parser, type)) return false;
-    advance_parser(parser);
+    if (!parser_check(parser, type)) return false;
+    parser_advance(parser);
     return true;
 }
 
-static Parse_Rule* get_rule(Token_Type type);
-static AST_Node_Handle parse_expression(Parser* parser);
-static AST_Node_Handle parse_precedence(Parser* parser, Precedence precedence);
+static Parse_Rule* parser_get_rule(Token_Type type);
+static AST_Node_Handle parser_expression(Parser* parser);
+static AST_Node_Handle parser_precedence(Parser* parser, Precedence precedence);
 
-static AST_Node_Handle parse_precedence(Parser* parser, Precedence precedence)
+static AST_Node_Handle parser_precedence(Parser* parser, Precedence precedence)
 {
-    advance_parser(parser);
-    Parse_Fn prefix_rule = get_rule(parser->previous.type)->prefix;
+    parser_advance(parser);
+    Parse_Fn prefix_rule = parser_get_rule(parser->previous.type)->prefix;
     if (prefix_rule == NULL)
     {
-        error(parser, "Expect expression.");
-        AST_Node_Handle error_node = add_node(&parser->ast_store, AST_NODE_ERROR);
+        parser_error(parser, "Expect expression.");
+        AST_Node_Handle error_node = ast_store_add_node(&parser->ast_store, AST_NODE_ERROR);
         return error_node;
     }
 
     AST_Node_Handle left = prefix_rule(parser, INVALID_HANDLE);
 
-    while (precedence <= get_rule(parser->current.type)->precedence)
+    while (precedence <= parser_get_rule(parser->current.type)->precedence)
     {
-        advance_parser(parser);
-        Parse_Fn infix_rule = get_rule(parser->previous.type)->infix;
+        parser_advance(parser);
+        Parse_Fn infix_rule = parser_get_rule(parser->previous.type)->infix;
         left = infix_rule(parser, left);
     }
 
     return left;
 }
 
-static AST_Node_Handle parse_number(Parser* parser, AST_Node_Handle _)
+static AST_Node_Handle parser_number(Parser* parser, AST_Node_Handle _)
 {
     i32 value = strtol(parser->previous.start, NULL, 10);
-    AST_Node_Handle handle = add_node(&parser->ast_store, AST_NODE_NUMBER);
-    AST_Node* number_node = get_node(&parser->ast_store, handle);
+    AST_Node_Handle handle = ast_store_add_node(&parser->ast_store, AST_NODE_NUMBER);
+    AST_Node* number_node = ast_store_get_node(&parser->ast_store, handle);
     number_node->number = value;
 
     return handle;
 }
 
-static AST_Node_Handle parse_expression(Parser* parser)
+static AST_Node_Handle parser_expression(Parser* parser)
 {
     /* AST_Node_Handle handle = add_node(&parser->ast_store, AST_NODE_EXPRESSION); */
     /* AST_Node* expression = get_node(&parser->ast_store, handle); */
     /* expression->expression.expression = parse_precedence(parser, PREC_ASSIGNMENT); */
-    return parse_precedence(parser, PREC_ASSIGNMENT);
+    return parser_precedence(parser, PREC_ASSIGNMENT);
 }
 
-static AST_Node_Handle parse_binary(Parser* parser, AST_Node_Handle left)
+static AST_Node_Handle parser_binary(Parser* parser, AST_Node_Handle left)
 {
     Token_Type operator_type = parser->previous.type;
-    Parse_Rule* rule = get_rule(operator_type);
+    Parse_Rule* rule = parser_get_rule(operator_type);
 
-    AST_Node_Handle handle = add_node(&parser->ast_store, AST_NODE_BINARY);
-    AST_Node* binary_expression = get_node(&parser->ast_store, handle);
+    AST_Node_Handle handle = ast_store_add_node(&parser->ast_store, AST_NODE_BINARY);
+    AST_Node* binary_expression = ast_store_get_node(&parser->ast_store, handle);
 
     binary_expression->binary.left = left;
-    binary_expression->binary.right = parse_precedence(parser, rule->precedence + 1);
+    binary_expression->binary.right = parser_precedence(parser, rule->precedence + 1);
 
     switch (operator_type)
     {
@@ -317,13 +317,13 @@ static AST_Node_Handle parse_binary(Parser* parser, AST_Node_Handle left)
     return handle;
 }
 
-static AST_Node_Handle parse_unary(Parser* parser, AST_Node_Handle rest)
+static AST_Node_Handle parser_unary(Parser* parser, AST_Node_Handle rest)
 {
     Token_Type operator_type = parser->previous.type;
-    AST_Node_Handle handle = add_node(&parser->ast_store, AST_NODE_UNARY);
-    AST_Node* unary_expression = get_node(&parser->ast_store, handle);
+    AST_Node_Handle handle = ast_store_add_node(&parser->ast_store, AST_NODE_UNARY);
+    AST_Node* unary_expression = ast_store_get_node(&parser->ast_store, handle);
 
-    unary_expression->unary.expression = parse_precedence(parser, PREC_UNARY);
+    unary_expression->unary.expression = parser_precedence(parser, PREC_UNARY);
 
     switch (operator_type)
     {
@@ -346,62 +346,62 @@ static AST_Node_Handle parse_unary(Parser* parser, AST_Node_Handle rest)
     return handle;
 }
 
-static AST_Node_Handle parse_grouping(Parser* parser, AST_Node_Handle previous)
+static AST_Node_Handle parser_grouping(Parser* parser, AST_Node_Handle previous)
 {
-    AST_Node_Handle handle = parse_expression(parser);
-    consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
+    AST_Node_Handle handle = parser_expression(parser);
+    parser_consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
     return handle;
 }
 
 Parse_Rule rules[] = {
-  [TOKEN_LEFT_PAREN]       = {parse_grouping, NULL,         PREC_NONE},
-  [TOKEN_RIGHT_PAREN]      = {NULL,           NULL,         PREC_NONE},
-  /* [TOKEN_LEFT_BRACE]    = {NULL,           NULL,         PREC_NONE},  */
-  /* [TOKEN_RIGHT_BRACE]   = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_COMMA]         = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_DOT]           = {NULL,           NULL,         PREC_NONE}, */
-  [TOKEN_MINUS]            = {parse_unary,    parse_binary, PREC_TERM},
-  [TOKEN_PLUS]             = {NULL,           parse_binary, PREC_TERM},
-  /* [TOKEN_SEMICOLON]     = {NULL,           NULL,         PREC_NONE}, */
-  [TOKEN_SLASH]            = {NULL,           parse_binary, PREC_FACTOR},
-  [TOKEN_STAR]             = {NULL,           parse_binary, PREC_FACTOR},
-  /* [TOKEN_BANG]          = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_BANG_EQUAL]    = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_EQUAL]         = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_EQUAL_EQUAL]   = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_GREATER]       = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_GREATER_EQUAL] = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_LESS]          = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_LESS_EQUAL]    = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_IDENTIFIER]    = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_STRING]        = {NULL,           NULL,         PREC_NONE}, */
-  [TOKEN_NUMBER]           = {parse_number,   NULL,         PREC_NONE},
-  /* [TOKEN_AND]           = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_CLASS]         = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_ELSE]          = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_FALSE]         = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_FOR]           = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_FUN]           = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_IF]            = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_NIL]           = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_OR]            = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_PRINT]         = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_RETURN]        = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_SUPER]         = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_THIS]          = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_TRUE]          = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_VAR]           = {NULL,           NULL,         PREC_NONE}, */
-  /* [TOKEN_WHILE]         = {NULL,           NULL,         PREC_NONE}, */
-  [TOKEN_ERROR]            = {NULL,           NULL,         PREC_NONE},
-  [TOKEN_EOF]              = {NULL,           NULL,         PREC_NONE},
+  [TOKEN_LEFT_PAREN]       = {parser_grouping, NULL,          PREC_NONE},
+  [TOKEN_RIGHT_PAREN]      = {NULL,            NULL,          PREC_NONE},
+  /* [TOKEN_LEFT_BRACE]    = {NULL,            NULL,          PREC_NONE},  */
+  /* [TOKEN_RIGHT_BRACE]   = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_COMMA]         = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_DOT]           = {NULL,            NULL,          PREC_NONE}, */
+  [TOKEN_MINUS]            = {parser_unary,    parser_binary, PREC_TERM},
+  [TOKEN_PLUS]             = {NULL,            parser_binary, PREC_TERM},
+  /* [TOKEN_SEMICOLON]     = {NULL,            NULL,          PREC_NONE}, */
+  [TOKEN_SLASH]            = {NULL,            parser_binary, PREC_FACTOR},
+  [TOKEN_STAR]             = {NULL,            parser_binary, PREC_FACTOR},
+  /* [TOKEN_BANG]          = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_BANG_EQUAL]    = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_EQUAL]         = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_EQUAL_EQUAL]   = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_GREATER]       = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_GREATER_EQUAL] = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_LESS]          = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_LESS_EQUAL]    = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_IDENTIFIER]    = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_STRING]        = {NULL,            NULL,          PREC_NONE}, */
+  [TOKEN_NUMBER]           = {parser_number,   NULL,          PREC_NONE},
+  /* [TOKEN_AND]           = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_CLASS]         = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_ELSE]          = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_FALSE]         = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_FOR]           = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_FUN]           = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_IF]            = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_NIL]           = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_OR]            = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_PRINT]         = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_RETURN]        = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_SUPER]         = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_THIS]          = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_TRUE]          = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_VAR]           = {NULL,            NULL,          PREC_NONE}, */
+  /* [TOKEN_WHILE]         = {NULL,            NULL,          PREC_NONE}, */
+  [TOKEN_ERROR]            = {NULL,            NULL,          PREC_NONE},
+  [TOKEN_EOF]              = {NULL,            NULL,          PREC_NONE},
 };
 
-static Parse_Rule* get_rule(Token_Type type)
+static Parse_Rule* parser_get_rule(Token_Type type)
 {
     return &rules[type];
 }
 
-static char* type_string(AST_Node_Type type)
+static char* parser_type_string(AST_Node_Type type)
 {
     switch(type)
     {
@@ -467,7 +467,7 @@ static void pretty_print_unary(AST_Store* store, AST_Node* node, i32 indentation
     pretty_print_operator(node->unary.operator, builder);
 
     sb_append(builder, ",\n ");
-    pretty_print_expression(store, get_node(store, node->unary.expression), indentation, builder);
+    pretty_print_expression(store, ast_store_get_node(store, node->unary.expression), indentation, builder);
     sb_append(builder, ")");
 }
 
@@ -475,7 +475,7 @@ static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentat
 {
     sb_append(builder, "Binary\t\n ");
     indentation++;
-    pretty_print_expression(store, get_node(store, binary->binary.left), indentation, builder);
+    pretty_print_expression(store, ast_store_get_node(store, binary->binary.left), indentation, builder);
     sb_append(builder, ",\n");
     sb_indent(builder, indentation);
     sb_append(builder, " ");
@@ -483,7 +483,7 @@ static void pretty_print_binary(AST_Store* store, AST_Node* binary, i32 indentat
     pretty_print_operator(binary->binary.operator, builder);
 
     sb_append(builder, ",\n ");
-    pretty_print_expression(store, get_node(store, binary->binary.right), indentation, builder);
+    pretty_print_expression(store, ast_store_get_node(store, binary->binary.right), indentation, builder);
 }
 
 static void pretty_print_number(AST_Store* store, AST_Node* number, i32 indentation, String_Builder* builder)
@@ -512,7 +512,7 @@ static void pretty_print_expression(AST_Store* store, AST_Node* node, i32 indent
     break;
     default:
     {
-        log_error("Unsupported node type %s\n", type_string(node->type));
+        log_error("Unsupported node type %s\n", parser_type_string(node->type));
         assert(false);
     }
     break;
@@ -524,7 +524,7 @@ static void pretty_print_program(AST_Store* store, AST_Node* program_node, i32 i
     sb_append(builder, "(");
     sb_append(builder, "Program\t\n ");
     indentation++;
-    pretty_print_expression(store, get_node(store, program_node->program.expression), indentation, builder);
+    pretty_print_expression(store, ast_store_get_node(store, program_node->program.expression), indentation, builder);
     sb_append(builder, ")");
 }
 
@@ -548,17 +548,17 @@ static void pretty_print_ast(AST_Store* store)
 
 bool parse(Parser* parser)
 {
-    advance_parser(parser);
+    parser_advance(parser);
 
-    if (!match(parser, TOKEN_EOF))
+    if (!parser_match(parser, TOKEN_EOF))
     {
-        parser->root = add_node(&parser->ast_store, AST_NODE_PROGRAM);
-        AST_Node* root = get_node(&parser->ast_store, parser->root);
+        parser->root = ast_store_add_node(&parser->ast_store, AST_NODE_PROGRAM);
+        AST_Node* root = ast_store_get_node(&parser->ast_store, parser->root);
     
-        root->program.expression = parse_expression(parser);
+        root->program.expression = parser_expression(parser);
     }
     
-    consume(parser, TOKEN_EOF, "Expect end of expression");
+    parser_consume(parser, TOKEN_EOF, "Expect end of expression");
 
     if (!parser->had_error)
     {

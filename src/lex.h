@@ -36,14 +36,14 @@ typedef struct
     i32 line;
 } Lexer;
 
-static void init_lexer(Lexer* lexer, char* source)
+static void lexer_init(Lexer* lexer, String* source)
 {
-    lexer->start = source;
-    lexer->current = source;
+    lexer->start = source->str;
+    lexer->current = source->str;
     lexer->line = 0;
 }
 
-static void log_token(Token token)
+static void token_log(Token token)
 {
     char *token_type;
     switch(token.type)
@@ -111,38 +111,38 @@ static bool is_digit(char c)
     return c >= '0' && c <= '9';
 }
 
-static bool is_at_end(Lexer* lexer)
+static bool lexer_is_at_end(Lexer* lexer)
 {
     return *lexer->current == '\0';
 }
 
-static char advance_lexer(Lexer* lexer)
+static char lexer_advance(Lexer* lexer)
 {
     lexer->current++;
     return lexer->current[-1];
 }
 
-static char peek_char(Lexer* lexer)
+static char lexer_peek_char(Lexer* lexer)
 {
     return *lexer->current;
 }
 
-static char peek_next_char(Lexer* lexer)
+static char lexer_peek_next_char(Lexer* lexer)
 {
-    if (is_at_end(lexer)) return '\0';
+    if (lexer_is_at_end(lexer)) return '\0';
     return lexer->current[1];
 }
 
-static bool match_character(Lexer* lexer, char expected)
+static bool lexer_match_character(Lexer* lexer, char expected)
 {
-    if (is_at_end(lexer)) return false;
+    if (lexer_is_at_end(lexer)) return false;
     if (*lexer->current != expected) return false;
 
     lexer->current++;
     return true;
 }
 
-static Token make_token(Lexer* lexer, Token_Type type)
+static Token lexer_make_token(Lexer* lexer, Token_Type type)
 {
     Token token =
         {
@@ -154,7 +154,7 @@ static Token make_token(Lexer* lexer, Token_Type type)
     return token;
 }
 
-static Token error_token(Lexer* lexer, char* message)
+static Token lexer_error_token(Lexer* lexer, char* message)
 {
     Token token =
         {
@@ -165,23 +165,23 @@ static Token error_token(Lexer* lexer, char* message)
     return token;
 }
 
-static void skip_whitespace(Lexer* lexer)
+static void lexer_skip_whitespace(Lexer* lexer)
 {
     for (;;)
     {
-        char c = peek_char(lexer);
+        char c = lexer_peek_char(lexer);
         switch(c)
         {
         case ' ':
         case '\r':
         case '\t':
         {
-            advance_lexer(lexer);
+            lexer_advance(lexer);
         }
         break;
         case '\n':
         {
-            advance_lexer(lexer);
+            lexer_advance(lexer);
             lexer->line++;
         }
         break;
@@ -193,69 +193,111 @@ static void skip_whitespace(Lexer* lexer)
     }
 }
 
-static Token number(Lexer* lexer)
+static Token lexer_number(Lexer* lexer)
 {
-    while (is_digit(peek_char(lexer))) advance_lexer(lexer);
+    while (is_digit(lexer_peek_char(lexer))) lexer_advance(lexer);
 
-    if (peek_char(lexer) == '.' && is_digit(peek_char(lexer)))
+    if (lexer_peek_char(lexer) == '.' && is_digit(lexer_peek_char(lexer)))
     {
-        advance_lexer(lexer);
-        while (is_digit(peek_char(lexer))) advance_lexer(lexer);
+        lexer_advance(lexer);
+        while (is_digit(lexer_peek_char(lexer))) lexer_advance(lexer);
     }
 
-    return make_token(lexer, TOKEN_NUMBER);
+    return lexer_make_token(lexer, TOKEN_NUMBER);
 }
 
-static Token scan_token(Lexer* lexer)
+static Token lexer_scan_token(Lexer* lexer)
 {
-    skip_whitespace(lexer);
+    lexer_skip_whitespace(lexer);
     lexer->start = lexer->current;
 
-    if (is_at_end(lexer)) return make_token(lexer, TOKEN_EOF);
+    if (lexer_is_at_end(lexer)) return lexer_make_token(lexer, TOKEN_EOF);
 
-    char c = advance_lexer(lexer);
+    char c = lexer_advance(lexer);
 
-    if (is_digit(c)) return number(lexer);
+    if (is_digit(c)) return lexer_number(lexer);
 
     switch(c)
     {
-    case '+': return make_token(lexer, TOKEN_PLUS);
-    case '-': return make_token(lexer, TOKEN_MINUS);
-    case '*': return make_token(lexer, TOKEN_STAR);
-    case '/': return make_token(lexer, TOKEN_SLASH);
-    case '(': return make_token(lexer, TOKEN_LEFT_PAREN);
-    case ')': return make_token(lexer, TOKEN_RIGHT_PAREN);
+    case '+': return lexer_make_token(lexer, TOKEN_PLUS);
+    case '-': return lexer_make_token(lexer, TOKEN_MINUS);
+    case '*': return lexer_make_token(lexer, TOKEN_STAR);
+    case '/': return lexer_make_token(lexer, TOKEN_SLASH);
+    case '(': return lexer_make_token(lexer, TOKEN_LEFT_PAREN);
+    case ')': return lexer_make_token(lexer, TOKEN_RIGHT_PAREN);
     }
 
-    return error_token(lexer, "Unexpected token.");
+    return lexer_error_token(lexer, "Unexpected token.");
 }
 
-Token* tokenize(char* input, size_t input_length, i32 *token_count)
+typedef struct
 {
-    Token* tokens = malloc(sizeof(Token) * input_length); //@Note(niels): String length might be too long
-    *token_count = 0;
+    Token* tokens;
+    i32 capacity;
+    i32 count;
+} Token_List;
 
+typedef struct
+{
+    Token* tokens;
+    i32 current;
+    i32 count;
+} Token_Stream;
+
+void token_list_init(Token_List* list, i32 initial_capacity)
+{
+    list->capacity = initial_capacity;
+    list->tokens = malloc(sizeof(Token) * initial_capacity);
+    list->count = 0;
+}
+
+void token_list_free(Token_List* list)
+{
+    free(list->tokens);
+    free(list);
+}
+
+void token_list_maybe_expand(Token_List* list)
+{
+    if (list->count + 1 >= list->count)
+    {
+        list->capacity *= 2;
+        list->tokens = realloc(list->tokens, list->capacity);
+    }
+}
+
+void token_list_add(Token_List* list, Token token)
+{
+    token_list_maybe_expand(list);
+    list->tokens[list->count++] = token;
+}
+
+Token_List* lexer_tokenize(String* input)
+{
+    Token_List* list = malloc(sizeof(Token_List));
+    token_list_init(list, 128);
+    
     Lexer lexer;
-    init_lexer(&lexer, input);
+    lexer_init(&lexer, input);
 
-    Token token = scan_token(&lexer);
+    Token token = lexer_scan_token(&lexer);
 
     while (token.type != TOKEN_EOF)
     {
-        tokens[(*token_count)++] = token;
-        token = scan_token(&lexer);
+        token_list_add(list, token);
+        token = lexer_scan_token(&lexer);
     }
 
-    tokens[(*token_count)++] = token;
+    token_list_add(list, token);
 
-    log_info("Tokens: %d\n", *token_count);
+    log_info("Tokens: %d\n", list->count);
 
-    for(int i = 0; i < *token_count; i++)
+    for(int i = 0; i < list->count; i++)
     {
-        log_token(tokens[i]);
+        token_log(list->tokens[i]);
     }
 
-    return tokens;
+    return list;
 }
 
 

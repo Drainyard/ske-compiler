@@ -38,6 +38,18 @@ String* string_create_with_length(const char* input_string, i32 length)
     return string;
 }
 
+String* string_create_from_file(FILE* file)
+{
+    fseek(file, 0, SEEK_END);
+    i32 file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    String* new_string = string_allocate(file_size);
+    fread(new_string->str, file_size, 1, file);
+
+    return new_string;
+}
+
 String* string_create(const char* input_string)
 {
     i32 length = strlen(input_string);

@@ -59,6 +59,35 @@ const char* scratch_register_names[REG_COUNT] =
     [REG_R15] = "%r15",
 };
 
+typedef enum
+{
+    INS_MOV,
+    INS_PUSH,
+    INS_POP,
+    INS_ADD,
+    INS_SUB,
+    INS_MUL,
+    INS_DIV,
+    INS_RET,
+    INS_NEG,
+    INS_CQO,
+    INS_COUNT
+} Instruction;
+
+const char* instruction_name[INS_COUNT] =
+{
+    [INS_MOV ] = "movq   ",
+    [INS_PUSH] = "pushq  ",
+    [INS_POP ] = "popq   ",
+    [INS_ADD ] = "addq   ",
+    [INS_SUB ] = "subq   ",
+    [INS_MUL ] = "mulq   ",
+    [INS_DIV ] = "divq   ",
+    [INS_RET ] = "ret    ",
+    [INS_NEG ] = "negq   ",
+    [INS_CQO ] = "cqo    "
+};
+
 const char* scratch_name(Scratch_Register reg)
 {
     return scratch_register_names[reg];
@@ -164,7 +193,7 @@ Scratch_Register x86_codegen_expression(AST_Store*, AST_Node_Handle, String_Buil
 
 Scratch_Register x86_codegen_expression(AST_Store* store, AST_Node_Handle node_handle, String_Builder* sb, Scratch_Register_Table* table)
 {
-    AST_Node* node = get_node(store, node_handle);
+    AST_Node* node = ast_store_get_node(store, node_handle);
 
     switch (node->type)
     {
@@ -228,6 +257,24 @@ Scratch_Register x86_codegen_expression(AST_Store* store, AST_Node_Handle node_h
     return -1;
 }
 
+void x86_emit_ret(String_Builder* sb)
+{
+    sb_indent(sb, 4);
+    sb_append(sb, "ret\n");
+}
+
+void x86_emit_pop_name(String_Builder* sb, const char* name)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "popq    %s\n", name);
+}
+
+void x86_emit_push_name(String_Builder* sb, const char* name)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "pushq   %s\n", name);
+}
+
 void x86_codegen_program(AST_Store* store, AST_Node_Handle program_handle, String_Builder* sb, Scratch_Register_Table* table)
 {
     sb_append(sb, ".data\n");
@@ -235,22 +282,19 @@ void x86_codegen_program(AST_Store* store, AST_Node_Handle program_handle, Strin
     sb_append(sb, ".global main\n");
     sb_append(sb, "main:\n");
 
-    sb_indent(sb, 4);
-    sb_append(sb, "pushq   %rbp\n");
+    x86_emit_push_name(sb, "%rbp");
 
     x86_emit_move_name_to_name(sb, "%rsp", "%rbp");
 
-    AST_Node* program_node = get_node(store, program_handle);
+    AST_Node* program_node = ast_store_get_node(store, program_handle);
     Scratch_Register final_reg = x86_codegen_expression(store, program_node->program.expression, sb, table);
 
     x86_emit_move_reg_to_name(sb, final_reg, "%rax");
     scratch_free(table, final_reg);
 
-    sb_indent(sb, 4);
-    sb_append(sb, "popq    %rbp\n");
+    x86_emit_pop_name(sb, "%rbp");
 
-    sb_indent(sb, 4);
-    sb_append(sb, "ret\n");
+    x86_emit_ret(sb);    
 }
 
 void x86_codegen_ast(AST_Store* store, AST_Node_Handle root)
