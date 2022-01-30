@@ -87,6 +87,19 @@ bool string_equal_cstr(String* lhs, const char* rhs)
     return true;
 }
 
+bool string_ends_with_cstr(String* lhs, const char* rhs)
+{
+    i32 len = strlen(rhs);
+    if (len > lhs->length) return false;
+
+    i32 start = lhs->length - len;
+    for (i32 i = 0; i < len; i++)
+    {
+        if (lhs->str[start + i] != rhs[i]) return false;
+    }
+    return true;
+}
+
 void string_print(String* string)
 {
     printf("%s", string->str);

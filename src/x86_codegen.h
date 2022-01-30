@@ -316,6 +316,7 @@ void x86_codegen_ast(AST_Store* store, AST_Node_Handle root)
         string_fprintf(assembly, out_file);
         fclose(out_file);
     }
+    string_free(assembly);
 }
 
 
