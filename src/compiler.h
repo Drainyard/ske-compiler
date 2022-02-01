@@ -3,7 +3,7 @@
 
 #define FILE_EXTENSION ".ar"
 
-bool compile(String* source)
+bool compile(String* source, String* out_path)
 {
     if(source->length == 0)
     {
@@ -18,11 +18,8 @@ bool compile(String* source)
     bool result = false;
     if (parse(&parser))
     {
-        log_info("Parsing succeeded\n");
-        x86_codegen_ast(&parser.ast_store, parser.root);
-
-        system("gcc x86_out.s");
-        
+        log_info("Parsing succeeded\n\n");
+        x86_codegen_ast(&parser.ast_store, parser.root, out_path);
         result = true;
     }
     else
@@ -42,7 +39,9 @@ bool compile_file(String* path)
     if (file)
     {
         String* source = string_create_from_file(file);
-        result = compile(source);
+        String_Array* array = string_split(path, '.');
+        assert(array->count > 0);
+        result = compile(source, string_concat_cstr(array->strings[0], ".s"));
         fclose(file);
     }
     return result;

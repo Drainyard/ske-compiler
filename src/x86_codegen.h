@@ -297,7 +297,7 @@ void x86_codegen_program(AST_Store* store, AST_Node_Handle program_handle, Strin
     x86_emit_ret(sb);    
 }
 
-void x86_codegen_ast(AST_Store* store, AST_Node_Handle root)
+void x86_codegen_ast(AST_Store* store, AST_Node_Handle root, String* out_file)
 {
     assert(store->count > 0);
     String_Builder sb;
@@ -310,11 +310,11 @@ void x86_codegen_ast(AST_Store* store, AST_Node_Handle root)
     String* assembly = sb_get_result(&sb);
     string_print(assembly);
 
-    FILE* out_file = fopen("x86_out.s", "w");
     if (out_file)
     {
-        string_fprintf(assembly, out_file);
-        fclose(out_file);
+        FILE* file = fopen(out_file->str, "w");
+        string_fprintf(assembly, file);
+        fclose(file);
     }
     string_free(assembly);
 }

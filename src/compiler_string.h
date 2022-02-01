@@ -110,6 +110,79 @@ void string_fprintf(String* string, FILE* file)
     fprintf(file, "%s", string->str);
 }
 
+String* string_substring(String* string, i32 start, i32 length)
+{
+    if (start < 0) start = 0;
+    if (length <= 0) return NULL;
+    if (length > string->length) length = string->length;
+    if (length + start > string->length)
+    {
+        length = string->length - start;
+    }
+
+    String* substr = string_allocate(length);
+    i32 index = start;
+    for (i32 i = 0; i < length; i++)
+    {
+        substr->str[i] = string->str[index++];
+    }
+    substr->str[substr->length] = '\0';
+    return substr;
+}
+
+String* string_concat_cstr(String* lhs, const char* rhs)
+{
+    i32 rhs_len = strlen(rhs);
+    if(lhs->length == 0) return string_create_with_length(rhs, rhs_len);
+    if(rhs_len == 0) return string_create_with_length(lhs->str, lhs->length);
+    String* new_string = string_allocate(lhs->length + rhs_len);
+
+    for (i32 i = 0; i < lhs->length; i++)
+    {
+        new_string->str[i] = lhs->str[i];
+    }
+
+    i32 index = 0;
+    for (i32 i = lhs->length - 1; i < lhs->length + rhs_len; i++)
+    {
+        new_string->str[i] = rhs[index++];
+    }
+
+    return new_string;
+}
+
+typedef struct
+{
+    String** strings;
+    i32 count;
+} String_Array;
+
+String_Array* string_split(String* string, char delim)
+{
+    String_Array* array = malloc(sizeof(String_Array));
+    for (i32 i = 0; i < string->length; i++)
+    {
+        if(string->str[i] == delim)
+        {
+            array->count++;
+        }
+    }
+
+    array->strings = malloc(sizeof(String*) * array->count);
+
+    i32 current_index = 0;
+    for (i32 i = 0; i < array->count; i++)
+    {
+        i32 start = current_index;
+        for (; current_index < string->length; current_index++)
+        {
+            if (string->str[current_index] == delim) break;
+        }
+        array->strings[i] = string_substring(string, start, current_index);//string_create_with_length(&string->str[start], current_index - start);
+    }
+    return array;
+}
+
 void sb_init(String_Builder* builder, i32 initial_capacity)
 {
     builder->capacity = initial_capacity;

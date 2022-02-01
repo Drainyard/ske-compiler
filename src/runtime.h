@@ -14,7 +14,7 @@ void repl()
             break;
         }
 
-        bool result = compile(buffer);
+        bool result = compile(buffer, NULL);
         if (!result)
         {
             log_error("Compilation failed with errors\n");

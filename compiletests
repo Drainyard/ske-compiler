@@ -1,0 +1,27 @@
+#!/bin/bash
+
+TESTDIR=../tests
+SUCCEEDING=$TESTDIR/succeeding
+FAILING=$TESTDIR/failing
+OUT_DIR=$TESTDIR/tests_out
+EXPECT_DIR=$TESTDIR/tests_expect
+
+mkdir -p $OUT_DIR
+mkdir -p $EXPECT_DIR
+mkdir -p $SUCCEEDING
+mkdir -p $FAILING
+
+SUCCEEDING_TESTS=($SUCCEEDING/*)
+FAILING_TESTS=($FAILING/*)
+
+for n in $SUCCEEDING_TESTS; do
+	arc $n
+	if [ -e $n.s ]; then
+	   as -g -o $n.o $n.s
+	   gcc -g -static -o $n.bin $n.o
+	else
+		echo "Not assembling $n"
+	fi
+done
+
+
