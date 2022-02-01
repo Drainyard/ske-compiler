@@ -12,7 +12,7 @@ typedef uint64_t u32;
 typedef uint32_t u64;
 
 #include "log.h"
-#include "compiler_string.h"
+#include "nb_string.h"
 #include "lex.h"
 #include "parse.h"
 #include "x86_codegen.h"
