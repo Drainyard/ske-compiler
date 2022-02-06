@@ -1,5 +1,5 @@
-#ifndef COMPILER_STRING_H
-#define COMPILER_STRING_H
+#ifndef NB_STRING_H
+#define NB_STRING_H
 
 typedef struct
 {
@@ -157,18 +157,25 @@ typedef struct
     i32 count;
 } String_Array;
 
-String_Array* string_split(String* string, char delim)
+String_Array* string_array_allocate(i32 count)
 {
     String_Array* array = malloc(sizeof(String_Array));
+    array->strings = malloc(sizeof(String*) * count);
+    return array;
+}
+
+String_Array* string_split(String* string, char delim)
+{
+    i32 count = 1;
     for (i32 i = 0; i < string->length; i++)
     {
         if(string->str[i] == delim)
         {
-            array->count++;
+            count++;
         }
     }
-
-    array->strings = malloc(sizeof(String*) * array->count);
+    
+    String_Array* array = string_array_allocate(count);
 
     i32 current_index = 0;
     for (i32 i = 0; i < array->count; i++)
