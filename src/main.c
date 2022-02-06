@@ -6,13 +6,16 @@
 #include <stdbool.h>
 #include <assert.h>
 
-typedef int32_t i32;
-typedef int64_t i64;
-typedef uint64_t u32;
-typedef uint32_t u64;
+typedef int32_t    i32;
+typedef int64_t    i64;
+typedef uint64_t   u32;
+typedef uint32_t   u64;
+typedef uintptr_t  umm;
 
 #include "log.h"
+#include "nb_memory.h"
 #include "nb_string.h"
+#include "nb_file.h"
 #include "lex.h"
 #include "parse.h"
 #include "x86_codegen.h"
