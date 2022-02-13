@@ -20,14 +20,16 @@ typedef enum
     TYPE_SPEC_VOID
 } Type_Specifier;
 
-typedef struct
+typedef struct AST_Node_Handle AST_Node_Handle;
+struct AST_Node_Handle
 {
     i32 handle;
-} AST_Node_Handle;
+};
 static AST_Node_Handle INVALID_HANDLE = { .handle = -1 };
 #define AST_HANDLE_VALID(handle) (handle.handle != -1)
 
-typedef struct
+typedef struct AST_Node AST_Node;
+struct AST_Node
 {
     AST_Node_Type type;
 
@@ -77,7 +79,7 @@ typedef struct
             AST_Node_Handle rest;
         } error;
     };
-} AST_Node;
+};
 
 typedef enum
 {
@@ -528,7 +530,7 @@ static void pretty_print_program(AST_Store* store, AST_Node* program_node, i32 i
     sb_append(builder, ")");
 }
 
-static void pretty_print_ast(AST_Store* store)
+static void pretty_print_ast(AST_Store* store, Allocator* allocator)
 {
     assert(store->count > 0);
     AST_Node* root = &store->nodes[0];
@@ -539,14 +541,14 @@ static void pretty_print_ast(AST_Store* store)
     pretty_print_program(store, root, 0, &builder);
     sb_append(&builder, "\n");
 
-    String* string = sb_get_result(&builder);
+    String* string = sb_get_result(&builder, allocator);
     string_print(string);
 
     string_free(string);
     sb_free(&builder);
 }
 
-bool parse(Parser* parser)
+bool parse(Parser* parser, Allocator* allocator)
 {
     parser_advance(parser);
 
@@ -562,7 +564,7 @@ bool parse(Parser* parser)
 
     if (!parser->had_error)
     {
-        pretty_print_ast(&parser->ast_store);
+        pretty_print_ast(&parser->ast_store, allocator);
     }
 
     return !parser->had_error;

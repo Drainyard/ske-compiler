@@ -99,9 +99,9 @@ i32 label_create()
     return label_count++;
 }
 
-String* label_name(i32 label)
+String* label_name(i32 label, Allocator* allocator)
 {
-    return string_createf(".L%d", label);
+    return string_createf(allocator, ".L%d", label);
 }
 
 void x86_emit_move_reg_to_reg(String_Builder* sb, int src, int dst);
@@ -297,7 +297,7 @@ void x86_codegen_program(AST_Store* store, AST_Node_Handle program_handle, Strin
     x86_emit_ret(sb);    
 }
 
-void x86_codegen_ast(AST_Store* store, AST_Node_Handle root, String* out_file)
+void x86_codegen_ast(AST_Store* store, AST_Node_Handle root, String* out_file, Allocator* allocator)
 {
     assert(store->count > 0);
     String_Builder sb;
@@ -307,7 +307,7 @@ void x86_codegen_ast(AST_Store* store, AST_Node_Handle root, String* out_file)
     scratch_table_init(&register_table);
     x86_codegen_program(store, root, &sb, &register_table);
 
-    String* assembly = sb_get_result(&sb);
+    String* assembly = sb_get_result(&sb, allocator);
     string_print(assembly);
 
     if (out_file)

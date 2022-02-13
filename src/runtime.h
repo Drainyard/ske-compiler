@@ -1,9 +1,9 @@
 #ifndef RUNTIME_H
 #define RUNTIME_H
 
-void repl()
+void repl(Allocator* allocator)
 {
-    String* buffer = string_allocate(1024);
+    String* buffer = string_allocate(1024, allocator);
     for(;;)
     {
         printf("> ");
@@ -14,7 +14,7 @@ void repl()
             break;
         }
 
-        bool result = compile(buffer, NULL);
+        bool result = compile(buffer, NULL, allocator);
         if (!result)
         {
             log_error("Compilation failed with errors\n");

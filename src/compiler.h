@@ -3,7 +3,7 @@
 
 #define FILE_EXTENSION ".ar"
 
-bool compile(String* source, String* out_path)
+bool compile(String* source, String* out_path, Allocator* allocator)
 {
     if(source->length == 0)
     {
@@ -16,10 +16,10 @@ bool compile(String* source, String* out_path)
     parser_init(&parser, tokens);
 
     bool result = false;
-    if (parse(&parser))
+    if (parse(&parser, allocator))
     {
         log_info("Parsing succeeded\n\n");
-        x86_codegen_ast(&parser.ast_store, parser.root, out_path);
+        x86_codegen_ast(&parser.ast_store, parser.root, out_path, allocator);
         result = true;
     }
     else
@@ -32,16 +32,16 @@ bool compile(String* source, String* out_path)
     return result;
 }
 
-bool compile_file(String* path)
+bool compile_file(String* path, Allocator* allocator)
 {
     FILE* file = fopen(path->str, "r");
     bool result = false;
     if (file)
     {
-        String* source = string_create_from_file(file);
-        String_Array* array = string_split(path, '.');
+        String* source = string_create_from_file_with_arena(file, allocator);
+        String_Array* array = string_split(path, '.', allocator);
         assert(array->count > 0);
-        result = compile(source, string_concat_cstr(array->strings[0], ".s"));
+        result = compile(source, string_concat_cstr(array->strings[0], ".s", allocator), allocator);
         fclose(file);
     }
     return result;

@@ -1,6 +1,22 @@
 #ifndef NB_MEMORY
 #define NB_MEMORY
 
+#define ALLOCATOR_CAST(allocator, type) (type*)(allocator + sizeof(Allocator))
+
+#define ALLOCATOR(allocator) (&(allocator)->base_allocator)
+
+typedef struct Allocator Allocator;
+
+typedef void* (*Allocate_Fn)(Allocator*, size_t);
+typedef void (*Free_Fn)(Allocator*, void*);
+typedef void (*Free_All_Fn)(Allocator*);
+
+struct Allocator
+{
+    Allocate_Fn allocate;
+    Free_Fn free;
+    Free_All_Fn free_all;
+};
 
 bool is_power_of_two(umm x)
 {
@@ -27,6 +43,7 @@ umm align_forward(umm pointer, size_t align)
 typedef struct Arena Arena;
 struct Arena
 {
+    Allocator      base_allocator;
     unsigned char* buffer;
     size_t         buffer_length;
     size_t         previous_offset;
@@ -64,17 +81,9 @@ void* arena_alloc_align(Arena* arena, size_t size, size_t alignment)
 #ifndef DEFAULT_ALIGNMENT
 #define DEFAULT_ALIGNMENT (2 * sizeof(void*))
 #endif
-void* arena_alloc(Arena* arena, size_t size)
+void* arena_alloc(Allocator* arena, size_t size)
 {
-    return arena_alloc_align(arena, size, DEFAULT_ALIGNMENT);
-}
-
-void arena_init(Arena* arena, void* backing_buffer, size_t backing_buffer_length)
-{
-    arena->buffer = (unsigned char*)backing_buffer;
-    arena->buffer_length = backing_buffer_length;
-    arena->current_offset = 0;
-    arena->previous_offset = 0;
+    return arena_alloc_align(ALLOCATOR_CAST(arena, Arena), size, DEFAULT_ALIGNMENT);
 }
 
 void* arena_resize_align(Arena* arena, void* old_memory, size_t old_size, size_t new_size, size_t alignment)
@@ -118,8 +127,26 @@ void* arena_resize(Arena* arena, void* old_memory, size_t old_size, size_t new_s
     return arena_resize_align(arena, old_memory, old_size, new_size, DEFAULT_ALIGNMENT);
 }
 
-void arena_free_all(Arena* arena)
+void arena_free(Allocator* allocator, void* ptr)
 {
+    
+}
+
+void arena_free_all(Allocator* allocator)
+{
+    Arena* arena = ALLOCATOR_CAST(allocator, Arena);
+    arena->current_offset = 0;
+    arena->previous_offset = 0;
+}
+
+
+void arena_init(Arena* arena, void* backing_buffer, size_t backing_buffer_length)
+{
+    arena->base_allocator.allocate = arena_alloc;
+    arena->base_allocator.free = arena_free;
+    arena->base_allocator.free_all = arena_free_all;
+    arena->buffer = (unsigned char*)backing_buffer;
+    arena->buffer_length = backing_buffer_length;
     arena->current_offset = 0;
     arena->previous_offset = 0;
 }
@@ -138,6 +165,5 @@ void temp_arena_memory_end(Temporary_Arena temp)
     temp.arena->previous_offset = temp.previous_offset;
     temp.arena->current_offset = temp.current_offset;
 }
-
 
 #endif

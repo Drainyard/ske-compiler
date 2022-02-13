@@ -4,7 +4,7 @@
 typedef struct
 {
     i32 length;
-    char str[1];
+    char str[];
 } String;
 
 typedef struct
@@ -14,9 +14,19 @@ typedef struct
     i32 capacity;
 } String_Builder;
 
-String* string_allocate(i32 input_string_length)
+#define STRING_SIZE(length) (sizeof(String) + input_string_length + 1)
+
+String* string_allocate_with_buffer(void* backing_buffer, size_t backing_buffer_size, i32 input_string_length)
 {
-    String* new_string = malloc(sizeof(i32) * input_string_length + 1);
+    assert(backing_buffer_size >= STRING_SIZE(input_string_length));
+    String* new_string = backing_buffer;
+    new_string->length = input_string_length;
+    return new_string;
+}
+
+String* string_allocate(i32 input_string_length, Allocator* allocator)
+{
+    String* new_string = allocator->allocate(allocator, STRING_SIZE(input_string_length));
     new_string->length = input_string_length;
     return new_string;
 }
@@ -26,37 +36,56 @@ void string_free(String* string)
     free(string);
 }
 
-String* string_create_with_length(const char* input_string, i32 length)
+static void string_set(String* string, const char* input_string, i32 length)
 {
-    String* string = string_allocate(length);
     string->length = length;
     for (i32 i = 0; i < length; i++)
     {
         string->str[i] = input_string[i];
     }
     string->str[length] = '\0';
+}
+
+String* string_create_from_buffer(const char* input_string, i32 string_length, void* buffer, size_t buffer_length)
+{
+    String* string = string_allocate_with_buffer(buffer, buffer_length, string_length);
+    string_set(string, input_string, string_length);
     return string;
 }
 
-String* string_create_from_file(FILE* file)
+String* string_create_from_arena(const char* input_string, i32 string_length, Allocator* allocator)
+{
+    String* string = string_allocate(string_length, allocator);
+    string_set(string, input_string, string_length);
+    return string;
+}
+
+String* string_create_with_length(const char* input_string, i32 length, Allocator* allocator)
+{
+    String* string = string_allocate(length, allocator);
+    string_set(string, input_string, length);
+    return string;
+}
+
+String* string_create_from_file_with_arena(FILE* file, Allocator* allocator)
 {
     fseek(file, 0, SEEK_END);
     i32 file_size = ftell(file);
     fseek(file, 0, SEEK_SET);
 
-    String* new_string = string_allocate(file_size);
+    String* new_string = string_allocate(file_size, allocator);
     fread(new_string->str, file_size, 1, file);
 
     return new_string;
 }
 
-String* string_create(const char* input_string)
+String* string_create(const char* input_string, Allocator* allocator)
 {
     i32 length = strlen(input_string);
-    return string_create_with_length(input_string, length);
+    return string_create_with_length(input_string, length, allocator);
 }
 
-String* string_createf(const char* format, ...)
+String* string_createf(Allocator* allocator, const char* format, ...)
 {
     va_list arglist;
     va_start(arglist, format);
@@ -67,7 +96,7 @@ String* string_createf(const char* format, ...)
         return NULL;
     }
 
-    String* result = string_allocate(format_length);
+    String* result = string_allocate(format_length, allocator);
     va_start(arglist, format);
     vsnprintf(result->str, format_length + 1, format, arglist);
     result->str[format_length] = '\0';
@@ -110,7 +139,7 @@ void string_fprintf(String* string, FILE* file)
     fprintf(file, "%s", string->str);
 }
 
-String* string_substring(String* string, i32 start, i32 length)
+String* string_substring(String* string, i32 start, i32 length, Allocator* allocator)
 {
     if (start < 0) start = 0;
     if (length <= 0) return NULL;
@@ -120,7 +149,7 @@ String* string_substring(String* string, i32 start, i32 length)
         length = string->length - start;
     }
 
-    String* substr = string_allocate(length);
+    String* substr = string_allocate(length, allocator);
     i32 index = start;
     for (i32 i = 0; i < length; i++)
     {
@@ -130,12 +159,12 @@ String* string_substring(String* string, i32 start, i32 length)
     return substr;
 }
 
-String* string_concat_cstr(String* lhs, const char* rhs)
+String* string_concat_cstr(String* lhs, const char* rhs, Allocator* allocator)
 {
     i32 rhs_len = strlen(rhs);
-    if(lhs->length == 0) return string_create_with_length(rhs, rhs_len);
-    if(rhs_len == 0) return string_create_with_length(lhs->str, lhs->length);
-    String* new_string = string_allocate(lhs->length + rhs_len);
+    if(lhs->length == 0) return string_create_with_length(rhs, rhs_len, allocator);
+    if(rhs_len == 0) return string_create_with_length(lhs->str, lhs->length, allocator);
+    String* new_string = string_allocate(lhs->length + rhs_len, allocator);
 
     for (i32 i = 0; i < lhs->length; i++)
     {
@@ -157,14 +186,14 @@ typedef struct
     i32 count;
 } String_Array;
 
-String_Array* string_array_allocate(i32 count)
+String_Array* string_array_allocate(i32 count, Allocator* allocator)
 {
-    String_Array* array = malloc(sizeof(String_Array));
-    array->strings = malloc(sizeof(String*) * count);
+    String_Array* array = allocator->allocate(allocator, sizeof(String_Array));
+    array->strings = allocator->allocate(allocator, sizeof(String*) * count);;
     return array;
 }
 
-String_Array* string_split(String* string, char delim)
+String_Array* string_split(String* string, char delim, Allocator* allocator)
 {
     i32 count = 1;
     for (i32 i = 0; i < string->length; i++)
@@ -175,7 +204,7 @@ String_Array* string_split(String* string, char delim)
         }
     }
     
-    String_Array* array = string_array_allocate(count);
+    String_Array* array = string_array_allocate(count, allocator);
 
     i32 current_index = 0;
     for (i32 i = 0; i < array->count; i++)
@@ -185,7 +214,7 @@ String_Array* string_split(String* string, char delim)
         {
             if (string->str[current_index] == delim) break;
         }
-        array->strings[i] = string_substring(string, start, current_index);//string_create_with_length(&string->str[start], current_index - start);
+        array->strings[i] = string_substring(string, start, current_index, allocator);
     }
     return array;
 }
@@ -271,7 +300,7 @@ void sb_appendf(String_Builder* builder, const char* format, ...)
     builder->current_index += format_length;
 }
 
-String* sb_get_result(String_Builder* builder)
+String* sb_get_result(String_Builder* builder, Allocator* allocator)
 {
     if (!builder->string || builder->current_index == 0)
     {
@@ -279,7 +308,7 @@ String* sb_get_result(String_Builder* builder)
         return NULL;
     }
 
-    return string_create_with_length(builder->string, builder->current_index);
+    return string_create_with_length(builder->string, builder->current_index, allocator);
 }
 
 void sb_free(String_Builder* builder)

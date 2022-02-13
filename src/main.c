@@ -31,13 +31,19 @@ bool is_source_file(String* string)
 
 int main(int argc, char** argv)
 {
-    String* test = string_create("file.ar_. . + 3..");
-    String* substr1 = string_substring(test, 0, 4);
-    String* substr2 = string_substring(test, 2, 4);
-    String* substr3 = string_substring(test, 10, 2);
+    Arena string_arena;
+    size_t buffer_length = 1024 * 1024;
+    void* arena_buffer = malloc(buffer_length);
+    arena_init(&string_arena, arena_buffer, buffer_length);
+
+    char* str = "file.ar_. . + 3..";
+    String* test = string_create_from_arena(str, strlen(str), ALLOCATOR(&string_arena));
+    String* substr1 = string_substring(test, 0, 4, ALLOCATOR(&string_arena));
+    String* substr2 = string_substring(test, 2, 4, ALLOCATOR(&string_arena));
+    String* substr3 = string_substring(test, 10, 2, ALLOCATOR(&string_arena));
     
-    String* test2 = string_create("file.test.ar");
-    String* substr4 = string_substring(test2, 0, 13);
+    String* test2 = string_create("file.test.ar", ALLOCATOR(&string_arena));
+    String* substr4 = string_substring(test2, 0, 13, ALLOCATOR(&string_arena));
 
     assert(string_equal_cstr(substr1, "file"));
     assert(string_equal_cstr(substr2, "le.a"));
@@ -52,9 +58,8 @@ int main(int argc, char** argv)
     string_print(substr4);
     printf("\n");
 
-    String_Array* split = string_split(test2, '.');
+    String_Array* split = string_split(test2, '.', ALLOCATOR(&string_arena));
     assert(split->count == 3);
-
 
     
     /* if(argc == 1) */
