@@ -1,8 +1,7 @@
 #ifndef NB_MEMORY
 #define NB_MEMORY
 
-#define ALLOCATOR_CAST(allocator, type) (type*)(allocator + sizeof(Allocator))
-
+#define ALLOCATOR_CAST(allocator, type) (type*)(allocator)
 #define ALLOCATOR(allocator) (&(allocator)->base_allocator)
 
 typedef struct Allocator Allocator;
@@ -138,7 +137,6 @@ void arena_free_all(Allocator* allocator)
     arena->current_offset = 0;
     arena->previous_offset = 0;
 }
-
 
 void arena_init(Arena* arena, void* backing_buffer, size_t backing_buffer_length)
 {

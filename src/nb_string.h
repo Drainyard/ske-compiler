@@ -205,7 +205,7 @@ String_Array* string_split(String* string, char delim, Allocator* allocator)
     }
     
     String_Array* array = string_array_allocate(count, allocator);
-
+    array->count = count;
     i32 current_index = 0;
     for (i32 i = 0; i < array->count; i++)
     {
