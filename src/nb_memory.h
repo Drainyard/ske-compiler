@@ -48,6 +48,7 @@ struct Arena
     size_t         previous_offset;
     size_t         current_offset;
 };
+#define AS_ARENA(allocator) (ALLOCATOR_CAST(allocator, Arena))
 
 typedef struct Temporary_Arena Temporary_Arena;
 struct Temporary_Arena
@@ -82,7 +83,7 @@ void* arena_alloc_align(Arena* arena, size_t size, size_t alignment)
 #endif
 void* arena_alloc(Allocator* arena, size_t size)
 {
-    return arena_alloc_align(ALLOCATOR_CAST(arena, Arena), size, DEFAULT_ALIGNMENT);
+    return arena_alloc_align(AS_ARENA(arena), size, DEFAULT_ALIGNMENT);
 }
 
 void* arena_resize_align(Arena* arena, void* old_memory, size_t old_size, size_t new_size, size_t alignment)
@@ -133,7 +134,7 @@ void arena_free(Allocator* allocator, void* ptr)
 
 void arena_free_all(Allocator* allocator)
 {
-    Arena* arena = ALLOCATOR_CAST(allocator, Arena);
+    Arena* arena = AS_ARENA(allocator);
     arena->current_offset = 0;
     arena->previous_offset = 0;
 }

@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <assert.h>
 
+typedef int16_t    i16;
 typedef int32_t    i32;
 typedef int64_t    i64;
 typedef uint64_t   u32;
@@ -61,53 +62,51 @@ int main(int argc, char** argv)
     String_Array* split = string_split(test2, '.', ALLOCATOR(&string_arena));
     assert(split->count == 3);
 
-    
-    /* if(argc == 1) */
-    /* { */
-    /*     repl(); */
-    /* } */
-    /* else if(argc > 1) */
-    /* { */
-    /*     String* file_path = NULL; */
-    /*     for (i32 i = 1; i < argc; i++) */
-    /*     { */
-    /*         char* arg = argv[i]; */
-    /*         String* string = string_create(arg); */
+    arena_free_all(&string_arena.base_allocator);
 
-    /*         if (string->length >= 2) */
-    /*         { */
-    /*             if (string_equal_cstr(string, "--t") || string_equal_cstr(string, "-test")) */
-    /*             { */
-    /*                 printf("Running tests...\n"); */
-    /*                 string_free(string); */
-    /*             } */
-    /*             else if (string_equal_cstr(string, "--h") || string_equal_cstr(string, "-help")) */
-    /*             { */
-    /*                 printf("Usage: arc [options] file...\n\n"); */
-    /*                 printf("OPTIONS\n"); */
+    if(argc == 1)
+    {
+        repl(ALLOCATOR(&string_arena));
+    }
+    else if(argc > 1)
+    {
+        String* file_path = NULL;
+        for (i32 i = 1; i < argc; i++)
+        {
+            char* arg = argv[i];
+            String* string = string_create(arg, ALLOCATOR(&string_arena));
 
-    /*                 printf("--h or -help            Display this information\n"); */
-    /*                 string_free(string); */
-    /*             } */
-    /*             else if (is_source_file(string)) */
-    /*             { */
-    /*                 log_info("Source file: %s\n", string->str); */
-    /*                 file_path = string; */
-    /*             } */
-    /*             else */
-    /*             { */
-    /*                 printf("Unknown argument '%s'. Try --h or -help to see available options.\n", arg); */
-    /*                 string_free(string); */
-    /*                 break; */
-    /*             } */
-    /*         } */
-    /*     } */
+            if (string->length >= 2)
+            {
+                if (string_equal_cstr(string, "--t") || string_equal_cstr(string, "-test"))
+                {
+                    printf("Running tests...\n");
+                }
+                else if (string_equal_cstr(string, "--h") || string_equal_cstr(string, "-help"))
+                {
+                    printf("Usage: arc [options] file...\n\n");
+                    printf("OPTIONS\n");
 
-    /*     if (file_path) */
-    /*     { */
-    /*         compile_file(file_path); */
-    /*     } */
-    /* } */
+                    printf("--h or -help            Display this information\n");
+                }
+                else if (is_source_file(string))
+                {
+                    log_info("Source file: %s\n", string->str);
+                    file_path = string;
+                }
+                else
+                {
+                    printf("Unknown argument '%s'. Try --h or -help to see available options.\n", arg);
+                    break;
+                }
+            }
+        }
+
+        if (file_path)
+        {
+            compile_file(file_path, ALLOCATOR(&string_arena));
+        }
+    }
     
     return 0;
 }
