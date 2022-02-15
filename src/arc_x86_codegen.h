@@ -1,5 +1,5 @@
-#ifndef X86_CODEGEN_H
-#define X86_CODEGEN_H
+#ifndef ARC_X86_CODEGEN_H
+#define ARC_X86_CODEGEN_H
 
 typedef enum
 {
@@ -189,12 +189,10 @@ void x86_emit_move_name_to_name(String_Builder* sb, const char* src, const char*
     sb_appendf(sb, "movq    %s, %s\n", src, dst);
 }
 
-Scratch_Register x86_codegen_expression(AST_Store*, AST_Node_Handle, String_Builder*, Scratch_Register_Table*);
+Scratch_Register x86_codegen_expression(AST_Node*, String_Builder*, Scratch_Register_Table*);
 
-Scratch_Register x86_codegen_expression(AST_Store* store, AST_Node_Handle node_handle, String_Builder* sb, Scratch_Register_Table* table)
+Scratch_Register x86_codegen_expression(AST_Node* node, String_Builder* sb, Scratch_Register_Table* table)
 {
-    AST_Node* node = ast_store_get_node(store, node_handle);
-
     switch (node->type)
     {
     case AST_NODE_NUMBER:
@@ -205,8 +203,8 @@ Scratch_Register x86_codegen_expression(AST_Store* store, AST_Node_Handle node_h
     }
     case AST_NODE_BINARY:
     {
-        Scratch_Register left_reg = x86_codegen_expression(store, node->binary.left, sb, table);
-        Scratch_Register right_reg = x86_codegen_expression(store, node->binary.right, sb, table);
+        Scratch_Register left_reg = x86_codegen_expression(node->binary.left, sb, table);
+        Scratch_Register right_reg = x86_codegen_expression(node->binary.right, sb, table);
 
         Token_Type operator = node->binary.operator;
 
@@ -245,7 +243,7 @@ Scratch_Register x86_codegen_expression(AST_Store* store, AST_Node_Handle node_h
     }
     case AST_NODE_UNARY:
     {
-        Scratch_Register reg = x86_codegen_expression(store, node->unary.expression, sb, table);
+        Scratch_Register reg = x86_codegen_expression(node->unary.expression, sb, table);
         x86_emit_unary(sb, reg);
         return reg;
     }
@@ -275,7 +273,7 @@ void x86_emit_push_name(String_Builder* sb, const char* name)
     sb_appendf(sb, "pushq   %s\n", name);
 }
 
-void x86_codegen_program(AST_Store* store, AST_Node_Handle program_handle, String_Builder* sb, Scratch_Register_Table* table)
+void x86_codegen_program(AST_Node* program_node, String_Builder* sb, Scratch_Register_Table* table)
 {
     sb_append(sb, ".data\n");
     sb_append(sb, ".text\n");
@@ -286,8 +284,7 @@ void x86_codegen_program(AST_Store* store, AST_Node_Handle program_handle, Strin
 
     x86_emit_move_name_to_name(sb, "%rsp", "%rbp");
 
-    AST_Node* program_node = ast_store_get_node(store, program_handle);
-    Scratch_Register final_reg = x86_codegen_expression(store, program_node->program.expression, sb, table);
+    Scratch_Register final_reg = x86_codegen_expression(program_node->program.expression, sb, table);
 
     x86_emit_move_reg_to_name(sb, final_reg, "%rax");
     scratch_free(table, final_reg);
@@ -297,15 +294,14 @@ void x86_codegen_program(AST_Store* store, AST_Node_Handle program_handle, Strin
     x86_emit_ret(sb);    
 }
 
-void x86_codegen_ast(AST_Store* store, AST_Node_Handle root, String* out_file, Allocator* allocator)
+void x86_codegen_ast(AST_Node* root_node, String* out_file, Allocator* allocator)
 {
-    assert(store->count > 0);
     String_Builder sb;
     sb_init(&sb, 256);
 
     Scratch_Register_Table register_table;
     scratch_table_init(&register_table);
-    x86_codegen_program(store, root, &sb, &register_table);
+    x86_codegen_program(root_node, &sb, &register_table);
 
     String* assembly = sb_get_result(&sb, allocator);
     string_print(assembly);

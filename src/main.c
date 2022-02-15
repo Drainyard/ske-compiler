@@ -17,11 +17,11 @@ typedef uintptr_t  umm;
 #include "nb_memory.h"
 #include "nb_string.h"
 #include "nb_file.h"
-#include "lex.h"
-#include "parse.h"
-#include "x86_codegen.h"
-#include "compiler.h"
-#include "runtime.h"
+#include "arc_lex.h"
+#include "arc_parse.h"
+#include "arc_x86_codegen.h"
+#include "arc_compiler.h"
+#include "arc_runtime.h"
 
 #define LINE_BUFFER_SIZE 256
 
@@ -33,40 +33,18 @@ bool is_source_file(String* string)
 int main(int argc, char** argv)
 {
     Arena string_arena;
-    size_t buffer_length = 1024 * 1024;
-    void* arena_buffer = malloc(buffer_length);
-    arena_init(&string_arena, arena_buffer, buffer_length);
-
-    char* str = "file.ar_. . + 3..";
-    String* test = string_create_from_arena(str, strlen(str), ALLOCATOR(&string_arena));
-    String* substr1 = string_substring(test, 0, 4, ALLOCATOR(&string_arena));
-    String* substr2 = string_substring(test, 2, 4, ALLOCATOR(&string_arena));
-    String* substr3 = string_substring(test, 10, 2, ALLOCATOR(&string_arena));
+    size_t string_buffer_length = 1024 * 1024;
+    void* string_buffer = malloc(string_buffer_length);
+    arena_init(&string_arena, string_buffer, string_buffer_length);
     
-    String* test2 = string_create("file.test.ar", ALLOCATOR(&string_arena));
-    String* substr4 = string_substring(test2, 0, 13, ALLOCATOR(&string_arena));
-
-    assert(string_equal_cstr(substr1, "file"));
-    assert(string_equal_cstr(substr2, "le.a"));
-    assert(string_equal_cstr(substr3, ". "));
-    assert(string_equal_cstr(substr4, "file.test.ar"));
-    string_print(substr1);
-    printf("\n");
-    string_print(substr2);
-    printf("\n");
-    string_print(substr3);
-    printf("\n");
-    string_print(substr4);
-    printf("\n");
-
-    String_Array* split = string_split(test2, '.', ALLOCATOR(&string_arena));
-    assert(split->count == 3);
-
-    arena_free_all(&string_arena.base_allocator);
-
+    Arena base_allocator;
+    size_t buffer_length = 1024 * 1024;
+    void* base_buffer = malloc(buffer_length);
+    arena_init(&base_allocator, base_buffer, buffer_length);
+    
     if(argc == 1)
     {
-        repl(ALLOCATOR(&string_arena));
+        repl(ALLOCATOR(&base_allocator));
     }
     else if(argc > 1)
     {

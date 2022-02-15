@@ -1,10 +1,9 @@
-#ifndef PARSE_H
-#define PARSE_H
+#ifndef ARC_PARSE_H
+#define ARC_PARSE_H
 
 typedef enum
 {
     AST_NODE_STATEMENT,
-    /* AST_NODE_EXPRESSION, */
     AST_NODE_PROGRAM,
     AST_NODE_FUN_DECL,
     AST_NODE_NUMBER,
@@ -19,14 +18,6 @@ typedef enum
     TYPE_SPEC_INT,
     TYPE_SPEC_VOID
 } Type_Specifier;
-
-typedef struct AST_Node_Handle AST_Node_Handle;
-struct AST_Node_Handle
-{
-    i32 handle;
-};
-static AST_Node_Handle INVALID_HANDLE = { .handle = -1 };
-#define AST_HANDLE_VALID(handle) (handle.handle != -1)
 
 typedef struct AST_Node AST_Node;
 struct AST_Node

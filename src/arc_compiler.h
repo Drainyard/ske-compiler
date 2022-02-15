@@ -1,5 +1,5 @@
-#ifndef COMPILER_H
-#define COMPILER_H
+#ifndef ARC_COMPILER_H
+#define ARC_COMPILER_H
 
 #define FILE_EXTENSION ".ar"
 
@@ -13,13 +13,13 @@ bool compile(String* source, String* out_path, Allocator* allocator)
     
     Token_List* tokens = lexer_tokenize(source);
     Parser parser;
-    parser_init(&parser, tokens);
+    parser_init(&parser, tokens, allocator);
 
     bool result = false;
     if (parse(&parser, allocator))
     {
         log_info("Parsing succeeded\n\n");
-        x86_codegen_ast(&parser.ast_store, parser.root, out_path, allocator);
+        x86_codegen_ast(parser.root, out_path, allocator);
         result = true;
     }
     else
