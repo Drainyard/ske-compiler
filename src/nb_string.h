@@ -67,16 +67,26 @@ String* string_create_with_length(const char* input_string, i32 length, Allocato
     return string;
 }
 
-String* string_create_from_file_with_arena(FILE* file, Allocator* allocator)
+String* string_create_from_file_with_allocator(FILE* file, Allocator* allocator)
 {
     fseek(file, 0, SEEK_END);
     i32 file_size = ftell(file);
+    if(file_size <= 0)
+    {
+        return NULL;
+    }
+    
     fseek(file, 0, SEEK_SET);
 
     String* new_string = string_allocate(file_size, allocator);
     fread(new_string->str, file_size, 1, file);
 
     return new_string;
+}
+
+void string_write_to_file(String* string, FILE* file)
+{
+    fwrite(string->str, string->length, 1, file);
 }
 
 String* string_create(const char* input_string, Allocator* allocator)
@@ -172,7 +182,7 @@ String* string_concat_cstr(String* lhs, const char* rhs, Allocator* allocator)
     }
 
     i32 index = 0;
-    for (i32 i = lhs->length - 1; i < lhs->length + rhs_len; i++)
+    for (i32 i = lhs->length; i < lhs->length + rhs_len; i++)
     {
         new_string->str[i] = rhs[index++];
     }

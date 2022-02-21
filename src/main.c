@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <unistd.h>
 
 typedef int16_t    i16;
 typedef int32_t    i32;
@@ -19,6 +20,7 @@ typedef uintptr_t  umm;
 #include "nb_file.h"
 #include "arc_lex.h"
 #include "arc_parse.h"
+#include "arc_ir.h"
 #include "arc_x86_codegen.h"
 #include "arc_compiler.h"
 #include "arc_runtime.h"
@@ -32,15 +34,15 @@ bool is_source_file(String* string)
 
 int main(int argc, char** argv)
 {
-    Arena string_arena;
-    size_t string_buffer_length = 1024 * 1024;
-    void* string_buffer = malloc(string_buffer_length);
-    arena_init(&string_arena, string_buffer, string_buffer_length);
-    
     Arena base_allocator;
     size_t buffer_length = 1024 * 1024;
     void* base_buffer = malloc(buffer_length);
     arena_init(&base_allocator, base_buffer, buffer_length);
+
+    Arena string_arena;
+    size_t string_buffer_length = 1024 * 1024;
+    void* string_buffer = malloc(string_buffer_length);
+    arena_init(&string_arena, string_buffer, string_buffer_length);
     
     if(argc == 1)
     {

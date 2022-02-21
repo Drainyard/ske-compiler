@@ -3,9 +3,12 @@
 
 typedef enum
 {
+    IR_PROGRAM,
+    IR_SEQUENCE,
+    IR_STATEMENT,
     IR_LABEL,
     IR_MOVE,
-    IR_BIARY_NOP,
+    IR_BIARY_OP,
     IR_UNARY_OP,
     IR_MEM,
     IR_TEMP,
@@ -31,6 +34,12 @@ struct Label
     Symbol symbol;
 };
 
+typedef struct IR_Expression IR_Expression;
+struct IR_Expression
+{
+    int i;
+};
+
 typedef struct IR_Node IR_Node;
 struct IR_Node
 {
@@ -40,27 +49,41 @@ struct IR_Node
     {
         struct
         {
+            IR_Expression* sequence;
+        } program;
+        struct
+        {
+            IR_Expression* statements;
+            i32 count;
+            i32 capacity;
+        } sequence;
+        struct
+        {
+            IR_Expression* node;
+        } statement;
+        struct
+        {
             Symbol symbol;
         } label;
         struct
         {
-            IR_Node* src;
-            IR_Node* dst;
+            IR_Expression* src;
+            IR_Expression* dst;
         } move;
         struct
         {
-            IR_Node* left;
-            IR_Node* right;
+            IR_Expression* left;
+            IR_Expression* right;
             Token_Type operator;
         } binary_op;
         struct
         {
-            IR_Node* exp;
+            IR_Expression* exp;
             Token_Type operator;
         } unary_op;
         struct
         {
-            IR_Node* exp;
+            IR_Expression* exp;
         } mem;
         struct
         {
@@ -77,9 +100,35 @@ struct IR_Node
     };
 };
 
-IR_Tree* ir_codegen_ast(AST_Node* root_node, Allocator* allocator)
+typedef struct IR_Block IR_Block;
+struct IR_Block
 {
+    IR_Node* nodes;
+    i32 count;
+};
+
+struct IR_Program
+{
+    IR_Block* blocks;
+    i32 count;
+};
+
+IR_Node* ir_add_node(IR_Node_Type node_type, Allocator* allocator)
+{
+    IR_Node* node = allocator->allocate(allocator, sizeof(IR_Node));
+    node->type = node_type;
+    return node;
+}
+
+IR_Node* ir_codegen_ast(IR_Node* root_node, Allocator* allocator)
+{
+    IR_Node* program_node = ir_add_node(IR_PROGRAM, allocator);
+
+    /* IR_Node* sequence = ir_add_node(IR_SEQUENCE, allocator); */
+
     
+    
+    return program_node;
 }
 
 

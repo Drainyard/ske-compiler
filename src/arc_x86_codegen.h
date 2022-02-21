@@ -294,7 +294,7 @@ void x86_codegen_program(AST_Node* program_node, String_Builder* sb, Scratch_Reg
     x86_emit_ret(sb);    
 }
 
-void x86_codegen_ast(AST_Node* root_node, String* out_file, Allocator* allocator)
+String* x86_codegen_ast(AST_Node* root_node, Allocator* allocator)
 {
     String_Builder sb;
     sb_init(&sb, 256);
@@ -306,9 +306,25 @@ void x86_codegen_ast(AST_Node* root_node, String* out_file, Allocator* allocator
     String* assembly = sb_get_result(&sb, allocator);
     string_print(assembly);
 
+    return assembly;
+}
+
+void x86_codegen_ast_to_file(AST_Node* root_node, String* out_file, Allocator* allocator)
+{
+    String* assembly = x86_codegen_ast(root_node, allocator);
+
+    FILE* file = NULL;
     if (out_file)
     {
-        FILE* file = fopen(out_file->str, "w");
+        file = fopen(out_file->str, "w");
+    }
+    else
+    {
+        file = fopen("out.s", "w"); 
+    }
+
+    if (file)
+    {
         string_fprintf(assembly, file);
         fclose(file);
     }

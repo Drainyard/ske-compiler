@@ -14,7 +14,7 @@ void repl(Allocator* allocator)
             break;
         }
 
-        bool result = compile(buffer, NULL, allocator);
+        bool result = compile(buffer, allocator);
         if (!result)
         {
             log_error("Compilation failed with errors\n");

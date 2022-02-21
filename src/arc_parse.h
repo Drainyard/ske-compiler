@@ -251,7 +251,7 @@ static bool parser_match(Parser* parser, Token_Type type)
     return true;
 }
 
-AST_Node* add_node(AST_Node_Type node_type, Allocator* allocator)
+AST_Node* parser_add_node(AST_Node_Type node_type, Allocator* allocator)
 {
     AST_Node* node = allocator->allocate(allocator, sizeof(AST_Node));
     node->type = node_type;
@@ -269,7 +269,7 @@ static AST_Node* parser_precedence(Parser* parser, Precedence precedence)
     if (prefix_rule == NULL)
     {
         parser_error(parser, "Expect expression.");
-        AST_Node* error_node = add_node(AST_NODE_ERROR, parser->allocator);
+        AST_Node* error_node = parser_add_node(AST_NODE_ERROR, parser->allocator);
         return error_node;
     }
 
@@ -288,7 +288,7 @@ static AST_Node* parser_precedence(Parser* parser, Precedence precedence)
 static AST_Node* parser_number(Parser* parser, AST_Node* _)
 {
     i32 value = strtol(parser->previous.start, NULL, 10);
-    AST_Node* number_node = add_node(AST_NODE_NUMBER, parser->allocator);
+    AST_Node* number_node = parser_add_node(AST_NODE_NUMBER, parser->allocator);
     number_node->number = value;
 
     return number_node;
@@ -296,7 +296,7 @@ static AST_Node* parser_number(Parser* parser, AST_Node* _)
 
 static AST_Node* parser_expression(Parser* parser)
 {
-    /* AST_Node_Handle handle = add_node(&parser->ast_store, AST_NODE_EXPRESSION); */
+    /* AST_Node_Handle handle = parser_add_node(&parser->ast_store, AST_NODE_EXPRESSION); */
     /* AST_Node* expression = get_node(&parser->ast_store, handle); */
     /* expression->expression.expression = parse_precedence(parser, PREC_ASSIGNMENT); */
     return parser_precedence(parser, PREC_ASSIGNMENT);
@@ -307,7 +307,7 @@ static AST_Node* parser_binary(Parser* parser, AST_Node* left)
     Token_Type operator_type = parser->previous.type;
     Parse_Rule* rule = parser_get_rule(operator_type);
 
-    AST_Node* binary_expression = add_node(AST_NODE_BINARY, parser->allocator);
+    AST_Node* binary_expression = parser_add_node(AST_NODE_BINARY, parser->allocator);
 
     binary_expression->binary.left = left;
     binary_expression->binary.right = parser_precedence(parser, rule->precedence + 1);
@@ -331,7 +331,7 @@ static AST_Node* parser_binary(Parser* parser, AST_Node* left)
 static AST_Node* parser_unary(Parser* parser, AST_Node* rest)
 {
     Token_Type operator_type = parser->previous.type;
-    AST_Node* unary_expression = add_node(AST_NODE_UNARY, parser->allocator);
+    AST_Node* unary_expression = parser_add_node(AST_NODE_UNARY, parser->allocator);
 
     unary_expression->unary.expression = parser_precedence(parser, PREC_UNARY);
 
@@ -556,7 +556,7 @@ bool parse(Parser* parser, Allocator* allocator)
 
     if (!parser_match(parser, TOKEN_EOF))
     {
-        parser->root = add_node(AST_NODE_PROGRAM, parser->allocator);
+        parser->root = parser_add_node(AST_NODE_PROGRAM, parser->allocator);
     
         parser->root->program.expression = parser_expression(parser);
     }
