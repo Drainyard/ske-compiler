@@ -296,9 +296,6 @@ static AST_Node* parser_number(Parser* parser, AST_Node* _)
 
 static AST_Node* parser_expression(Parser* parser)
 {
-    /* AST_Node_Handle handle = parser_add_node(&parser->ast_store, AST_NODE_EXPRESSION); */
-    /* AST_Node* expression = get_node(&parser->ast_store, handle); */
-    /* expression->expression.expression = parse_precedence(parser, PREC_ASSIGNMENT); */
     return parser_precedence(parser, PREC_ASSIGNMENT);
 }
 

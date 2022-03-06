@@ -304,7 +304,7 @@ String* x86_codegen_ast(AST_Node* root_node, Allocator* allocator)
     x86_codegen_program(root_node, &sb, &register_table);
 
     String* assembly = sb_get_result(&sb, allocator);
-    string_print(assembly);
+    /* string_print(assembly); */
 
     return assembly;
 }

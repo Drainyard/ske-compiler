@@ -169,6 +169,27 @@ String* string_substring(String* string, i32 start, i32 length, Allocator* alloc
     return substr;
 }
 
+String* string_concat_str(String* lhs, String* rhs, Allocator* allocator)
+{
+    if (lhs->length == 0) return string_create_with_length(rhs->str, rhs->length, allocator);
+    if (rhs->length == 0) return string_create_with_length(lhs->str, lhs->length, allocator);
+
+    String* new_string = string_allocate(lhs->length + rhs->length, allocator);
+
+    for (i32 i = 0; i < lhs->length; i++)
+    {
+        new_string->str[i] = lhs->str[i];
+    }
+
+    i32 index = 0;
+    for (i32 i = lhs->length; i < lhs->length + rhs->length; i++)
+    {
+        new_string->str[i] = rhs->str[index++];
+    }
+
+    return new_string;
+}
+
 String* string_concat_cstr(String* lhs, const char* rhs, Allocator* allocator)
 {
     i32 rhs_len = strlen(rhs);
@@ -233,6 +254,17 @@ void sb_init(String_Builder* builder, i32 initial_capacity)
 {
     builder->capacity = initial_capacity;
     builder->string = calloc(builder->capacity, 1);
+    builder->current_index = 0;
+}
+
+void sb_init_with_allocator(String_Builder* builder, i32 initial_capacity, Allocator* allocator)
+{
+    builder->capacity = initial_capacity;
+    builder->string = allocator->allocate(allocator, builder->capacity);
+    for (i32 i = 0; i < initial_capacity; i++)
+    {
+        builder->string[i] = 0;
+    }
     builder->current_index = 0;
 }
 

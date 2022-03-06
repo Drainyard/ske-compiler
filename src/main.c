@@ -6,6 +6,8 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 typedef int16_t    i16;
 typedef int32_t    i32;

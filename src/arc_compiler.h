@@ -5,52 +5,39 @@
 
 #define READ_END 0
 #define WRITE_END 1
-
+char DEFAULT_ASSEMBLY_OUT_FILE[] = "__out.o"; // TODO: Should be passed in as arguments as well
+char DEFAULT_EXECUTABLE_OUT_FILE[] = "a.out"; // TODO: Should be passed in as arguments as well
 
 FILE* compiler_assemble_x86(String* x86_assembly, Allocator* allocator)
 {
-    pid_t pid;
-    int fd[2];
+    char* first_command = "./assemble.sh ";
+    
+    String_Builder sb;
+    sb_init_with_allocator(&sb, 32 + x86_assembly->length, allocator);
+    sb_append(&sb, first_command);
+    sb_appendf(&sb, "'%s'", x86_assembly->str);
 
-    pipe(fd);
-    pid = fork();
+    sb_append(&sb, " ");
+    sb_append(&sb, DEFAULT_ASSEMBLY_OUT_FILE);
 
-    char first_command[] = "echo";
-    char* first_argument = x86_assembly->str;
-    printf("%s\n", x86_assembly->str);
-    char second_command[] = "as";
-    char second_argument[] = "-o a.out";
+    String* final_command = sb_get_result(&sb, allocator);
 
-    if(pid==0)
+    FILE* fp;
+    fp = popen(final_command->str, "r");
+    if (!fp)
     {
-        dup2(fd[WRITE_END], STDOUT_FILENO);
-        close(fd[READ_END]);
-        close(fd[WRITE_END]);
-        execlp(first_command, first_command, first_argument, (char*) NULL);
-        fprintf(stderr, "Failed to execute '%s'\n", first_command);
-        exit(1);
+        log_error("Failed to run assembler\n");
+        return NULL;
     }
-    else
-    { 
-        pid=fork();
 
-        if(pid==0)
-        {
-            dup2(fd[READ_END], STDIN_FILENO);
-            close(fd[WRITE_END]);
-            close(fd[READ_END]);
-            execlp(second_command, second_command, second_argument,(char*) NULL);
-            fprintf(stderr, "Failed to execute '%s'\n", second_command);
-            exit(1);
-        }
-        else
-        {
-            int status;
-            close(fd[READ_END]);
-            close(fd[WRITE_END]);
-            waitpid(pid, &status, 0);
-        }
+    char path[1035];
+    while (fgets(path, sizeof(path), fp) != NULL)
+    {
+        log_info("%s", path);
     }
+    pclose(fp);
+    
+    /* system(final_command->str); */
     
     /* if(output) */
     /* { */
@@ -94,7 +81,6 @@ bool compile(String* source, Allocator* allocator)
         if (assembly)
         {
             FILE* object_file = compiler_assemble_x86(assembly, allocator);
-            
         }
         result = true;
     }

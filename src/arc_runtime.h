@@ -8,7 +8,7 @@ void repl(Allocator* allocator)
     {
         printf("> ");
 
-        if(!fgets(buffer->str, buffer->length, stdin))
+        if(!fgets(buffer->str, 1024, stdin))
         {
             printf("\n");
             break;
