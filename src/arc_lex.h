@@ -99,11 +99,13 @@ static void token_log(Token token)
     break;
     }
 
+    (void)token_type;
+
     char token_value[32];
     strncpy(token_value, token.start, token.length);
     token_value[token.length] = '\0';
     
-    log_info("[%s] \t| start: %c \t| length: %d \t| value: %s\n", token_type, *token.start, token.length, token_value);
+    /* log_info("[%s] \t| start: %c \t| length: %d \t| value: %s\n", token_type, *token.start, token.length, token_value); */
 }
 
 static bool is_digit(char c)
@@ -154,6 +156,30 @@ static Token lexer_make_token(Lexer* lexer, Token_Type type)
     return token;
 }
 
+static void lexer_verror_at(Lexer* lexer, char* location, char* fmt, va_list ap)
+{
+    i32 pos = location - lexer->start;
+    fprintf(stderr, "%s\n", lexer->start);
+    fprintf(stderr, "%*s", pos, "");
+    fprintf(stderr, "^ ");
+    vfprintf(stderr, fmt, ap);
+    fprintf(stderr, "\n");
+}
+
+static void lexer_error_at(Lexer* lexer, char* location, char* fmt, ...)
+{
+    va_list ap;
+    va_start(ap, fmt);
+    lexer_verror_at(lexer, location, fmt, ap);
+}
+
+static void lexer_error_tok(Lexer* lexer, Token* token, char* fmt, ...)
+{
+    va_list(ap);
+    va_start(ap, fmt);
+    lexer_verror_at(lexer, token->start, fmt, ap);
+}
+
 static Token lexer_error_token(Lexer* lexer, char* message)
 {
     Token token =
@@ -162,6 +188,9 @@ static Token lexer_error_token(Lexer* lexer, char* message)
             .start  = message,
             .length = strlen(message)
         };
+
+    lexer_error_tok(lexer, &token, message);
+    
     return token;
 }
 
