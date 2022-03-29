@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -20,6 +21,7 @@ typedef uintptr_t  umm;
 #include "nb_memory.h"
 #include "nb_string.h"
 #include "nb_file.h"
+#include "nb_shell.h"
 #include "arc_lex.h"
 #include "arc_parse.h"
 #include "arc_ir.h"
@@ -53,6 +55,7 @@ int main(int argc, char** argv)
     else if(argc > 1)
     {
         String* file_path = NULL;
+        String* out_path = NULL;
         for (i32 i = 1; i < argc; i++)
         {
             char* arg = argv[i];
@@ -63,6 +66,19 @@ int main(int argc, char** argv)
                 if (string_equal_cstr(string, "--t") || string_equal_cstr(string, "-test"))
                 {
                     printf("Running tests...\n");
+
+                    /* String* command = string_create_from_arena("", 1 , ALLOCATOR(&string_arena)); */
+                }
+                else if (string_equal_cstr(string, "--o") || string_equal_cstr(string, "-outpath"))
+                {
+                    if(argc < i + 1)
+                    {
+                        printf("No output file path provided for '%s' argument. Please provide a valid argument\n", string->str);
+                        break;
+                    }
+                    out_path = string_create(argv[i + 1], ALLOCATOR(&string_arena));
+                    i++;
+                    string_print(out_path);
                 }
                 else if (string_equal_cstr(string, "--h") || string_equal_cstr(string, "-help"))
                 {
@@ -86,7 +102,7 @@ int main(int argc, char** argv)
 
         if (file_path)
         {
-            compile_file(file_path, ALLOCATOR(&string_arena));
+            compile_file(file_path, NULL, out_path, ALLOCATOR(&string_arena));
         }
     }
     

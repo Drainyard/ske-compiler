@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TESTDIR=../tests
+TESTDIR=tests
 SUCCEEDING=$TESTDIR/succeeding
 FAILING=$TESTDIR/failing
 OUT_DIR=$TESTDIR/tests_out
@@ -11,14 +11,20 @@ mkdir -p $EXPECT_DIR
 mkdir -p $SUCCEEDING
 mkdir -p $FAILING
 
-SUCCEEDING_TESTS=($SUCCEEDING/*)
+SUCCEEDING_TESTS=$SUCCEEDING/*
 FAILING_TESTS=($FAILING/*)
 
 for n in $SUCCEEDING_TESTS; do
 	arc $n
-	if [ -e $n.s ]; then
-	   as -g -o $n.o $n.s
-	   gcc -g -static -o $n.bin $n.o
+	if [ -e a.out ]; then
+		./a.out
+		OUTPUT=$?
+		EXPECT=cat $EXPECT_DIR/$n.expect
+		if [$OUTPUT == $EXPECT]; then
+			echo "Success!"
+		else
+			echo $n "failed"
+		fi
 	else
 		echo "Not assembling $n"
 	fi

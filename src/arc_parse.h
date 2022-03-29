@@ -547,7 +547,7 @@ static void pretty_print_ast(AST_Node* root, Allocator* allocator)
     string_print(string);
 }
 
-bool parse(Parser* parser, Allocator* allocator)
+bool parse(Parser* parser, bool print_ast, Allocator* allocator)
 {
     parser_advance(parser);
 
@@ -560,7 +560,7 @@ bool parse(Parser* parser, Allocator* allocator)
     
     parser_consume(parser, TOKEN_EOF, "Expect end of expression");
 
-    if (!parser->had_error)
+    if (!parser->had_error && print_ast)
     {
         pretty_print_ast(parser->root, allocator);
     }

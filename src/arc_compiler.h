@@ -3,31 +3,7 @@
 
 #define FILE_EXTENSION ".ar"
 
-#define READ_END 0
-#define WRITE_END 1
-
-char DEFAULT_ASSEMBLY_OUT_FILE[] = "__out.o"; // TODO: Should be passed in as arguments as well
-char DEFAULT_EXECUTABLE_OUT_FILE[] = "a.out"; // TODO: Should be passed in as arguments as well
-
-bool run_command(String* command, const char* error_message)
-{
-    FILE* fp;
-    fp = popen(command->str, "r");
-    if (!fp)
-    {
-        log_error(error_message);
-        return false;
-    }
-
-    char path[1048];
-    while (fgets(path, sizeof(path), fp) != NULL)
-    {
-        log_info("%s", path);
-    }
-    pclose(fp);
-
-    return true;
-}
+String* DEFAULT_EXECUTABLE_OUT_PATH = NULL;
 
 bool compiler_assemble_x86_with_output_path(String* x86_assembly, const char* output_path, Allocator* allocator)
 {
@@ -41,29 +17,19 @@ bool compiler_assemble_x86_with_output_path(String* x86_assembly, const char* ou
     return run_command(command, "Failed to run assembler\n");
 }
 
-
-bool compiler_assemble_x86(String* x86_assembly, Allocator* allocator)
+bool compiler_assemble_x86_with_input_file(String* file_path, String* output_path, Allocator* allocator)
 {
-    return compiler_assemble_x86_with_output_path(x86_assembly, DEFAULT_ASSEMBLY_OUT_FILE, allocator);
+    char *cmd[] = {"as", "-c", file_path->str, "-o", output_path->str, NULL};
+    return run_subprocess(cmd);
 }
 
-bool compiler_link_with_output_file(const char* input_file_path, const char* output_file_path, Allocator* allocator)
+bool compiler_link(String* input_file_path, String* output_file_path, Allocator* allocator)
 {
-    String_Builder sb;
-    sb_init_with_allocator(&sb, 1024, allocator);
-
-    sb_appendf(&sb, "gcc -o %s %s -lm && rm -rf %s", output_file_path, input_file_path, input_file_path);
-
-    String* command = sb_get_result(&sb, allocator);
-    return run_command(command, "Linking failed\n");
+    char *cmd[] = {"gcc", "-o", output_file_path->str, input_file_path->str, "-lm", NULL};
+    return run_subprocess(cmd); 
 }
 
-bool compiler_link(const char* input_file_path, Allocator* allocator)
-{
-    return compiler_link_with_output_file(input_file_path, DEFAULT_EXECUTABLE_OUT_FILE, allocator);
-}
-
-bool compile(String* source, Allocator* allocator)
+bool compile(String* source, String* assembly_out_path, String* executable_out_path, Allocator* allocator)
 {
     if(source->length == 0)
     {
@@ -76,27 +42,48 @@ bool compile(String* source, Allocator* allocator)
     parser_init(&parser, tokens, allocator);
 
     bool result = false;
-    if (parse(&parser, allocator))
+    if (parse(&parser, false, allocator))
     {
         log_info("Parsing succeeded\n\n");
         String* assembly = x86_codegen_ast(parser.root, allocator);
-
+        String* assembly_out = assembly_out_path ? assembly_out_path : create_temp_file(allocator);
         if (assembly)
         {
-            result = compiler_assemble_x86_with_output_path(assembly, DEFAULT_ASSEMBLY_OUT_FILE, allocator);
-
-            if (!result)
+            String* temp_path = create_temp_file(allocator);
+            if (temp_path)
             {
-                log_error("Assembler failed\n");
-                exit(1);
-            }
+                FILE* temp_file = fopen(temp_path->str, "w");
+                if (!temp_file)
+                {
+                    log_error("Unable to open temp file: %s\n", temp_file);
+                    exit(1);
+                }
+                
+                string_write_to_file(assembly, temp_file);
+                fclose(temp_file);
 
-            result = compiler_link_with_output_file(DEFAULT_ASSEMBLY_OUT_FILE, DEFAULT_EXECUTABLE_OUT_FILE, allocator);
+                result = compiler_assemble_x86_with_input_file(temp_path, assembly_out, allocator);
 
-            if (!result)
-            {
-                log_error("Linking failed\n");
-                exit(1);
+                if (!result)
+                {
+                    log_error("Assembler failed\n");
+                    exit(1);
+                }
+
+                if (!DEFAULT_EXECUTABLE_OUT_PATH)
+                {
+                    DEFAULT_EXECUTABLE_OUT_PATH = string_create("a.out", allocator);
+                }
+                
+                String* executable_out = executable_out_path ? executable_out_path : DEFAULT_EXECUTABLE_OUT_PATH;
+
+                result = compiler_link(assembly_out, executable_out, allocator);
+
+                if (!result)
+                {
+                    log_error("Linking failed\n");
+                    exit(1);
+                }
             }
         }
     }
@@ -111,15 +98,16 @@ bool compile(String* source, Allocator* allocator)
     return result;
 }
 
-bool compile_file(String* path, Allocator* allocator)
+bool compile_file(String* path, String* assembly_out_path, String* executable_out_path, Allocator* allocator)
 {
     FILE* file = fopen(path->str, "r");
     bool result = false;
     if (file)
     {
         String* source = string_create_from_file_with_allocator(file, allocator);
-        result = compile(source, allocator);
+        result = compile(source, assembly_out_path, executable_out_path, allocator);
         fclose(file);
+        cleanup_temp_files();
     }
     return result;
 }

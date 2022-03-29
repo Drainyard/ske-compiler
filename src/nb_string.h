@@ -215,13 +215,27 @@ typedef struct
 {
     String** strings;
     i32 count;
+    i32 capacity;
 } String_Array;
 
-String_Array* string_array_allocate(i32 count, Allocator* allocator)
+String_Array* string_array_allocate(i32 capacity, Allocator* allocator)
 {
     String_Array* array = allocator->allocate(allocator, sizeof(String_Array));
-    array->strings = allocator->allocate(allocator, sizeof(String*) * count);;
+    array->strings = allocator->allocate(allocator, sizeof(String*) * capacity);
+    array->capacity = capacity;
+    array->count = 0;
     return array;
+}
+
+void string_array_push(String_Array* array, String* string)
+{
+    if(array->count + 1 >= array->capacity)
+    {
+        log_error("String array out of space: %d/%d\n", array->count, array->capacity);
+        assert(false);
+    }
+
+    array->strings[array->count++] = string;
 }
 
 String_Array* string_split(String* string, char delim, Allocator* allocator)
