@@ -4,5 +4,6 @@
 - [ ] Compiler to some IR. Could be basic blocks or some other even more basic assembly IR so we can output to multiple platforms more easily
 - [ ] Add support for windows (and MacOS?)
 - [ ] Improve lex and parser error messages (Clang or GCC as examples)
+- [ ] Change String interface to be more like in https://godbolt.org/z/o7Tn5Kqz3
 - [x] Move assemble.sh and link.sh into the compiler script or embed them somehow
 
