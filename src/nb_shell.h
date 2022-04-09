@@ -10,7 +10,8 @@ String* create_temp_file(Allocator* allocator)
     {
         temp_files = string_array_allocate(MAX_TEMP_FILES, allocator);
     }
-    String* path = string_create("/tmp/arc-comp-XXXXXX", allocator);
+
+    String* path = string_allocate("/tmp/arc-comp-XXXXXX", allocator);
     i32 fd = mkstemp(path->str);
     if (fd == 1)
     {
@@ -31,7 +32,6 @@ void cleanup_temp_files()
         }
         temp_files->count = 0;
     }
-
 }
 
 bool run_subprocess(char** argv)

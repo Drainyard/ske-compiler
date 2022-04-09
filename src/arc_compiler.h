@@ -58,10 +58,10 @@ bool compile(String* source, String* assembly_out_path, String* executable_out_p
                     log_error("Unable to open temp file: %s\n", temp_file);
                     exit(1);
                 }
-                
+
                 string_write_to_file(assembly, temp_file);
                 fclose(temp_file);
-
+                
                 result = compiler_assemble_x86_with_input_file(temp_path, assembly_out, allocator);
 
                 if (!result)
@@ -72,7 +72,7 @@ bool compile(String* source, String* assembly_out_path, String* executable_out_p
 
                 if (!DEFAULT_EXECUTABLE_OUT_PATH)
                 {
-                    DEFAULT_EXECUTABLE_OUT_PATH = string_create("a.out", allocator);
+                    DEFAULT_EXECUTABLE_OUT_PATH = string_allocate("a.out", allocator);
                 }
                 
                 String* executable_out = executable_out_path ? executable_out_path : DEFAULT_EXECUTABLE_OUT_PATH;
@@ -107,7 +107,7 @@ bool compile_file(String* path, String* assembly_out_path, String* executable_ou
         String* source = string_create_from_file_with_allocator(file, allocator);
         result = compile(source, assembly_out_path, executable_out_path, allocator);
         fclose(file);
-        cleanup_temp_files();
+        /* cleanup_temp_files(); */
     }
     return result;
 }

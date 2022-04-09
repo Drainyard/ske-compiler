@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdarg.h>
 #include <string.h>
@@ -47,7 +48,7 @@ int main(int argc, char** argv)
     size_t string_buffer_length = 1024 * 1024;
     void* string_buffer = malloc(string_buffer_length);
     arena_init(&string_arena, string_buffer, string_buffer_length);
-    
+
     if(argc == 1)
     {
         repl(ALLOCATOR(&base_allocator));
@@ -59,38 +60,38 @@ int main(int argc, char** argv)
         for (i32 i = 1; i < argc; i++)
         {
             char* arg = argv[i];
-            String* string = string_create(arg, ALLOCATOR(&string_arena));
+            String string = string_create(arg);
 
-            if (string->length >= 2)
+            if (string.length >= 2)
             {
-                if (string_equal_cstr(string, "--t") || string_equal_cstr(string, "-test"))
+                if (string_equal_cstr(&string, "--t") || string_equal_cstr(&string, "-test"))
                 {
                     printf("Running tests...\n");
 
                     /* String* command = string_create_from_arena("", 1 , ALLOCATOR(&string_arena)); */
                 }
-                else if (string_equal_cstr(string, "--o") || string_equal_cstr(string, "-outpath"))
+                else if (string_equal_cstr(&string, "--o") || string_equal_cstr(&string, "-outpath"))
                 {
                     if(argc < i + 1)
                     {
-                        printf("No output file path provided for '%s' argument. Please provide a valid argument\n", string->str);
+                        printf("No output file path provided for '%s' argument. Please provide a valid argument\n", string.str);
                         break;
                     }
-                    out_path = string_create(argv[i + 1], ALLOCATOR(&string_arena));
+                    out_path = string_allocate(argv[i + 1], ALLOCATOR(&string_arena));
                     i++;
                     string_print(out_path);
                 }
-                else if (string_equal_cstr(string, "--h") || string_equal_cstr(string, "-help"))
+                else if (string_equal_cstr(&string, "--h") || string_equal_cstr(&string, "-help"))
                 {
                     printf("Usage: arc [options] file...\n\n");
                     printf("OPTIONS\n");
 
                     printf("--h or -help            Display this information\n");
                 }
-                else if (is_source_file(string))
+                else if (is_source_file(&string))
                 {
-                    log_info("Source file: %s\n", string->str);
-                    file_path = string;
+                    log_info("Source file: %s\n", string.str);
+                    file_path = string_copy(&string, ALLOCATOR(&string_arena));
                 }
                 else
                 {
