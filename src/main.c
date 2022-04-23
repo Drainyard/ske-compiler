@@ -32,11 +32,6 @@ typedef uintptr_t  umm;
 
 #define LINE_BUFFER_SIZE 256
 
-bool is_source_file(String* string)
-{
-    return string_ends_with_cstr(string, FILE_EXTENSION);
-}
-
 int main(int argc, char** argv)
 {
     Arena base_allocator;
@@ -55,55 +50,11 @@ int main(int argc, char** argv)
     }
     else if(argc > 1)
     {
-        String* file_path = NULL;
-        String* out_path = NULL;
-        for (i32 i = 1; i < argc; i++)
+        Compiler_Arguments arguments = parse_args(argc, argv, ALLOCATOR(&string_arena));
+
+        if (arguments.input_file)
         {
-            char* arg = argv[i];
-            String string = string_create(arg);
-
-            if (string.length >= 2)
-            {
-                if (string_equal_cstr(&string, "--t") || string_equal_cstr(&string, "-test"))
-                {
-                    printf("Running tests...\n");
-
-                    /* String* command = string_create_from_arena("", 1 , ALLOCATOR(&string_arena)); */
-                }
-                else if (string_equal_cstr(&string, "--o") || string_equal_cstr(&string, "-outpath"))
-                {
-                    if(argc < i + 1)
-                    {
-                        printf("No output file path provided for '%s' argument. Please provide a valid argument\n", string.str);
-                        break;
-                    }
-                    out_path = string_allocate(argv[i + 1], ALLOCATOR(&string_arena));
-                    i++;
-                    string_print(out_path);
-                }
-                else if (string_equal_cstr(&string, "--h") || string_equal_cstr(&string, "-help"))
-                {
-                    printf("Usage: arc [options] file...\n\n");
-                    printf("OPTIONS\n");
-
-                    printf("--h or -help            Display this information\n");
-                }
-                else if (is_source_file(&string))
-                {
-                    log_info("Source file: %s\n", string.str);
-                    file_path = string_copy(&string, ALLOCATOR(&string_arena));
-                }
-                else
-                {
-                    printf("Unknown argument '%s'. Try --h or -help to see available options.\n", arg);
-                    break;
-                }
-            }
-        }
-
-        if (file_path)
-        {
-            compile_file(file_path, NULL, out_path, ALLOCATOR(&string_arena));
+            compile_file(arguments, ALLOCATOR(&string_arena));
         }
     }
     

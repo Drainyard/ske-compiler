@@ -185,7 +185,7 @@ static Token lexer_error_token(Lexer* lexer, char* message)
     Token token =
         {
             .type   = TOKEN_ERROR,
-            .start  = message,
+            .start  = lexer->current,
             .length = strlen(message)
         };
 
@@ -318,13 +318,6 @@ Token_List* lexer_tokenize(String* input)
     }
 
     token_list_add(list, token);
-
-    log_info("Tokens: %d\n", list->count);
-
-    for(int i = 0; i < list->count; i++)
-    {
-        token_log(list->tokens[i]);
-    }
 
     return list;
 }

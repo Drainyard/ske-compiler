@@ -5,6 +5,90 @@
 
 String* DEFAULT_EXECUTABLE_OUT_PATH = NULL;
 
+typedef enum
+{
+    OPT_NONE            = 0,
+    OPT_ASSEMBLY_OUTPUT = 1 << 1,
+} Compiler_Options;
+
+bool has_flag(Compiler_Options options, int flag)
+{
+    return options & flag;
+}
+
+typedef struct Compiler_Arguments Compiler_Arguments;
+struct Compiler_Arguments
+{
+    Compiler_Options options;
+    String* input_file; // @Incomplete: Should be a string array, but for now it is just a single string
+    String* out_path;
+};
+
+bool is_source_file(String* string)
+{
+    return string_ends_with_cstr(string, FILE_EXTENSION);
+}
+
+
+Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
+{
+    Compiler_Arguments arguments;
+    arguments.options = OPT_NONE;
+    arguments.input_file = NULL;
+    arguments.out_path = NULL;
+
+    for (i32 i = 1; i < argc; i++)
+    {
+        char* arg = argv[i];
+        String string = string_create(arg);
+
+        if (string.length >= 2)
+        {
+            if (string_equal_cstr(&string, "--t") || string_equal_cstr(&string, "-test"))
+            {
+                printf("Running tests...\n");
+
+                /* String* command = string_create_from_arena("", 1 , ALLOCATOR(&string_arena)); */
+            }
+            else if (string_equal_cstr(&string, "--o") || string_equal_cstr(&string, "-outpath"))
+            {
+                if(argc < i + 1)
+                {
+                    printf("No output file path provided for '%s' argument. Please provide a valid argument\n", string.str);
+                    break;
+                }
+                arguments.out_path = string_allocate(argv[i + 1], allocator);
+                i++;
+            }
+            else if (string_equal_cstr(&string, "--S") || string_equal_cstr(&string, "-asm"))
+            {
+                arguments.options |= OPT_ASSEMBLY_OUTPUT;
+            }
+            else if (string_equal_cstr(&string, "--h") || string_equal_cstr(&string, "-help"))
+            {
+                printf("Usage: arc [options] file...\n\n");
+                printf("Options\n");
+
+                printf("  --h or -help            Display this information\n");
+                printf("  --o <file>              Place the output into <file>\n");
+                printf("  --S or -asm             Compile only; do not assemble or link.\n");
+                printf("  --c                     Compile and assembly, but do not link\n");
+            }
+            else if (is_source_file(&string))
+            {
+                arguments.input_file = string_copy(&string, allocator);
+            }
+            else
+            {
+                printf("Unknown argument '%s'. Try --h or -help to see available options.\n", arg);
+                break;
+            }
+        }
+    }
+
+    return arguments;
+}
+
 bool compiler_assemble_x86_with_output_path(String* x86_assembly, const char* output_path, Allocator* allocator)
 {
     String_Builder sb;
@@ -29,7 +113,7 @@ bool compiler_link(String* input_file_path, String* output_file_path, Allocator*
     return run_subprocess(cmd); 
 }
 
-bool compile(String* source, String* assembly_out_path, String* executable_out_path, Allocator* allocator)
+bool compile(String* source, Compiler_Options options, String* optional_out_path, Allocator* allocator)
 {
     if(source->length == 0)
     {
@@ -44,29 +128,42 @@ bool compile(String* source, String* assembly_out_path, String* executable_out_p
     bool result = false;
     if (parse(&parser, false, allocator))
     {
-        log_info("Parsing succeeded\n\n");
         String* assembly = x86_codegen_ast(parser.root, allocator);
-        String* assembly_out = assembly_out_path ? assembly_out_path : create_temp_file(allocator);
         if (assembly)
         {
-            String* temp_path = create_temp_file(allocator);
-            if (temp_path)
+            String* out_path = NULL;
+            if (has_flag(options, OPT_ASSEMBLY_OUTPUT))
             {
-                FILE* temp_file = fopen(temp_path->str, "w");
+                out_path = optional_out_path ? optional_out_path : string_allocate("out.s", allocator);
+            }
+            else
+            {
+                out_path = create_temp_file(allocator);
+            }
+                
+            if (out_path)
+            {
+                FILE* temp_file = fopen(out_path->str, "w");
                 if (!temp_file)
                 {
-                    log_error("Unable to open temp file: %s\n", temp_file);
+                    fprintf(stderr, "Unable to open temp file: %s\n", out_path->str);
                     exit(1);
                 }
 
                 string_write_to_file(assembly, temp_file);
                 fclose(temp_file);
-                
-                result = compiler_assemble_x86_with_input_file(temp_path, assembly_out, allocator);
+
+                if (has_flag(options, OPT_ASSEMBLY_OUTPUT))
+                {
+                    return true;
+                }
+
+                String* assembly_out = create_temp_file(allocator);
+                result = compiler_assemble_x86_with_input_file(out_path, assembly_out, allocator);
 
                 if (!result)
                 {
-                    log_error("Assembler failed\n");
+                    fprintf(stderr, "Assembler failed\n");
                     exit(1);
                 }
 
@@ -75,13 +172,13 @@ bool compile(String* source, String* assembly_out_path, String* executable_out_p
                     DEFAULT_EXECUTABLE_OUT_PATH = string_allocate("a.out", allocator);
                 }
                 
-                String* executable_out = executable_out_path ? executable_out_path : DEFAULT_EXECUTABLE_OUT_PATH;
+                String* executable_out = optional_out_path ? optional_out_path : DEFAULT_EXECUTABLE_OUT_PATH;
 
                 result = compiler_link(assembly_out, executable_out, allocator);
 
                 if (!result)
                 {
-                    log_error("Linking failed\n");
+                    fprintf(stderr, "Linking failed\n");
                     exit(1);
                 }
             }
@@ -89,7 +186,7 @@ bool compile(String* source, String* assembly_out_path, String* executable_out_p
     }
     else
     {
-        log_error("Parsing failed with errors\n");        
+        fprintf(stderr, "Parsing failed with errors\n");        
     }
     
     parser_free(&parser);
@@ -98,14 +195,19 @@ bool compile(String* source, String* assembly_out_path, String* executable_out_p
     return result;
 }
 
-bool compile_file(String* path, String* assembly_out_path, String* executable_out_path, Allocator* allocator)
+bool compile_file(Compiler_Arguments arguments, Allocator* allocator)
 {
-    FILE* file = fopen(path->str, "r");
+    if (!arguments.input_file)
+    {
+        return false;
+    }
+    
+    FILE* file = fopen(arguments.input_file->str, "r");
     bool result = false;
     if (file)
     {
         String* source = string_create_from_file_with_allocator(file, allocator);
-        result = compile(source, assembly_out_path, executable_out_path, allocator);
+        result = compile(source, arguments.options, arguments.out_path, allocator);
         fclose(file);
         /* cleanup_temp_files(); */
     }

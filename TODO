@@ -1,5 +1,4 @@
-- [ ] Handle out file argument (for different stages)
-- [ ] Handle arguments for which compilation step to stop at (assembly output, linker output etc.)
+- [ ] Handle arguments for which compilation step to stop at linker output
 - [ ] Add a few tests (find some way to test code coverage maybe?)
 - [ ] Compile to some IR. Could be basic blocks or some other even more basic assembly IR so we can output to multiple platforms more easily
 - [ ] Add support for windows (and MacOS?)
@@ -11,3 +10,5 @@
 - [ ] Add different allocator types that are more dynamic than arenas (Something that allows better freeing)
 - [x] Change String interface to be more like in https://godbolt.org/z/o7Tn5Kqz3
 - [x] Move assemble.sh and link.sh into the compiler script or embed them somehow
+- [X] Handle arguments for which compilation step to stop at assembly output
+- [X] Handle out file argument

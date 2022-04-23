@@ -3,31 +3,64 @@
 TESTDIR=tests
 SUCCEEDING=$TESTDIR/succeeding
 FAILING=$TESTDIR/failing
-OUT_DIR=$TESTDIR/tests_out
-EXPECT_DIR=$TESTDIR/tests_expect
+OUT_DIR=$TESTDIR/out
+EXPECT_DIR=$TESTDIR/expect
+EXPECT_SUCCEEDING=$TESTDIR/expect/succeeding
+EXPECT_FAILING=$TESTDIR/expect/failing
 
 mkdir -p $OUT_DIR
 mkdir -p $EXPECT_DIR
+mkdir -p $EXPECT_SUCCEEDING
+mkdir -p $EXPECT_FAILING
 mkdir -p $SUCCEEDING
 mkdir -p $FAILING
 
 SUCCEEDING_TESTS=$SUCCEEDING/*
-FAILING_TESTS=($FAILING/*)
+FAILING_TESTS=$FAILING/*
+
+function test_expect()
+{
+	EXPECT_NAME=$1.expect
+	EXPECT_LOC=$2/$1.expect
+
+	if [ -f "$EXPECT_LOC" ]; then
+		EXPECT=`cat $EXPECT_LOC`
+		if [[ $OUTPUT == $EXPECT ]]; then
+			echo $n "Success"
+		else
+			echo $n "Failed"
+		fi	
+	else
+		echo "$EXPECT_LOC does not yet exist. Creating it with current result: $OUTPUT"
+		touch $EXPECT_LOC
+		echo $OUTPUT > $EXPECT_LOC
+	fi
+}
 
 for n in $SUCCEEDING_TESTS; do
 	arc $n
+
+	NO_EXT="${n%.*}"
+	NO_EXT=${NO_EXT##*/}
+
 	if [ -e a.out ]; then
 		./a.out
 		OUTPUT=$?
-		EXPECT=cat $EXPECT_DIR/$n.expect
-		if [$OUTPUT == $EXPECT]; then
-			echo "Success!"
-		else
-			echo $n "failed"
-		fi
+		test_expect $NO_EXT $EXPECT_SUCCEEDING
+		rm a.out
 	else
 		echo "Not assembling $n"
 	fi
+done
+
+for n in $FAILING_TESTS; do
+	OUTPUT=`arc $n`
+	
+	NO_EXT="${n%.*}"
+	NO_EXT=${NO_EXT##*/}
+
+	test_expect $NO_EXT $EXPECT_FAILING
+	
 done
 
 
