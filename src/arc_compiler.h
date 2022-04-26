@@ -29,7 +29,6 @@ bool is_source_file(String* string)
     return string_ends_with_cstr(string, FILE_EXTENSION);
 }
 
-
 Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
 {
     Compiler_Arguments arguments;
@@ -89,18 +88,6 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
     return arguments;
 }
 
-bool compiler_assemble_x86_with_output_path(String* x86_assembly, const char* output_path, Allocator* allocator)
-{
-    String_Builder sb;
-    sb_init_with_allocator(&sb, 32 + x86_assembly->length, allocator);
-
-    sb_appendf(&sb, "echo '%s' | as -o %s", x86_assembly->str, output_path);
-
-    String* command = sb_get_result(&sb, allocator);
-
-    return run_command(command, "Failed to run assembler\n");
-}
-
 bool compiler_assemble_x86_with_input_file(String* file_path, String* output_path, Allocator* allocator)
 {
     char *cmd[] = {"as", "-c", file_path->str, "-o", output_path->str, NULL};
@@ -109,7 +96,7 @@ bool compiler_assemble_x86_with_input_file(String* file_path, String* output_pat
 
 bool compiler_link(String* input_file_path, String* output_file_path, Allocator* allocator)
 {
-    char *cmd[] = {"gcc", "-o", output_file_path->str, input_file_path->str, "-lm", NULL};
+    char *cmd[] = {"gcc", "-o", output_file_path->str, input_file_path->str, "-lm", "-no-pie", NULL};
     return run_subprocess(cmd); 
 }
 
@@ -186,7 +173,8 @@ bool compile(String* source, Compiler_Options options, String* optional_out_path
     }
     else
     {
-        fprintf(stderr, "Parsing failed with errors\n");        
+        fprintf(stderr, "Parsing failed with errors\n");
+        exit(1);
     }
     
     parser_free(&parser);

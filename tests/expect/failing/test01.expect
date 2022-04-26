@@ -1,1 +1,6 @@
-
+&&
+ ^ Unexpected token.
+&
+ ^ Unexpected token.
+[line 0] Error: &
+Parsing failed with errors

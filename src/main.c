@@ -57,6 +57,6 @@ int main(int argc, char** argv)
             compile_file(arguments, ALLOCATOR(&string_arena));
         }
     }
-    
+
     return 0;
 }

@@ -25,15 +25,21 @@ function test_expect()
 
 	if [ -f "$EXPECT_LOC" ]; then
 		EXPECT=`cat $EXPECT_LOC`
-		if [[ $OUTPUT == $EXPECT ]]; then
+		# echo "========="
+		# echo "Test: " $n
+		# echo "Expected: " "$EXPECT"
+		# echo "Result:   " "$OUTPUT"
+		if [[ "$OUTPUT" == "$EXPECT" ]]; then
 			echo $n "Success"
 		else
 			echo $n "Failed"
-		fi	
+		fi
+		
+		# echo "========="
 	else
 		echo "$EXPECT_LOC does not yet exist. Creating it with current result: $OUTPUT"
 		touch $EXPECT_LOC
-		echo $OUTPUT > $EXPECT_LOC
+		echo "$OUTPUT" > $EXPECT_LOC
 	fi
 }
 
@@ -44,8 +50,7 @@ for n in $SUCCEEDING_TESTS; do
 	NO_EXT=${NO_EXT##*/}
 
 	if [ -e a.out ]; then
-		./a.out
-		OUTPUT=$?
+		OUTPUT=$(./a.out 2>&1 >/dev/null)
 		test_expect $NO_EXT $EXPECT_SUCCEEDING
 		rm a.out
 	else
@@ -54,7 +59,7 @@ for n in $SUCCEEDING_TESTS; do
 done
 
 for n in $FAILING_TESTS; do
-	OUTPUT=`arc $n`
+	OUTPUT=$(arc $n 2>&1 >/dev/null)
 	
 	NO_EXT="${n%.*}"
 	NO_EXT=${NO_EXT##*/}

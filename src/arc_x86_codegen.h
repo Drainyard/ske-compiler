@@ -171,6 +171,12 @@ void x86_emit_move_lit_to_reg(String_Builder* sb, int num, int dst)
     sb_appendf(sb, "movq    $%d, %s\n", num, scratch_name(dst));
 }
 
+void x86_emit_move_lit_to_name(String_Builder* sb, int num, const char* dst)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "movq    $%d, %s\n", num, dst);
+}
+
 void x86_emit_move_name_to_reg(String_Builder* sb, const char* src, int dst)
 {
     sb_indent(sb, 4);
@@ -273,6 +279,25 @@ void x86_emit_push_name(String_Builder* sb, const char* name)
     sb_appendf(sb, "pushq   %s\n", name);
 }
 
+void x86_emit_asciz(String_Builder* sb, const char* name, const char* value)
+{
+    sb_appendf(sb, "%s:\n", name);
+    sb_indent(sb, 4);
+    sb_appendf(sb, ".asciz \"%s\"\n", value);
+}
+
+void x86_emit_call(String_Builder* sb, const char* function)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "call    %s\n", function);
+}
+
+void x86_emit_comment_line(String_Builder* sb, const char* comment)
+{
+    sb_indent(sb, 4);
+    sb_appendf(sb, "#;; %s\n", comment);
+}
+
 void x86_codegen_program(AST_Node* program_node, String_Builder* sb, Scratch_Register_Table* table)
 {
     sb_append(sb, ".data\n");
@@ -289,9 +314,22 @@ void x86_codegen_program(AST_Node* program_node, String_Builder* sb, Scratch_Reg
     x86_emit_move_reg_to_name(sb, final_reg, "%rax");
     scratch_free(table, final_reg);
 
+    // @Note: Emit instructions for fprintf call (used for now)
+    sb_append(sb, "\n");
+    x86_emit_comment_line(sb, "fprintf call to output result temporarily");
+    x86_emit_move_name_to_name(sb, "stderr", "%rax");
+    x86_emit_move_reg_to_name(sb, final_reg, "%rdx");
+    x86_emit_move_name_to_name(sb, "$format", "%rsi");
+    x86_emit_move_name_to_name(sb, "%rax", "%rdi");
+    x86_emit_move_lit_to_name(sb, 0, "%rax");
+    x86_emit_call(sb, "fprintf");
+    x86_emit_move_lit_to_name(sb, 0, "%rax");
+
     x86_emit_pop_name(sb, "%rbp");
 
-    x86_emit_ret(sb);    
+    x86_emit_ret(sb);
+
+    x86_emit_asciz(sb, "format", "%d\\n");
 }
 
 String* x86_codegen_ast(AST_Node* root_node, Allocator* allocator)
