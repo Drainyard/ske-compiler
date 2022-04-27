@@ -8,6 +8,7 @@
 - [ ] Add verbose mode for stage output (tokenizer/lexer, parser, IR-gen, codegen, etc.)
 - [ ] Add global allocator
 - [ ] Add different allocator types that are more dynamic than arenas (Something that allows better freeing)
+- [ ] Rebrand language to Ske Lang and buy ske-lang.org domain
 - [x] Change String interface to be more like in https://godbolt.org/z/o7Tn5Kqz3
 - [x] Move assemble.sh and link.sh into the compiler script or embed them somehow
 - [X] Handle arguments for which compilation step to stop at assembly output
