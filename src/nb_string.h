@@ -8,6 +8,31 @@ struct String
     char* str;    
 };
 
+typedef struct String_View String_View;
+struct String_View
+{
+    String* string;
+};
+
+String_View sv_create(String* string)
+{
+    String_View view =
+    {
+        .string = string
+    };
+    return view;
+}
+
+int sv_len(String_View view)
+{
+    return view.string->length;
+}
+
+char* sv_null_terminated_string(String_View view)
+{
+    return view.string->str;
+}
+
 String string_create(char* nt_str)
 {
     String string =

@@ -15,7 +15,14 @@ void repl(Allocator* allocator)
             break;
         }
 
-        bool result = compile(&buffer, OPT_NONE, NULL, allocator);
+        Compiler_Arguments args =
+            {
+                .options    = OPT_NONE,
+                .input_file = NULL,
+                .out_path   = NULL
+            };
+
+        bool result = compile(&buffer, args, allocator);
         if (!result)
         {
             log_error("Compilation failed with errors\n");

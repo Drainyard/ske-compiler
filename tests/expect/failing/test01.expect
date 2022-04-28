@@ -1,6 +1,3 @@
-&&
- ^ Unexpected token.
-&
- ^ Unexpected token.
-[line 0] Error: &
-Parsing failed with errors
+[1;37m/home/niels/code/ske-compiler/tests/failing/test01.ske:1:1:[31m error: [0m[1;37m'&&' [0munexpected token
+[1;37m/home/niels/code/ske-compiler/tests/failing/test01.ske:1:1:[31m error: [0m[1;37m'&' [0munexpected token
+[1;37m/home/niels/code/ske-compiler/tests/failing/test01.ske:0:0:[31m error: [0m&

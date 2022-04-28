@@ -1,4 +1,4 @@
-### Current state of the AR Language Grammar
+### Current state of the Ske Language Grammar
 
 <program>                ::= <expression>
 

@@ -26,6 +26,7 @@ typedef struct
     char* start;
     i32 length;
     i32 line;
+    i32 position;
 } Token;
 
 typedef struct
@@ -34,13 +35,19 @@ typedef struct
     char* current;
 
     i32 line;
+    i32 position_on_line;
+
+    String_View file_name;
+    String_View absolute_path;
 } Lexer;
 
-static void lexer_init(Lexer* lexer, String* source)
+static void lexer_init(Lexer* lexer, String* source, String_View file_name, String_View absolute_path)
 {
     lexer->start = source->str;
     lexer->current = source->str;
-    lexer->line = 0;
+    lexer->line = 1;
+    lexer->file_name = file_name;
+    lexer->absolute_path = absolute_path;
 }
 
 static void token_log(Token token)
@@ -146,25 +153,38 @@ static bool lexer_match_character(Lexer* lexer, char expected)
 
 static Token lexer_make_token(Lexer* lexer, Token_Type type)
 {
+    i32 length = (i32)(lexer->current - lexer->start);
     Token token =
         {
-            .type   = type,
-            .start  = lexer->start,
-            .line   = lexer->line,
-            .length = (i32)(lexer->current - lexer->start)
+            .type     = type,
+            .start    = lexer->start,
+            .line     = lexer->line,
+            .length   = length,
+            .position = lexer->position_on_line
         };
+    lexer->position_on_line += length;
     return token;
 }
 
 static void lexer_verror_at(Lexer* lexer, char* location, char* fmt, va_list ap)
 {
-    i32 pos = location - lexer->start;
-    fprintf(stderr, "%s\n", lexer->start);
-    fprintf(stderr, "%*s", pos, "");
-    fprintf(stderr, "^ ");
+    fprintf(stderr, "\x1b[1;37m");
+    i32 length = fprintf(stderr, sv_null_terminated_string(lexer->absolute_path));
+    length += fprintf(stderr, ":%d:%d:\x1b[31m error: ", lexer->line, lexer->position_on_line);
+    length++;
+    
+    fprintf(stderr, "\x1b[0m");
+
+    fprintf(stderr, "\x1b[1;37m");
+    fprintf(stderr, "'%s' ", lexer->start);
+    fprintf(stderr, "\x1b[0m");
     vfprintf(stderr, fmt, ap);
     fprintf(stderr, "\n");
+
+    /* fprintf(stderr, "%*s", length, ""); */
+    /* fprintf(stderr, "%*s^ ", length, ""); */
 }
+
 
 static void lexer_error_at(Lexer* lexer, char* location, char* fmt, ...)
 {
@@ -184,9 +204,11 @@ static Token lexer_error_token(Lexer* lexer, char* message)
 {
     Token token =
         {
-            .type   = TOKEN_ERROR,
-            .start  = lexer->current,
-            .length = strlen(message)
+            .type     = TOKEN_ERROR,
+            .start    = lexer->current,
+            .length   = strlen(message),
+            .line     = lexer->line,
+            .position = lexer->position_on_line
         };
 
     lexer_error_tok(lexer, &token, message);
@@ -212,6 +234,7 @@ static void lexer_skip_whitespace(Lexer* lexer)
         {
             lexer_advance(lexer);
             lexer->line++;
+            lexer->position_on_line = 0;
         }
         break;
         default:
@@ -256,7 +279,7 @@ static Token lexer_scan_token(Lexer* lexer)
     case ')': return lexer_make_token(lexer, TOKEN_RIGHT_PAREN);
     }
 
-    return lexer_error_token(lexer, "Unexpected token.");
+    return lexer_error_token(lexer, "unexpected token");
 }
 
 typedef struct
@@ -301,13 +324,13 @@ void token_list_add(Token_List* list, Token token)
     list->tokens[list->count++] = token;
 }
 
-Token_List* lexer_tokenize(String* input)
+Token_List* lexer_tokenize(String* input, String* file_name, String* absolute_path)
 {
     Token_List* list = malloc(sizeof(Token_List));
     token_list_init(list, 128);
     
     Lexer lexer;
-    lexer_init(&lexer, input);
+    lexer_init(&lexer, input, sv_create(file_name), sv_create(absolute_path));
 
     Token token = lexer_scan_token(&lexer);
 

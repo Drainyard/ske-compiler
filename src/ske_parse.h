@@ -110,6 +110,8 @@ typedef struct
     Token_List* token_stream;
     i32 current_token;
 
+    String_View absolute_path;
+
     Allocator* allocator;
 
     /* AST_Store ast_store; */
@@ -132,22 +134,15 @@ static void parser_error_at(Parser* parser, Token* token, const char* message)
 {
     if (parser->panic_mode) return;
     parser->panic_mode = true;
-    
-    fprintf(stderr, "[line %d] Error", token->line);
 
-    if (token->type == TOKEN_EOF)
-    {
-        fprintf(stderr, " at end");
-    }
-    else if (token->type == TOKEN_ERROR)
-    {
-        
-    }
-    else
-    {
-        fprintf(stderr, " at '%.*s'", token->length, token->start);
-    }
-    fprintf(stderr, ": %s\n", message);
+    fprintf(stderr, "\x1b[1;37m");
+    i32 length = fprintf(stderr, sv_null_terminated_string(parser->absolute_path));
+    length += fprintf(stderr, ":%d:%d:\x1b[31m error: ", token->line, token->position);
+    length++;
+
+    fprintf(stderr, "\x1b[0m");
+
+    fprintf(stderr, "%s\n", message);
     parser->had_error = true;
 }
 
@@ -170,49 +165,20 @@ void parser_advance(Parser* parser)
         parser->current = parser->token_stream->tokens[parser->current_token++];
         if (parser->current.type != TOKEN_ERROR) break;
 
-        parser_error_at_current(parser, parser->current.start);
+        char err[32];
+        sprintf(err, "unknown token \x1b[1;37m'%s'\x1b[0m", parser->current.start);
+        parser_error_at(parser, &parser->current, err);
     }
 }
 
-/* static void ast_store_init_with_capacity(AST_Store* store, i32 initial_capacity) */
-/* { */
-/*     store->capacity = initial_capacity; */
-/*     store->nodes = malloc(sizeof(AST_Node) * store->capacity); */
-/*     store->count = 0; */
-/* } */
-
-/* static void ast_store_init(AST_Store* store) */
-/* { */
-/*     ast_store_init_with_capacity(store, 32); */
-/* } */
-
-/* static AST_Node_Handle ast_store_add_node(AST_Store* store, AST_Node_Type type) */
-/* { */
-/*     if(store->capacity <= store->count + 1) */
-/*     { */
-/*         store->capacity *= 2; */
-/*         store->nodes = realloc(store->nodes, store->capacity); */
-/*     } */
-
-/*     AST_Node* new_node = &store->nodes[store->count++]; */
-/*     new_node->type = type; */
-/*     AST_Node_Handle handle = { .handle = store->count - 1 }; */
-/*     return handle; */
-/* } */
-
-/* static AST_Node* ast_store_get_node(AST_Store* store, AST_Node_Handle handle) */
-/* { */
-/*     assert(AST_HANDLE_VALID(handle)); */
-/*     return &store->nodes[handle.handle]; */
-/* } */
-
-void parser_init(Parser* parser, Token_List* tokens, Allocator* allocator)
+void parser_init(Parser* parser, String* absolute_path, Token_List* tokens, Allocator* allocator)
 {
     parser->current = tokens->tokens[0];
     parser->token_stream = tokens;
     parser->current_token = 0;
     parser->had_error = false;
     parser->panic_mode = false;
+    parser->absolute_path = sv_create(absolute_path);
 
     parser->allocator = allocator;
 
@@ -268,7 +234,7 @@ static AST_Node* parser_precedence(Parser* parser, Precedence precedence)
     Parse_Fn prefix_rule = parser_get_rule(parser->previous.type)->prefix;
     if (prefix_rule == NULL)
     {
-        parser_error(parser, "Expect expression.");
+        parser_error(parser, "expected expression");
         AST_Node* error_node = parser_add_node(AST_NODE_ERROR, parser->allocator);
         return error_node;
     }

@@ -25,21 +25,20 @@ function test_expect()
 
 	if [ -f "$EXPECT_LOC" ]; then
 		EXPECT=`cat $EXPECT_LOC`
-		# echo "========="
-		# echo "Test: " $n
-		# echo "Expected: " "$EXPECT"
-		# echo "Result:   " "$OUTPUT"
 		if [[ "$OUTPUT" == "$EXPECT" ]]; then
 			echo $n "Success"
 		else
 			echo $n "Failed"
 		fi
-		
-		# echo "========="
 	else
-		echo "$EXPECT_LOC does not yet exist. Creating it with current result: $OUTPUT"
-		touch $EXPECT_LOC
-		echo "$OUTPUT" > $EXPECT_LOC
+		echo "ske: $1.ske returned result"
+		echo "$OUTPUT"
+		read -p "ske: $EXPECT_LOC"$' does not yet exist. Create it now with result (y/n)? ' choice
+		case "$choice" in 
+			y|Y ) touch $EXPECT_LOC && echo "$OUTPUT" > $EXPECT_LOC ;;
+			n|N ) ;;
+			* ) echo "please answer 'y' or 'n'";;
+		esac
 	fi
 }
 

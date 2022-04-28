@@ -1,7 +1,7 @@
 #ifndef ARC_COMPILER_H
 #define ARC_COMPILER_H
 
-#define FILE_EXTENSION ".ar"
+#define FILE_EXTENSION ".ske"
 
 String* DEFAULT_EXECUTABLE_OUT_PATH = NULL;
 
@@ -22,6 +22,7 @@ struct Compiler_Arguments
     Compiler_Options options;
     String* input_file; // @Incomplete: Should be a string array, but for now it is just a single string
     String* out_path;
+    String* absolute_path;
 };
 
 bool is_source_file(String* string)
@@ -35,6 +36,9 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
     arguments.options = OPT_NONE;
     arguments.input_file = NULL;
     arguments.out_path = NULL;
+    char *realpath(const char *restrict path,
+                      char *restrict resolved_path);
+
 
     for (i32 i = 1; i < argc; i++)
     {
@@ -65,7 +69,7 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             }
             else if (string_equal_cstr(&string, "--h") || string_equal_cstr(&string, "-help"))
             {
-                printf("Usage: arc [options] file...\n\n");
+                printf("Usage: ske [options] file...\n\n");
                 printf("Options\n");
 
                 printf("  --h or -help            Display this information\n");
@@ -76,6 +80,8 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             else if (is_source_file(&string))
             {
                 arguments.input_file = string_copy(&string, allocator);
+                String local = string_create(realpath(string.str, NULL));
+                arguments.absolute_path = string_copy(&local, allocator);
             }
             else
             {
@@ -100,7 +106,7 @@ bool compiler_link(String* input_file_path, String* output_file_path, Allocator*
     return run_subprocess(cmd); 
 }
 
-bool compile(String* source, Compiler_Options options, String* optional_out_path, Allocator* allocator)
+bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
 {
     if(source->length == 0)
     {
@@ -108,9 +114,9 @@ bool compile(String* source, Compiler_Options options, String* optional_out_path
         return false;
     }
     
-    Token_List* tokens = lexer_tokenize(source);
+    Token_List* tokens = lexer_tokenize(source, arguments.input_file, arguments.absolute_path);
     Parser parser;
-    parser_init(&parser, tokens, allocator);
+    parser_init(&parser, arguments.absolute_path, tokens, allocator);
 
     bool result = false;
     if (parse(&parser, false, allocator))
@@ -119,9 +125,9 @@ bool compile(String* source, Compiler_Options options, String* optional_out_path
         if (assembly)
         {
             String* out_path = NULL;
-            if (has_flag(options, OPT_ASSEMBLY_OUTPUT))
+            if (has_flag(arguments.options, OPT_ASSEMBLY_OUTPUT))
             {
-                out_path = optional_out_path ? optional_out_path : string_allocate("out.s", allocator);
+                out_path = arguments.out_path ? arguments.out_path : string_allocate("out.s", allocator);
             }
             else
             {
@@ -140,7 +146,7 @@ bool compile(String* source, Compiler_Options options, String* optional_out_path
                 string_write_to_file(assembly, temp_file);
                 fclose(temp_file);
 
-                if (has_flag(options, OPT_ASSEMBLY_OUTPUT))
+                if (has_flag(arguments.options, OPT_ASSEMBLY_OUTPUT))
                 {
                     return true;
                 }
@@ -159,7 +165,7 @@ bool compile(String* source, Compiler_Options options, String* optional_out_path
                     DEFAULT_EXECUTABLE_OUT_PATH = string_allocate("a.out", allocator);
                 }
                 
-                String* executable_out = optional_out_path ? optional_out_path : DEFAULT_EXECUTABLE_OUT_PATH;
+                String* executable_out = arguments.out_path ? arguments.out_path : DEFAULT_EXECUTABLE_OUT_PATH;
 
                 result = compiler_link(assembly_out, executable_out, allocator);
 
@@ -173,7 +179,6 @@ bool compile(String* source, Compiler_Options options, String* optional_out_path
     }
     else
     {
-        fprintf(stderr, "Parsing failed with errors\n");
         exit(1);
     }
     
@@ -195,7 +200,7 @@ bool compile_file(Compiler_Arguments arguments, Allocator* allocator)
     if (file)
     {
         String* source = string_create_from_file_with_allocator(file, allocator);
-        result = compile(source, arguments.options, arguments.out_path, allocator);
+        result = compile(source, arguments, allocator);
         fclose(file);
         /* cleanup_temp_files(); */
     }
