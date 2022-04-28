@@ -23,12 +23,12 @@ typedef uintptr_t  umm;
 #include "nb_string.h"
 #include "nb_file.h"
 #include "nb_shell.h"
-#include "arc_lex.h"
-#include "arc_parse.h"
-#include "arc_ir.h"
-#include "arc_x86_codegen.h"
-#include "arc_compiler.h"
-#include "arc_runtime.h"
+#include "ske_lex.h"
+#include "ske_parse.h"
+#include "ske_ir.h"
+#include "ske_x86_codegen.h"
+#include "ske_compiler.h"
+#include "ske_runtime.h"
 
 #define LINE_BUFFER_SIZE 256
 

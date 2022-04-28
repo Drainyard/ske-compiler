@@ -1,3 +1,6 @@
 #!/bin/bash
 
-gdb build/main.out
+BUILD_DIR=build
+EXECUTABLE_NAME=__ske
+
+gdb $BUILD_DIR/$EXECUTABLE_NAME

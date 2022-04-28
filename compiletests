@@ -44,7 +44,7 @@ function test_expect()
 }
 
 for n in $SUCCEEDING_TESTS; do
-	arc $n
+	ske $n
 
 	NO_EXT="${n%.*}"
 	NO_EXT=${NO_EXT##*/}
@@ -59,7 +59,7 @@ for n in $SUCCEEDING_TESTS; do
 done
 
 for n in $FAILING_TESTS; do
-	OUTPUT=$(arc $n 2>&1 >/dev/null)
+	OUTPUT=$(ske $n 2>&1 >/dev/null)
 	
 	NO_EXT="${n%.*}"
 	NO_EXT=${NO_EXT##*/}
