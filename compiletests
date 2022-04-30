@@ -18,22 +18,35 @@ mkdir -p $FAILING
 SUCCEEDING_TESTS=$SUCCEEDING/*
 FAILING_TESTS=$FAILING/*
 
+RED=`tput setaf 1`
+BOLD=`tput bold`
+GREEN=`tput setaf 2`
+YELLOW=`tput setaf 3`
+RESET+=`tput sgr0`
+
+SKE="${BOLD}ske:${RESET}"
+
+FAILING_TEST_COUNT=0
+SUCCEEDING_TEST_COUNT=0
+
 function test_expect()
 {
-	EXPECT_NAME=$1.expect
-	EXPECT_LOC=$2/$1.expect
+	local EXPECT_NAME=$1.expect
+	local EXPECT_LOC=$2/$1.expect
 
 	if [ -f "$EXPECT_LOC" ]; then
-		EXPECT=`cat $EXPECT_LOC`
+		local EXPECT=`cat $EXPECT_LOC`
 		if [[ "$OUTPUT" == "$EXPECT" ]]; then
-			echo $n "Success"
+			echo $n "${GREEN}${BOLD}Success${RESET}"
+			((SUCCEEDING_TEST_COUNT=SUCCEEDING_TEST_COUNT+1))
 		else
-			echo $n "Failed"
+			echo $n "${RED}${BOLD}Failed${RESET}"
+			((FAILING_TEST_COUNT=FAILING_TEST_COUNT+1))
 		fi
 	else
-		echo "ske: $1.ske returned result"
+		echo "${SKE} $1.ske returned result"p
 		echo "$OUTPUT"
-		read -p "ske: $EXPECT_LOC"$' does not yet exist. Create it now with result (y/n)? ' choice
+		read -p "${SKE} ${YELLOW}${BOLD}${EXPECT_LOC}${RESET} does not yet exist. Create it now with result ${BOLD}(y/n)? " choice
 		case "$choice" in 
 			y|Y ) touch $EXPECT_LOC && echo "$OUTPUT" > $EXPECT_LOC ;;
 			n|N ) ;;
@@ -42,8 +55,11 @@ function test_expect()
 	fi
 }
 
+TOTAL_TESTS=0
+
 for n in $SUCCEEDING_TESTS; do
 	ske $n
+	((TOTAL_TESTS=TOTAL_TESTS+1))
 
 	NO_EXT="${n%.*}"
 	NO_EXT=${NO_EXT##*/}
@@ -51,6 +67,7 @@ for n in $SUCCEEDING_TESTS; do
 	if [ -e a.out ]; then
 		OUTPUT=$(./a.out 2>&1 >/dev/null)
 		test_expect $NO_EXT $EXPECT_SUCCEEDING
+
 		rm a.out
 	else
 		echo "Not assembling $n"
@@ -59,12 +76,12 @@ done
 
 for n in $FAILING_TESTS; do
 	OUTPUT=$(ske $n 2>&1 >/dev/null)
+	((TOTAL_TESTS=TOTAL_TESTS+1))
 	
 	NO_EXT="${n%.*}"
 	NO_EXT=${NO_EXT##*/}
 
 	test_expect $NO_EXT $EXPECT_FAILING
-	
 done
 
-
+echo "${SKE} ${BOLD}${SUCCEEDING_TEST_COUNT}/${TOTAL_TESTS}${RESET} tests succeeded"
