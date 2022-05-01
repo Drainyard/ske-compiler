@@ -1,6 +1,11 @@
 - [ ] Handle arguments for which compilation step to stop at linker output
 - [ ] Add more failing tests
 - [ ] Compile to some IR. Could be basic blocks or some other even more basic assembly IR so we can output to multiple platforms more easily
+- [ ] Add function calls
+- [ ] Add function declarations
+- [ ] Add variable bindings (let/var/const?)
+- [ ] Add string types
+- [ ] Add a type checker stage
 - [ ] Add support for windows (and MacOS?)
 - [ ] Improve lex and parser error messages (Clang or GCC as examples)
 - [ ] Add ARM64 output for M1 and other ARM-based platforms
