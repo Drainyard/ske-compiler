@@ -371,6 +371,11 @@ void sb_appendf(String_Builder* builder, const char* format, ...)
     builder->current_index += format_length;
 }
 
+void sb_newline(String_Builder* builder)
+{
+    sb_append(builder, "\n");
+}
+
 String* sb_get_result(String_Builder* builder, Allocator* allocator)
 {
     if (!builder->string || builder->current_index == 0)
