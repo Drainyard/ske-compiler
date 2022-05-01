@@ -121,6 +121,7 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
     bool result = false;
     if (parse(&parser, false, allocator))
     {
+        ir_translate_ast(parser.root, allocator);
         String* assembly = x86_codegen_ast(parser.root, allocator);
         if (assembly)
         {

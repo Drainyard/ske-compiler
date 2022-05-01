@@ -50,71 +50,6 @@ static void lexer_init(Lexer* lexer, String* source, String_View file_name, Stri
     lexer->absolute_path = absolute_path;
 }
 
-static void token_log(Token token)
-{
-    char *token_type;
-    switch(token.type)
-    {
-    case TOKEN_PLUS:
-    {
-        token_type = "TOKEN_ADD";
-    }
-    break;
-    case TOKEN_MINUS:
-    {
-        token_type = "TOKEN_SUB";
-    }
-    break;
-    case TOKEN_STAR:
-    {
-        token_type = "TOKEN_MUL";
-    }
-    break;
-    case TOKEN_SLASH:
-    {
-        token_type = "TOKEN_DIV";
-    }
-    break;
-    case TOKEN_NUMBER:
-    {
-        token_type = "TOKEN_NUMBER";
-    }
-    break;
-    case TOKEN_LEFT_PAREN:
-    {
-        token_type = "TOKEN_LEFT_PAREN";
-    }
-    break;
-    case TOKEN_RIGHT_PAREN:
-    {
-        token_type = "TOKEN_RIGHT_PAREN";
-    }
-    break;
-    case TOKEN_BANG:
-    {
-        token_type = "TOKEN_BANG";
-    }
-    break;
-    case TOKEN_ERROR:
-    {
-        token_type = "TOKEN_ERROR";
-    }
-    case TOKEN_EOF:
-    {
-        token_type = "TOKEN_EOF";
-    }
-    break;
-    }
-
-    (void)token_type;
-
-    char token_value[32];
-    strncpy(token_value, token.start, token.length);
-    token_value[token.length] = '\0';
-    
-    /* log_info("[%s] \t| start: %c \t| length: %d \t| value: %s\n", token_type, *token.start, token.length, token_value); */
-}
-
 static bool is_digit(char c)
 {
     return c >= '0' && c <= '9';
@@ -136,13 +71,13 @@ static char lexer_peek_char(Lexer* lexer)
     return *lexer->current;
 }
 
-static char lexer_peek_next_char(Lexer* lexer)
+__attribute__((unused)) static char lexer_peek_next_char(Lexer* lexer)
 {
     if (lexer_is_at_end(lexer)) return '\0';
     return lexer->current[1];
 }
 
-static bool lexer_match_character(Lexer* lexer, char expected)
+__attribute__((unused)) static bool lexer_match_character(Lexer* lexer, char expected)
 {
     if (lexer_is_at_end(lexer)) return false;
     if (*lexer->current != expected) return false;
@@ -183,14 +118,6 @@ static void lexer_verror_at(Lexer* lexer, char* location, char* fmt, va_list ap)
 
     /* fprintf(stderr, "%*s", length, ""); */
     /* fprintf(stderr, "%*s^ ", length, ""); */
-}
-
-
-static void lexer_error_at(Lexer* lexer, char* location, char* fmt, ...)
-{
-    va_list ap;
-    va_start(ap, fmt);
-    lexer_verror_at(lexer, location, fmt, ap);
 }
 
 static void lexer_error_tok(Lexer* lexer, Token* token, char* fmt, ...)

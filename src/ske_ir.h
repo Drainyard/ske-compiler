@@ -179,6 +179,8 @@ struct IR_Block
     struct IR_Block* next;
 
     IR_Node_Array node_array;
+
+    bool has_label;
 };
 
 typedef struct
@@ -194,6 +196,8 @@ struct IR_Program
     IR_Data_Array data_array;
     IR_Block_Array block_array;
 };
+
+void ir_pretty_print(IR_Program* program, Allocator* allocator);
 
 IR_Block* ir_allocate_block(IR_Block_Array* block_array)
 {
@@ -213,7 +217,7 @@ IR_Block* ir_allocate_block(IR_Block_Array* block_array)
     return block;
 }
 
-IR_Node* ir_add_instruction_to_block(IR_Block* block, IR_Instruction_Type instruction_type)
+IR_Node* ir_add_node_to_block(IR_Block* block, IR_Node_Type node_type)
 {
     IR_Node_Array* node_array = &block->node_array;
     if (node_array->count + 1 >= node_array->capacity)
@@ -223,18 +227,58 @@ IR_Node* ir_add_instruction_to_block(IR_Block* block, IR_Instruction_Type instru
     }
 
     IR_Node* node = &node_array->nodes[node_array->count++];
-    node->type = IR_NODE_INSTRUCTION;
+    node->type = node_type;
+    return node;
+}
+
+IR_Node* ir_add_label_to_block(IR_Block* block, String* label_name)
+{
+    if(block->has_label)
+    {
+        fprintf(stderr, "unable to add label to IR block. Already has a label");
+        return NULL;
+    }
+
+    IR_Node* label = ir_add_node_to_block(block, IR_NODE_LABEL);
+    label->label.label_name = label_name; // @Study: Should the label habe a string view, or should it be owning?
+    return label;
+}
+
+IR_Node* ir_add_instruction_to_block(IR_Block* block, IR_Instruction_Type instruction_type)
+{
+    IR_Node* node = ir_add_node_to_block(block, IR_NODE_INSTRUCTION);
     node->instruction.type = instruction_type;
     return node;
 }
 
-IR_Program ir_translate_ast(AST_Node* root_node)
+IR_Push* ir_add_push_int_to_block(IR_Block* block, i32 value)
+{
+    IR_Node* node = ir_add_instruction_to_block(block, IR_INS_PUSH);
+    IR_Push* push = &node->instruction.push;
+
+    IR_Value* ir_value = &push->value;
+    ir_value->type = VALUE_INT;
+    ir_value->integer = value;
+    
+    return push;
+}
+
+IR_Program ir_translate_ast(AST_Node* root_node, Allocator* allocator)
 {
     IR_Program program =
         {
             .data_array  = {0},
             .block_array = {0},
         };
+
+    IR_Block* block = ir_allocate_block(&program.block_array);
+
+    String* name = string_allocate("MAIN", allocator);
+    ir_add_label_to_block(block, name);
+    ir_add_push_int_to_block(block, 100);
+    ir_add_instruction_to_block(block, IR_INS_RET);
+
+    ir_pretty_print(&program, allocator);
 
     return program;
 }
@@ -289,12 +333,11 @@ void ir_pretty_print(IR_Program* program, Allocator* allocator)
     // Print blocks
     for (i32 i = 0; i < program->block_array.count; i++)
     {
-        sb_indent(&sb, 4);
         IR_Block* block = &program->block_array.blocks[i];
 
         for (i32 j = 0; j < block->node_array.count; j++)
         {
-            IR_Node* node = &block->node_array.nodes[i];
+            IR_Node* node = &block->node_array.nodes[j];
 
             switch(node->type)
             {
