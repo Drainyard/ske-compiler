@@ -13,11 +13,42 @@ typedef enum
     IR_INS_COUNT
 } IR_Instruction_Type;
 
+typedef struct IR_Register_Table IR_Register_Table;
+struct IR_Register_Table
+{
+    bool *inuse_table;
+    i32 capacity;
+};
+
 typedef struct IR_Register IR_Register;
 struct IR_Register
 {
-    char name[4];
+    i32 index;
 };
+
+IR_Register ir_register_alloc(IR_Register_Table* table)
+{
+    for (i32 i = 0; i < table->capacity; i++)
+    {
+        if (!table->inuse_table[i])
+        {
+            table->inuse_table[i] = true;
+            IR_Register reg = { .index = i};
+            return reg;
+        }
+    }
+
+    i32 old_capacity = table->capacity;
+    table->capacity *= 2;
+    table->inuse_table = realloc(table->inuse_table, sizeof(i32) * table->capacity);
+    for (i32 i = old_capacity; i < table->capacity; i++)
+    {
+        table->inuse_table[i] = false;
+    }
+    IR_Register reg = { .index = table->inuse_table[old_capacity] };
+    return reg;
+}
+
 
 typedef struct IR_Mem IR_Mem;
 struct IR_Mem
@@ -40,8 +71,6 @@ struct IR_Location
     };
 };
 
-
-
 typedef struct IR_Data_Value IR_Data_Value;
 struct IR_Data_Value
 {
@@ -56,7 +85,7 @@ struct IR_Data_Value
         i32     integer;
     };
 
-    const char name[32];
+    char name[32];
 };
 
 typedef struct
@@ -66,6 +95,12 @@ typedef struct
     i32 capacity;
 } IR_Data_Array;
 
+typedef struct IR_Variable IR_Variable;
+struct IR_Variable
+{
+    char name[32];
+};
+
 typedef struct IR_Value IR_Value;
 struct IR_Value
 {
@@ -73,13 +108,13 @@ struct IR_Value
     {
         VALUE_LOCATION,
         VALUE_INT,
-        VALUE_DATA_VALUE
+        VALUE_VARIABLE
     } type;
 
     union
     {
         i32           integer;
-        IR_Data_Value data_value;
+        IR_Variable   variable;
         IR_Location   loc;
     };
 };
@@ -217,7 +252,7 @@ IR_Block* ir_allocate_block(IR_Block_Array* block_array)
     return block;
 }
 
-IR_Node* ir_add_node_to_block(IR_Block* block, IR_Node_Type node_type)
+IR_Node* ir_emit_node(IR_Block* block, IR_Node_Type node_type)
 {
     IR_Node_Array* node_array = &block->node_array;
     if (node_array->count + 1 >= node_array->capacity)
@@ -231,7 +266,7 @@ IR_Node* ir_add_node_to_block(IR_Block* block, IR_Node_Type node_type)
     return node;
 }
 
-IR_Node* ir_add_label_to_block(IR_Block* block, String* label_name)
+IR_Node* ir_emit_label(IR_Block* block, String* label_name)
 {
     if(block->has_label)
     {
@@ -239,21 +274,38 @@ IR_Node* ir_add_label_to_block(IR_Block* block, String* label_name)
         return NULL;
     }
 
-    IR_Node* label = ir_add_node_to_block(block, IR_NODE_LABEL);
+    IR_Node* label = ir_emit_node(block, IR_NODE_LABEL);
     label->label.label_name = label_name; // @Study: Should the label habe a string view, or should it be owning?
     return label;
 }
 
-IR_Node* ir_add_instruction_to_block(IR_Block* block, IR_Instruction_Type instruction_type)
+IR_Node* ir_emit_instruction(IR_Block* block, IR_Instruction_Type instruction_type)
 {
-    IR_Node* node = ir_add_node_to_block(block, IR_NODE_INSTRUCTION);
+    IR_Node* node = ir_emit_node(block, IR_NODE_INSTRUCTION);
     node->instruction.type = instruction_type;
     return node;
 }
 
-IR_Push* ir_add_push_int_to_block(IR_Block* block, i32 value)
+IR_UnOp* ir_emit_unop(IR_Block* block, IR_Register reg, IR_Op operator)
 {
-    IR_Node* node = ir_add_instruction_to_block(block, IR_INS_PUSH);
+    IR_Node* node = ir_emit_instruction(block, IR_INS_UNOP);
+    IR_UnOp* unop = &node->instruction.unop;
+
+    IR_Value* value = &unop->value;
+    value->type = VALUE_LOCATION;
+
+    IR_Location* location = &value->loc;
+    location->type = IR_LOCATION_REGISTER;
+    location->reg = reg;
+
+    unop->operator = operator;
+
+    return unop;
+}
+
+IR_Push* ir_emit_push_int(IR_Block* block, i32 value)
+{
+    IR_Node* node = ir_emit_instruction(block, IR_INS_PUSH);
     IR_Push* push = &node->instruction.push;
 
     IR_Value* ir_value = &push->value;
@@ -261,6 +313,124 @@ IR_Push* ir_add_push_int_to_block(IR_Block* block, i32 value)
     ir_value->integer = value;
     
     return push;
+}
+
+IR_Move* ir_emit_move_lit_to_reg(IR_Block* block, i32 value, IR_Register reg)
+{
+    IR_Node* node = ir_emit_instruction(block, IR_INS_MOV);
+    IR_Move* move = &node->instruction.move;
+
+    IR_Value* ir_src = &move->src;
+    ir_src->type = VALUE_INT;
+    ir_src->integer = value;
+
+    IR_Location* dst = &move->dst;
+    dst->type = IR_LOCATION_REGISTER;
+    dst->reg = reg;
+
+    return move;
+}
+
+IR_Location ir_create_location_register(IR_Register reg)
+{
+    IR_Location location = { .type = IR_LOCATION_REGISTER };
+    location.reg = reg;
+    return location;
+}
+
+IR_Value ir_create_value_location(IR_Location location)
+{
+    IR_Value value = {.type = VALUE_LOCATION};
+    value.loc = location;
+    return value;
+}
+
+IR_BinOp* ir_emit_add(IR_Block* block, IR_Register left, IR_Register right)
+{
+    IR_Node* node = ir_emit_instruction(block, IR_INS_BINOP);
+    IR_BinOp* binop = &node->instruction.binop;
+
+    binop->left = ir_create_value_location(ir_create_location_register(left));
+    binop->right = ir_create_value_location(ir_create_location_register(right));
+
+    return binop;
+}
+
+IR_BinOp* ir_emit_sub(IR_Block* block, IR_Register left, IR_Register right)
+{
+    IR_Node* node = ir_emit_instruction(block, IR_INS_BINOP);
+    IR_BinOp* binop = &node->instruction.binop;
+
+    return binop;
+}
+
+IR_BinOp* ir_emit_mul(IR_Block* block, IR_Register left, IR_Register right)
+{
+    IR_Node* node = ir_emit_instruction(block, IR_INS_BINOP);
+    IR_BinOp* binop = &node->instruction.binop;
+
+    return binop;
+}
+
+IR_BinOp* ir_emit_div(IR_Block* block, IR_Register left, IR_Register right)
+{
+    IR_Node* node = ir_emit_instruction(block, IR_INS_BINOP);
+    IR_BinOp* binop = &node->instruction.binop;
+
+    return binop;
+}
+
+IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* allocator, IR_Register_Table* table)
+{
+    switch(node->type)
+    {
+    case  AST_NODE_NUMBER:
+    {
+        IR_Register reg = ir_register_alloc(table);
+        ir_emit_move_lit_to_reg(block, node->number, reg);
+        return reg;
+    }
+    case AST_NODE_BINARY:
+    {
+        IR_Register left_reg = ir_translate_expression(node->binary.left, block, allocator, table);
+        IR_Register right_reg = ir_translate_expression(node->binary.right, block, allocator, table);
+
+        Token_Type operator = node->binary.operator;
+
+        switch(operator)
+        {
+        case TOKEN_PLUS:
+        {
+            IR_BinOp* binop = ir_emit_add(block, left_reg, right_reg);
+        }
+        break;
+        case TOKEN_MINUS:
+        {
+            IR_BinOp* binop = ir_emit_sub(block, left_reg, right_reg);
+        }
+        break;
+        case TOKEN_STAR:
+        {
+            IR_BinOp* binop = ir_emit_mul(block, left_reg, right_reg);
+        }
+        break;
+        case TOKEN_SLASH:
+        {
+            IR_BinOp* binop = ir_emit_div(block, left_reg, right_reg);
+        }
+        break;
+        }
+    }
+    case AST_NODE_UNARY:
+    {
+        IR_Register reg = ir_translate_expression(node->unary.expression, block, allocator, table);
+        ir_emit_unop(block, reg, OP_SUB);
+        return reg;
+    }
+    default:
+    printf("%d\n", node->type);
+    assert("Unsupported AST Node" && false);
+    }
 }
 
 IR_Program ir_translate_ast(AST_Node* root_node, Allocator* allocator)
@@ -271,12 +441,15 @@ IR_Program ir_translate_ast(AST_Node* root_node, Allocator* allocator)
             .block_array = {0},
         };
 
+    IR_Register_Table register_table;
     IR_Block* block = ir_allocate_block(&program.block_array);
-
+    
     String* name = string_allocate("MAIN", allocator);
-    ir_add_label_to_block(block, name);
-    ir_add_push_int_to_block(block, 100);
-    ir_add_instruction_to_block(block, IR_INS_RET);
+    ir_emit_label(block, name);
+    
+    ir_translate_expression(root_node->program.expression, block, allocator, &register_table);
+
+    ir_emit_instruction(block, IR_INS_RET);
 
     ir_pretty_print(&program, allocator);
 
@@ -289,7 +462,7 @@ void ir_pretty_print_location(String_Builder* sb, IR_Location* location)
     {
     case IR_LOCATION_REGISTER:
     {
-        sb_appendf(sb, "%%s", location->reg.name);    
+        sb_appendf(sb, "%r%d", location->reg.index);    
     }
     break;
     case IR_LOCATION_MEMORY:
@@ -314,9 +487,9 @@ void ir_pretty_print_value(String_Builder* sb, IR_Value* value)
         sb_appendf(sb, "%d", value->integer);
     }
     break;
-    case VALUE_DATA_VALUE:
+    case VALUE_VARIABLE:
     {
-        sb_appendf(sb, "\"%s\"", value->data_value.name);
+        sb_appendf(sb, "\"%s\"", value->variable.name);
     }
     break;
     }
@@ -362,7 +535,7 @@ void ir_pretty_print(IR_Program* program, Allocator* allocator)
                     IR_Value* src = &move->src;
                     IR_Location* dst = &move->dst;
                     
-                    sb_append(&sb, "MOVE    ");
+                    sb_append(&sb, "move    ");
 
                     ir_pretty_print_value(&sb, src);
                     sb_append(&sb, ", ");
@@ -374,7 +547,7 @@ void ir_pretty_print(IR_Program* program, Allocator* allocator)
                 case IR_INS_PUSH:
                 {
                     IR_Push* push = &instruction->push;
-                    sb_append(&sb, "PUSH    ");
+                    sb_append(&sb, "push    ");
                     ir_pretty_print_value(&sb, &push->value);
                     sb_newline(&sb);
                 }
@@ -382,7 +555,7 @@ void ir_pretty_print(IR_Program* program, Allocator* allocator)
                 case IR_INS_POP:
                 {
                     IR_Pop* pop = &instruction->pop;
-                    sb_append(&sb, "POP     ");
+                    sb_append(&sb, "pop     ");
                     ir_pretty_print_value(&sb, &pop->value);
                     sb_newline(&sb);
                 }
@@ -395,22 +568,22 @@ void ir_pretty_print(IR_Program* program, Allocator* allocator)
                     {
                     case OP_ADD:
                     {
-                        sb_append(&sb, "ADD     ");
+                        sb_append(&sb, "add     ");
                     }
                     break;
                     case OP_SUB:
                     {
-                        sb_append(&sb, "SUB     ");
+                        sb_append(&sb, "sub     ");
                     }
                     break;
                     case OP_MUL:
                     {
-                        sb_append(&sb, "MUL     ");
+                        sb_append(&sb, "mul     ");
                     }
                     break;
                     case OP_DIV:
                     {
-                        sb_append(&sb, "DIV     ");
+                        sb_append(&sb, "div     ");
                     }
                     break;
                     }
@@ -423,7 +596,7 @@ void ir_pretty_print(IR_Program* program, Allocator* allocator)
                 break;
                 case IR_INS_RET:
                 {
-                    sb_append(&sb, "RET");
+                    sb_append(&sb, "ret");
                     sb_newline(&sb);
                 }
                 break;
@@ -434,11 +607,11 @@ void ir_pretty_print(IR_Program* program, Allocator* allocator)
                     {
                     case OP_SUB:
                     {
-                        sb_append(&sb, "NEG     ");
+                        sb_append(&sb, "neg     ");
                     }
                     break;
                     default:
-                    sb_append(&sb, "UNOP ERR");
+                    sb_append(&sb, "unop err");
                     sb_newline(&sb);
                     }
 
