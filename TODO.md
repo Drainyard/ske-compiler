@@ -1,7 +1,7 @@
-### Bugs
+# Bugs
 - [ ] Bug in IR virtual registers when reallocating the returned register is not marked as in-use
 
-### Features
+# Features
 - [ ] Handle arguments for which compilation step to stop at linker output
 - [ ] Add more failing tests
 - [ ] Compile to some IR. Could be basic blocks or some other even more basic assembly IR so we can output to multiple platforms more easily
