@@ -152,6 +152,8 @@ struct IR_BinOp
     IR_Value left;
     IR_Value right;
 
+    IR_Register destination;
+
     IR_Op operator;
 };
 
@@ -159,9 +161,10 @@ typedef struct IR_UnOp IR_UnOp;
 struct IR_UnOp
 {
     IR_Value value;
+    IR_Register destination;
+    
     IR_Op operator;
 };
-
 
 typedef struct IR_Instruction IR_Instruction;
 struct IR_Instruction
@@ -345,39 +348,37 @@ IR_Value ir_create_value_location(IR_Location location)
     return value;
 }
 
-IR_BinOp* ir_emit_add(IR_Block* block, IR_Register left, IR_Register right)
+IR_BinOp* ir_emit_binop(IR_Block* block, IR_Register left, IR_Register right, IR_Op operator, IR_Register_Table* table)
 {
     IR_Node* node = ir_emit_instruction(block, IR_INS_BINOP);
     IR_BinOp* binop = &node->instruction.binop;
 
     binop->left = ir_create_value_location(ir_create_location_register(left));
     binop->right = ir_create_value_location(ir_create_location_register(right));
+    binop->destination = ir_register_alloc(table);
+    binop->operator = operator;
 
     return binop;
 }
 
-IR_BinOp* ir_emit_sub(IR_Block* block, IR_Register left, IR_Register right)
+IR_BinOp* ir_emit_add(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table)
 {
-    IR_Node* node = ir_emit_instruction(block, IR_INS_BINOP);
-    IR_BinOp* binop = &node->instruction.binop;
-
-    return binop;
+    return ir_emit_binop(block, left, right, OP_ADD, table);
 }
 
-IR_BinOp* ir_emit_mul(IR_Block* block, IR_Register left, IR_Register right)
+IR_BinOp* ir_emit_sub(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table)
 {
-    IR_Node* node = ir_emit_instruction(block, IR_INS_BINOP);
-    IR_BinOp* binop = &node->instruction.binop;
-
-    return binop;
+    return ir_emit_binop(block, left, right, OP_SUB, table);
 }
 
-IR_BinOp* ir_emit_div(IR_Block* block, IR_Register left, IR_Register right)
+IR_BinOp* ir_emit_mul(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table)
 {
-    IR_Node* node = ir_emit_instruction(block, IR_INS_BINOP);
-    IR_BinOp* binop = &node->instruction.binop;
+    return ir_emit_binop(block, left, right, OP_MUL, table);
+}
 
-    return binop;
+IR_BinOp* ir_emit_div(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table)
+{
+    return ir_emit_binop(block, left, right, OP_DIV, table);
 }
 
 IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* allocator, IR_Register_Table* table)
@@ -401,23 +402,30 @@ IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* 
         {
         case TOKEN_PLUS:
         {
-            IR_BinOp* binop = ir_emit_add(block, left_reg, right_reg);
+            IR_BinOp* binop = ir_emit_add(block, left_reg, right_reg, table);
+            return binop->destination;
         }
         break;
         case TOKEN_MINUS:
         {
-            IR_BinOp* binop = ir_emit_sub(block, left_reg, right_reg);
+            IR_BinOp* binop = ir_emit_sub(block, left_reg, right_reg, table);
+            return binop->destination;
         }
         break;
         case TOKEN_STAR:
         {
-            IR_BinOp* binop = ir_emit_mul(block, left_reg, right_reg);
+            IR_BinOp* binop = ir_emit_mul(block, left_reg, right_reg, table);
+            return binop->destination;
         }
         break;
         case TOKEN_SLASH:
         {
-            IR_BinOp* binop = ir_emit_div(block, left_reg, right_reg);
+            IR_BinOp* binop = ir_emit_div(block, left_reg, right_reg, table);
+            return binop->destination;
         }
+        break;
+        default:
+        assert("Unsupported operator for binary operations" && false);
         break;
         }
     }
@@ -444,7 +452,7 @@ IR_Program ir_translate_ast(AST_Node* root_node, Allocator* allocator)
     IR_Register_Table register_table;
     IR_Block* block = ir_allocate_block(&program.block_array);
     
-    String* name = string_allocate("MAIN", allocator);
+    String* name = string_allocate("main", allocator);
     ir_emit_label(block, name);
     
     ir_translate_expression(root_node->program.expression, block, allocator, &register_table);
