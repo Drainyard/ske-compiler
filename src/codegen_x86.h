@@ -1,5 +1,5 @@
-#ifndef ARC_X86_CODEGEN_H
-#define ARC_X86_CODEGEN_H
+#ifndef SKE_X86_CODEGEN_H
+#define SKE_X86_CODEGEN_H
 
 typedef enum
 {
@@ -118,13 +118,13 @@ void x86_emit_add(String_Builder* sb, int src, int dst);
 
 void x86_emit_add(String_Builder* sb, int src, int dst)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "addq    %s, %s\n", scratch_name(src), scratch_name(dst));
 }
 
 void x86_emit_sub(String_Builder* sb, int src, int dst)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "subq    %s, %s\n", scratch_name(dst), scratch_name(src));   
 }
 
@@ -133,7 +133,7 @@ void x86_emit_mul(String_Builder* sb, int src, int dst)
     x86_emit_move_reg_to_name(sb, src, "%rax");
 
     const char* dst_name = scratch_name(dst);
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "imulq   %s\n", dst_name);
 
     x86_emit_move_name_to_name(sb, "%rax", dst_name);
@@ -143,10 +143,10 @@ void x86_emit_div(String_Builder* sb, int src, int dst)
 {
     x86_emit_move_reg_to_name(sb, src, "%rax");
 
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_append(sb, "cqo\n");
 
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     const char* dst_name = scratch_name(dst);
     sb_appendf(sb, "idivq   %s\n", dst_name);
 
@@ -155,43 +155,43 @@ void x86_emit_div(String_Builder* sb, int src, int dst)
 
 void x86_emit_unary(String_Builder* sb, int src)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "negq    %s\n", scratch_name(src));
 }
 
 void x86_emit_move_reg_to_reg(String_Builder* sb, int src, int dst)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "movq    %s, %s\n", scratch_name(src), scratch_name(dst));
 }
 
 void x86_emit_move_lit_to_reg(String_Builder* sb, int num, int dst)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "movq    $%d, %s\n", num, scratch_name(dst));
 }
 
 void x86_emit_move_lit_to_name(String_Builder* sb, int num, const char* dst)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "movq    $%d, %s\n", num, dst);
 }
 
 void x86_emit_move_name_to_reg(String_Builder* sb, const char* src, int dst)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "movq    %s, %s\n", src, scratch_name(dst));
 }
 
 void x86_emit_move_reg_to_name(String_Builder* sb, int src, const char* dst)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "movq    %s, %s\n", scratch_name(src), dst);
 }
 
 void x86_emit_move_name_to_name(String_Builder* sb, const char* src, const char* dst)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "movq    %s, %s\n", src, dst);
 }
 
@@ -263,39 +263,251 @@ Scratch_Register x86_codegen_expression(AST_Node* node, String_Builder* sb, Scra
 
 void x86_emit_ret(String_Builder* sb)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_append(sb, "ret\n");
 }
 
 void x86_emit_pop_name(String_Builder* sb, const char* name)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "popq    %s\n", name);
 }
 
 void x86_emit_push_name(String_Builder* sb, const char* name)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "pushq   %s\n", name);
 }
 
 void x86_emit_asciz(String_Builder* sb, const char* name, const char* value)
 {
     sb_appendf(sb, "%s:\n", name);
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, ".asciz \"%s\"\n", value);
 }
 
 void x86_emit_call(String_Builder* sb, const char* function)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "call    %s\n", function);
 }
 
 void x86_emit_comment_line(String_Builder* sb, const char* comment)
 {
-    sb_indent(sb, 4);
+    sb_indent(sb, 8);
     sb_appendf(sb, "#;; %s\n", comment);
+}
+
+void x86_emit_header(String_Builder* sb)
+{
+    sb_append(sb, ".data\n");
+    sb_append(sb, ".text\n");
+}
+
+String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
+{
+    String_Builder sb;
+    sb_init(&sb, 256);
+
+    Scratch_Register_Table table;
+    scratch_table_init(&table);
+    
+    x86_emit_header(&sb);
+
+    Scratch_Register final_reg;
+
+    for (i32 i = 0; i < program_node->exported_function_array.count; i++)
+    {
+        String_View name = program_node->exported_function_array.function_names[i];
+        sb_appendf(&sb, ".global %s\n", name.string->str);
+    }
+
+    for (i32 i = 0; i < program_node->block_array.count; i++)
+    {
+        IR_Block* block = &program_node->block_array.blocks[i];
+
+        for (i32 j = 0; j < block->node_array.count; j++)
+        {
+            IR_Node* node = &block->node_array.nodes[j];
+            switch(node->type)
+            {
+            case IR_NODE_FUNCTION_DECL:
+            {
+                IR_Function_Decl* fun = &node->function;
+                sb_appendf(&sb, "%s:\n", fun->name->str);
+                x86_emit_push_name(&sb, "%rbp");
+                x86_emit_move_name_to_name(&sb, "%rsp", "%rbp");
+                
+            }
+            break;
+            case IR_NODE_LABEL:
+            {
+                // @Incomplete: Currently ignoring lables
+            }
+            break;
+            case IR_NODE_INSTRUCTION:
+            {
+                IR_Instruction* instruction = &node->instruction;
+                /* sb_indent(sb, 8); */
+
+                switch(instruction->type)
+                {
+                case IR_INS_RET:
+                {}
+                break;
+                case IR_INS_MOV:
+                {
+                    IR_Move* move = &instruction->move;
+
+                    IR_Value* src = &move->src;
+                    IR_Location* dst = &move->dst;
+
+                    switch(src->type)
+                    {
+                    case VALUE_LOCATION:
+                    {
+                        if(dst->type == IR_LOCATION_REGISTER)
+                        {
+                            if (src->loc.type == IR_LOCATION_REGISTER)
+                            {
+                                Scratch_Register src = scratch_alloc(&table);
+                                final_reg = scratch_alloc(&table);
+                                x86_emit_move_reg_to_reg(&sb, src, final_reg);
+                                scratch_free(&table, src);
+                            }
+                        }
+                    }
+                    break;
+                    case VALUE_INT:
+                    {
+                        if(dst->type == IR_LOCATION_REGISTER)
+                        {
+                            final_reg = scratch_alloc(&table);
+                            x86_emit_move_lit_to_reg(&sb, src->integer, final_reg);
+                        }
+                    }
+                    break;
+                    case VALUE_VARIABLE:
+                    {}
+                    break;
+                    }
+                    
+                    /* sb_append(sb, "move    "); */
+
+                    /* ir_pretty_print_value(sb, src); */
+                    /* sb_append(sb, ", "); */
+                    /* ir_pretty_print_location(sb, dst); */
+
+                    /* sb_newline(&sb); */
+                }
+                break;
+                case IR_INS_PUSH:
+                {
+                    IR_Push* push = &instruction->push;
+                    IR_Value* value = &push->value;
+
+                    switch(value->type)
+                    {
+                    case VALUE_LOCATION:
+                    {
+                        /* Scratch_Register reg = scratch_alloc(table); */
+                        /* x86_emit_push_name(sb, scratch_name(reg)); */
+                    }
+                    break;
+                    case VALUE_VARIABLE:
+                    {
+                        
+                    }
+                    break;
+                    default: break;
+                    }
+                }
+                break;
+                case IR_INS_POP:
+                {
+                    IR_Pop* pop = &instruction->pop;
+                    IR_Value* value = &pop->value;
+
+                    switch(value->type)
+                    {
+                    case VALUE_LOCATION:
+                    {
+                        Scratch_Register reg = scratch_alloc(&table);
+                        x86_emit_push_name(&sb, scratch_name(reg));
+                    }
+                    break;
+                    case VALUE_VARIABLE:
+                    {
+                        
+                    }
+                    break;
+                    default: break;
+                    }
+                }
+                break;
+                case IR_INS_UNOP:
+                {}
+                break;
+                case IR_INS_BINOP:
+                {
+                    IR_BinOp* binop = &instruction->binop;
+                    /* IR_Value* left = &binop->left; */
+                    /* IR_Value* right = &binop->right; */
+
+                    /* Scratch_Register left_reg = scratch_alloc(table); */
+                    /* Scratch_Register right_reg = scratch_alloc(table); */
+
+                    switch(binop->operator)
+                    {
+                    case OP_ADD:
+                    {
+                        
+                    }
+                    break;
+                    case OP_SUB:
+                    {
+                        
+                    }
+                    break;
+                    case OP_MUL:
+                    {
+                        
+                    }
+                    break;
+                    case OP_DIV:
+                    {
+                        
+                    }
+                    break;
+                    }
+                }
+                break;
+                default: break;
+            }
+            break;
+            }
+            }
+        }
+    }
+
+    sb_append(&sb, "\n");
+    x86_emit_comment_line(&sb, "fprintf call to output result temporarily");
+    x86_emit_move_name_to_name(&sb, "stderr", "%rax");
+    x86_emit_move_reg_to_name(&sb, final_reg, "%rdx");
+    x86_emit_move_name_to_name(&sb, "$format", "%rsi");
+    x86_emit_move_name_to_name(&sb, "%rax", "%rdi");
+    x86_emit_move_lit_to_name(&sb, 0, "%rax");
+    x86_emit_call(&sb, "fprintf");
+    x86_emit_move_lit_to_name(&sb, 0, "%rax");
+
+    x86_emit_pop_name(&sb, "%rbp");
+
+    x86_emit_ret(&sb);
+
+    x86_emit_asciz(&sb, "format", "%d\\n");
+
+    String* assembly = sb_get_result(&sb, allocator);
+    return assembly;
 }
 
 void x86_codegen_program(AST_Node* program_node, String_Builder* sb, Scratch_Register_Table* table)
@@ -306,7 +518,6 @@ void x86_codegen_program(AST_Node* program_node, String_Builder* sb, Scratch_Reg
     sb_append(sb, "main:\n");
 
     x86_emit_push_name(sb, "%rbp");
-
     x86_emit_move_name_to_name(sb, "%rsp", "%rbp");
 
     Scratch_Register final_reg = x86_codegen_expression(program_node->program.expression, sb, table);

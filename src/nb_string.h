@@ -398,7 +398,7 @@ static void sb_indent(String_Builder* builder, i32 indentation)
 {
     for(i32 i = 0; i < indentation; i++)
     {
-        sb_append(builder, "  ");
+        sb_append(builder, " ");
     }
 }
 

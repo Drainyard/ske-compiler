@@ -1,5 +1,5 @@
-#ifndef ARC_COMPILER_H
-#define ARC_COMPILER_H
+#ifndef SKE_COMPILER_H
+#define SKE_COMPILER_H
 
 #define FILE_EXTENSION ".ske"
 
@@ -121,8 +121,16 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
     bool result = false;
     if (parse(&parser, false, allocator))
     {
-        ir_translate_ast(parser.root, allocator);
+        IR_Program program = ir_translate_ast(parser.root, allocator);
+
+        /* printf("AST -> assembly: \n"); */
         String* assembly = x86_codegen_ast(parser.root, allocator);
+        /* string_print(assembly); */
+        /* printf("\n"); */
+        /* printf("IR -> assembly: \n"); */
+        String* __ir_assembly = x86_codegen_ir(&program, allocator);
+        /* string_print(__ir_assembly); */
+        /* printf("\n"); */
         if (assembly)
         {
             String* out_path = NULL;

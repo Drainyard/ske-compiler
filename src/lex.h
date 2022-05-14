@@ -1,5 +1,5 @@
-#ifndef ARC_LEX_H
-#define ARC_LEX_H
+#ifndef SKE_LEX_H
+#define SKE_LEX_H
 
 
 typedef enum

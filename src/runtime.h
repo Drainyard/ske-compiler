@@ -1,5 +1,5 @@
-#ifndef ARC_RUNTIME_H
-#define ARC_RUNTIME_H
+#ifndef SKE_RUNTIME_H
+#define SKE_RUNTIME_H
 
 void repl(Allocator* allocator)
 {

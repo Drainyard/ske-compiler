@@ -1,5 +1,5 @@
-#ifndef ARC_PARSE_H
-#define ARC_PARSE_H
+#ifndef SKE_PARSE_H
+#define SKE_PARSE_H
 
 typedef enum
 {
