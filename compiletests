@@ -40,7 +40,7 @@ function test_expect()
 			echo $n "${GREEN}${BOLD}Success${RESET}"
 			((SUCCEEDING_TEST_COUNT=SUCCEEDING_TEST_COUNT+1))
 		else
-			echo $n "${RED}${BOLD}Failed${RESET}"
+			echo $n "${RED}${BOLD}Failed${RESET}: Expected: $EXPECT - Got: $OUTPUT"
 			((FAILING_TEST_COUNT=FAILING_TEST_COUNT+1))
 		fi
 	else

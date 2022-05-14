@@ -48,6 +48,7 @@ static void lexer_init(Lexer* lexer, String* source, String_View file_name, Stri
     lexer->line = 1;
     lexer->file_name = file_name;
     lexer->absolute_path = absolute_path;
+    lexer->position_on_line = 0;
 }
 
 static bool is_digit(char c)

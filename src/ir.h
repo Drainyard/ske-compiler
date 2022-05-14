@@ -45,7 +45,7 @@ IR_Register ir_register_alloc(IR_Register_Table* table)
     {
         table->inuse_table[i] = false;
     }
-    IR_Register reg = { .index = table->inuse_table[old_capacity] };
+    IR_Register reg = { .index = old_capacity };
     table->inuse_table[old_capacity] = true;
     return reg;
 }
@@ -405,7 +405,7 @@ IR_BinOp* ir_emit_binop(IR_Block* block, IR_Register left, IR_Register right, IR
 
     binop->left = ir_create_value_location(ir_create_location_register(left));
     binop->right = ir_create_value_location(ir_create_location_register(right));
-    binop->destination = ir_register_alloc(table);
+    binop->destination = binop->right.loc.reg;//ir_register_alloc(table);
     binop->operator = operator;
 
     return binop;
@@ -512,7 +512,7 @@ IR_Program ir_translate_ast(AST_Node* root_node, Allocator* allocator)
 
     ir_emit_instruction(block, IR_INS_RET, allocator);
 
-    ir_pretty_print(&program, true, allocator);
+    /* ir_pretty_print(&program, true, allocator); */
 
     return program;
 }

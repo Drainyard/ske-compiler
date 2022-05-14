@@ -136,9 +136,8 @@ static void parser_error_at(Parser* parser, Token* token, const char* message)
     parser->panic_mode = true;
 
     fprintf(stderr, "\x1b[1;37m");
-    i32 length = fprintf(stderr, sv_null_terminated_string(parser->absolute_path));
-    length += fprintf(stderr, ":%d:%d:\x1b[31m error: ", token->line, token->position);
-    length++;
+    fprintf(stderr, sv_null_terminated_string(parser->absolute_path));
+    fprintf(stderr, ":%d:%d:\x1b[31m error: ", token->line, token->position);
 
     fprintf(stderr, "\x1b[0m");
 

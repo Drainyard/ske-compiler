@@ -9,6 +9,7 @@ typedef enum
 {
     OPT_NONE            = 0,
     OPT_ASSEMBLY_OUTPUT = 1 << 1,
+    OPT_IR_OUTPUT       = 1 << 2
 } Compiler_Options;
 
 bool has_flag(Compiler_Options options, int flag)
@@ -36,9 +37,6 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
     arguments.options = OPT_NONE;
     arguments.input_file = NULL;
     arguments.out_path = NULL;
-    char *realpath(const char *restrict path,
-                      char *restrict resolved_path);
-
 
     for (i32 i = 1; i < argc; i++)
     {
@@ -67,6 +65,10 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             {
                 arguments.options |= OPT_ASSEMBLY_OUTPUT;
             }
+            else if (string_equal_cstr(&string, "-ir"))
+            {
+                arguments.options |= OPT_IR_OUTPUT;
+            }
             else if (string_equal_cstr(&string, "--h") || string_equal_cstr(&string, "-help"))
             {
                 printf("Usage: ske [options] file...\n\n");
@@ -80,8 +82,16 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             else if (is_source_file(&string))
             {
                 arguments.input_file = string_copy(&string, allocator);
-                String local = string_create(realpath(string.str, NULL));
-                arguments.absolute_path = string_copy(&local, allocator);
+                char* full_path = realpath(string.str, NULL);
+                if (!full_path)
+                {
+                    fprintf(stderr, "\x1b[1;37mInvalid input path: \x1b[0m%s\n", string.str);
+                }
+                else
+                {
+                    String local = string_create(full_path);
+                    arguments.absolute_path = string_copy(&local, allocator);
+                }
             }
             else
             {
@@ -124,12 +134,12 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
         IR_Program program = ir_translate_ast(parser.root, allocator);
 
         /* printf("AST -> assembly: \n"); */
-        String* assembly = x86_codegen_ast(parser.root, allocator);
-        /* string_print(assembly); */
+        /* String* _assembly = x86_codegen_ast(parser.root, allocator); */
+        /* string_print(_assembly); */
         /* printf("\n"); */
         /* printf("IR -> assembly: \n"); */
-        String* __ir_assembly = x86_codegen_ir(&program, allocator);
-        /* string_print(__ir_assembly); */
+        String* assembly = x86_codegen_ir(&program, allocator);
+        /* string_print(assembly); */
         /* printf("\n"); */
         if (assembly)
         {

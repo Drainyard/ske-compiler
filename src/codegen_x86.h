@@ -43,6 +43,7 @@ Scratch_Register scratch_alloc(Scratch_Register_Table* table)
     return -1;
 }
 
+const char* scratch_name(Scratch_Register reg);
 void scratch_free(Scratch_Register_Table* table, Scratch_Register reg)
 {
     table->inuse_table[reg] = false;
@@ -58,6 +59,154 @@ const char* scratch_register_names[REG_COUNT] =
     [REG_R14] = "%r14",
     [REG_R15] = "%r15",
 };
+
+typedef struct Temp_Table_Entry Temp_Table_Entry;
+i32 hash_int(i32 a)
+{
+      a ^= (a << 13);
+      a ^= (a >> 17);        
+      a ^= (a << 5);
+      return a;   
+}
+
+typedef struct Temp_Table Temp_Table;
+struct Temp_Table
+{
+    i32* keys;
+    Scratch_Register* entries;
+    i32 count;
+    i32 capacity;
+};
+
+static void temp_table_init(Temp_Table* table)
+{
+    table->count    = 0;
+    table->capacity = 0;
+    table->entries  = NULL;
+    table->keys     = NULL;
+}
+
+static i32 temp_table_find_entry(i32* keys, Scratch_Register* entries, i32 capacity, i32 key)
+{
+    i32 index = hash_int(key) % capacity;
+    i32 tombstone = -1;
+    for (;;)
+    {
+        i32 found_key = keys[index];
+        if (found_key == -1)
+        {
+            if (entries[index] == REG_COUNT)
+            {
+                return tombstone != -1 ? tombstone : index;
+            }
+            else
+            {
+                if (tombstone == -1) tombstone = index;
+            }
+        }
+        else if (found_key == key)
+        {
+            return index;
+        }
+        
+        index = (index + 1) % capacity;
+    }
+}
+
+#define TABLE_MAX_LOAD 0.75f
+
+static void temp_table_adjust_capacity(Temp_Table* table, i32 capacity)
+{
+    i32 *new_keys = malloc(sizeof(i32) * capacity);
+        Scratch_Register* new_entries = malloc(sizeof(Scratch_Register) * capacity);
+
+        for (i32 i = 0; i < capacity; i++)
+        {
+            new_keys[i] = -1;
+            new_entries[i] = REG_COUNT;
+        }
+        
+        table->count = 0;
+        for (i32 i = 0; i < table->capacity; i++)
+        {
+            i32 old_key = table->keys[i];
+            Scratch_Register old_reg = table->entries[i];
+
+            if (old_reg == REG_COUNT) continue;
+
+            i32 index = temp_table_find_entry(new_keys, new_entries, capacity, old_key);
+            new_keys[index] = table->keys[i];
+            new_entries[index] = table->entries[i];
+            table->count++;
+        }
+
+        table->capacity = capacity;
+        table->entries  = new_entries;
+        table->keys     = new_keys;
+}
+
+static bool temp_table_set(Temp_Table *table, i32 key, Scratch_Register reg)
+{
+    if (table->count + 1 > table->capacity * TABLE_MAX_LOAD)
+    {
+        i32 capacity = table->capacity < 8 ? 8 : table->capacity * 2;
+        temp_table_adjust_capacity(table, capacity);
+    }
+
+    i32 index = temp_table_find_entry(table->keys, table->entries, table->capacity, key);
+    bool new_entry = table->entries[index] == REG_COUNT;
+    if (new_entry && table->entries[index] == REG_COUNT) table->count++;
+
+    table->keys[index] = key;
+    table->entries[index] = reg;
+    return new_entry;
+}
+
+static bool temp_table_get(Temp_Table* table, i32 key, Scratch_Register* reg)
+{
+    if (table->count == 0) return false;
+
+    i32 index = temp_table_find_entry(table->keys, table->entries, table->capacity, key);
+    if (table->entries[index] == REG_COUNT) return false;
+
+    *reg = table->entries[index];
+    return true;
+}
+
+static bool temp_table_delete(Temp_Table* table, i32 key)
+{
+    if (table->count == 0) return false;
+
+    i32 index = temp_table_find_entry(table->keys, table->entries, table->capacity, key);
+    if (table->entries[index] == REG_COUNT) return false;
+
+    table->keys[index] = -1;
+    table->entries[index] = REG_RBX; // dummy value
+    
+    return true;
+}
+
+static Scratch_Register get_or_add_scratch_from_temp(Temp_Table* table, IR_Register ir_register, Scratch_Register_Table* scratch_table)
+{
+    i32 key = ir_register.index;
+    Scratch_Register scratch_register;
+    if (!temp_table_get(table, key, &scratch_register))
+    {
+        scratch_register = scratch_alloc(scratch_table);
+        temp_table_set(table, key, scratch_register);
+    }
+
+    return scratch_register;
+}
+
+const char* scratch_name(Scratch_Register reg);
+static void free_temp_scratch(Temp_Table* table, IR_Register ir_register, Scratch_Register_Table* scratch_table)
+{
+    i32 key = ir_register.index;
+    Scratch_Register scratch_register = get_or_add_scratch_from_temp(table, ir_register, scratch_table);    
+    temp_table_delete(table, key);
+    scratch_free(scratch_table, scratch_register);
+}
 
 typedef enum
 {
@@ -311,10 +460,13 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
 
     Scratch_Register_Table table;
     scratch_table_init(&table);
+
+    Temp_Table temp_table;
+    temp_table_init(&temp_table);
     
     x86_emit_header(&sb);
 
-    Scratch_Register final_reg;
+    Scratch_Register current_reg;
 
     for (i32 i = 0; i < program_node->exported_function_array.count; i++)
     {
@@ -337,7 +489,6 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                 sb_appendf(&sb, "%s:\n", fun->name->str);
                 x86_emit_push_name(&sb, "%rbp");
                 x86_emit_move_name_to_name(&sb, "%rsp", "%rbp");
-                
             }
             break;
             case IR_NODE_LABEL:
@@ -366,15 +517,12 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                     {
                     case VALUE_LOCATION:
                     {
-                        if(dst->type == IR_LOCATION_REGISTER)
+                        if(dst->type == IR_LOCATION_REGISTER && src->loc.type == IR_LOCATION_REGISTER)
                         {
-                            if (src->loc.type == IR_LOCATION_REGISTER)
-                            {
-                                Scratch_Register src = scratch_alloc(&table);
-                                final_reg = scratch_alloc(&table);
-                                x86_emit_move_reg_to_reg(&sb, src, final_reg);
-                                scratch_free(&table, src);
-                            }
+                            Scratch_Register src_reg = get_or_add_scratch_from_temp(&temp_table, src->loc.reg, &table);
+                            Scratch_Register dst_reg = get_or_add_scratch_from_temp(&temp_table, dst->reg, &table);
+                            x86_emit_move_reg_to_reg(&sb, src_reg, dst_reg);
+                            current_reg = dst_reg;
                         }
                     }
                     break;
@@ -382,8 +530,9 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                     {
                         if(dst->type == IR_LOCATION_REGISTER)
                         {
-                            final_reg = scratch_alloc(&table);
-                            x86_emit_move_lit_to_reg(&sb, src->integer, final_reg);
+                            Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, dst->reg, &table);
+                            current_reg = reg;
+                            x86_emit_move_lit_to_reg(&sb, src->integer, reg);
                         }
                     }
                     break;
@@ -432,7 +581,8 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                     {
                     case VALUE_LOCATION:
                     {
-                        Scratch_Register reg = scratch_alloc(&table);
+                        Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, value->loc.reg, &table);
+                        current_reg = reg;
                         x86_emit_push_name(&sb, scratch_name(reg));
                     }
                     break;
@@ -446,40 +596,67 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                 }
                 break;
                 case IR_INS_UNOP:
-                {}
+                {
+                    IR_UnOp* unop = &instruction->unop;
+                    IR_Value* value = &unop->value;
+
+                    IR_Register ir_reg = value->loc.reg;
+
+                    Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, ir_reg, &table);
+
+                    x86_emit_unary(&sb, reg);
+                    current_reg = reg;
+                }
                 break;
                 case IR_INS_BINOP:
                 {
                     IR_BinOp* binop = &instruction->binop;
-                    /* IR_Value* left = &binop->left; */
-                    /* IR_Value* right = &binop->right; */
+                    IR_Value* left = &binop->left;
+                    IR_Value* right = &binop->right;
 
-                    /* Scratch_Register left_reg = scratch_alloc(table); */
-                    /* Scratch_Register right_reg = scratch_alloc(table); */
+                    /* IR_Register dest = binop->destination; */
+
+                    IR_Register ir_left_reg = left->loc.reg;
+                    IR_Register ir_right_reg = right->loc.reg;
+
+                    Scratch_Register left_reg = get_or_add_scratch_from_temp(&temp_table, ir_left_reg, &table);
+                    Scratch_Register right_reg = get_or_add_scratch_from_temp(&temp_table, ir_right_reg, &table);
+                    
+                    /* Scratch_Register destination = get_or_add_scratch_from_temp(&temp_table, dest, &table); */
 
                     switch(binop->operator)
                     {
                     case OP_ADD:
                     {
-                        
+                        x86_emit_add(&sb, left_reg, right_reg);
                     }
                     break;
                     case OP_SUB:
                     {
-                        
+                        x86_emit_sub(&sb, left_reg, right_reg);
+                        i32 temp = right_reg;
+                        right_reg = left_reg;
+                        left_reg = temp;
+
+                        IR_Register temp_ir = ir_right_reg;
+                        ir_right_reg = ir_left_reg;
+                        ir_left_reg = temp_ir;
                     }
                     break;
                     case OP_MUL:
                     {
-                        
+                        x86_emit_mul(&sb, left_reg, right_reg);
                     }
                     break;
                     case OP_DIV:
                     {
-                        
+                        x86_emit_div(&sb, left_reg, right_reg);
                     }
                     break;
                     }
+
+                    current_reg = right_reg;
+                    free_temp_scratch(&temp_table, ir_left_reg, &table);
                 }
                 break;
                 default: break;
@@ -490,10 +667,13 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
         }
     }
 
+    x86_emit_move_reg_to_name(&sb, current_reg, "%rax");
+    scratch_free(&table, current_reg);
+
     sb_append(&sb, "\n");
     x86_emit_comment_line(&sb, "fprintf call to output result temporarily");
     x86_emit_move_name_to_name(&sb, "stderr", "%rax");
-    x86_emit_move_reg_to_name(&sb, final_reg, "%rdx");
+    x86_emit_move_reg_to_name(&sb, current_reg, "%rdx");
     x86_emit_move_name_to_name(&sb, "$format", "%rsi");
     x86_emit_move_name_to_name(&sb, "%rax", "%rdi");
     x86_emit_move_lit_to_name(&sb, 0, "%rax");
