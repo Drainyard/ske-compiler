@@ -1,10 +1,9 @@
 # Bugs
-- [ ] Bug in IR virtual registers when reallocating the returned register is not marked as in-use
+- [x] Bug in IR virtual registers when reallocating the returned register is not marked as in-use
 
 # Features
 - [ ] Handle arguments for which compilation step to stop at linker output
 - [ ] Add more failing tests
-- [ ] Compile to some IR. Could be basic blocks or some other even more basic assembly IR so we can output to multiple platforms more easily
 - [ ] Add function calls
 - [ ] Add function declarations
 - [ ] Add variable bindings (let/var/const?)
@@ -18,6 +17,7 @@
 - [ ] Add different allocator types that are more dynamic than arenas (Something that allows better freeing)
 - [ ] Add a CST (Concrete Syntax Tree) stage for better error messages
 
+- [x] Compile to some IR. Could be basic blocks or some other even more basic assembly IR so we can output to multiple platforms more easily
 - [X] Add a few tests (find some way to test code coverage maybe?)
 - [X] Add test system with succeeding and failing files testing output
 - [X] Rebrand language to Ske Lang and buy ske-lang.org domain

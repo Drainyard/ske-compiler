@@ -265,6 +265,11 @@ void x86_emit_mul(String_Builder* sb, int src, int dst);
 void x86_emit_sub(String_Builder* sb, int src, int dst);
 void x86_emit_add(String_Builder* sb, int src, int dst);
 
+void x86_emit_label(String_Builder* sb, String* label)
+{
+    sb_appendf(sb, "%s:\n", label->str);
+}
+
 void x86_emit_add(String_Builder* sb, int src, int dst)
 {
     sb_indent(sb, 8);
@@ -493,18 +498,19 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
             break;
             case IR_NODE_LABEL:
             {
-                // @Incomplete: Currently ignoring lables
+                x86_emit_label(&sb, node->label.label_name);
             }
             break;
             case IR_NODE_INSTRUCTION:
             {
                 IR_Instruction* instruction = &node->instruction;
-                /* sb_indent(sb, 8); */
 
                 switch(instruction->type)
                 {
                 case IR_INS_RET:
-                {}
+                {
+                    /* x86_emit_ret(&sb); */
+                }
                 break;
                 case IR_INS_MOV:
                 {
@@ -537,17 +543,11 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                     }
                     break;
                     case VALUE_VARIABLE:
-                    {}
+                    {
+                        
+                    }
                     break;
                     }
-                    
-                    /* sb_append(sb, "move    "); */
-
-                    /* ir_pretty_print_value(sb, src); */
-                    /* sb_append(sb, ", "); */
-                    /* ir_pretty_print_location(sb, dst); */
-
-                    /* sb_newline(&sb); */
                 }
                 break;
                 case IR_INS_PUSH:
@@ -559,8 +559,9 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                     {
                     case VALUE_LOCATION:
                     {
-                        /* Scratch_Register reg = scratch_alloc(table); */
-                        /* x86_emit_push_name(sb, scratch_name(reg)); */
+                        Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, value->loc.reg, &table);
+                        current_reg = reg;
+                        x86_emit_push_name(&sb, scratch_name(reg));
                     }
                     break;
                     case VALUE_VARIABLE:
@@ -614,15 +615,11 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                     IR_Value* left = &binop->left;
                     IR_Value* right = &binop->right;
 
-                    /* IR_Register dest = binop->destination; */
-
                     IR_Register ir_left_reg = left->loc.reg;
                     IR_Register ir_right_reg = right->loc.reg;
 
                     Scratch_Register left_reg = get_or_add_scratch_from_temp(&temp_table, ir_left_reg, &table);
                     Scratch_Register right_reg = get_or_add_scratch_from_temp(&temp_table, ir_right_reg, &table);
-                    
-                    /* Scratch_Register destination = get_or_add_scratch_from_temp(&temp_table, dest, &table); */
 
                     switch(binop->operator)
                     {

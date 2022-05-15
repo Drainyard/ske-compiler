@@ -22,7 +22,7 @@ struct Compiler_Arguments
 {
     Compiler_Options options;
     String* input_file; // @Incomplete: Should be a string array, but for now it is just a single string
-    String* out_path;
+    String* out_path; // Out path for the chosen output 
     String* absolute_path;
 };
 
@@ -131,19 +131,27 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
     bool result = false;
     if (parse(&parser, false, allocator))
     {
+        String* out_path = NULL;
         IR_Program program = ir_translate_ast(parser.root, allocator);
-
-        /* printf("AST -> assembly: \n"); */
-        /* String* _assembly = x86_codegen_ast(parser.root, allocator); */
-        /* string_print(_assembly); */
-        /* printf("\n"); */
-        /* printf("IR -> assembly: \n"); */
-        String* assembly = x86_codegen_ir(&program, allocator);
-        /* string_print(assembly); */
-        /* printf("\n"); */
-        if (assembly)
+        if (has_flag(arguments.options, OPT_IR_OUTPUT))
         {
-            String* out_path = NULL;
+            out_path = arguments.out_path ? arguments.out_path : string_allocate("out.ir", allocator);
+            String* ir_out = ir_pretty_print(&program, allocator);
+            FILE* temp_file = fopen(out_path->str, "w");
+            if (!temp_file)
+            {
+                fprintf(stderr, "Unable to open temp file: %s\n", out_path->str);
+                exit(1);
+            }
+
+            string_write_to_file(ir_out, temp_file);
+            fclose(temp_file);
+            return true;
+        }
+        
+        String* assembly = x86_codegen_ir(&program, allocator);
+        if (assembly)
+        {           
             if (has_flag(arguments.options, OPT_ASSEMBLY_OUTPUT))
             {
                 out_path = arguments.out_path ? arguments.out_path : string_allocate("out.s", allocator);
@@ -151,7 +159,7 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
             else
             {
                 out_path = create_temp_file(allocator);
-            }
+            }            
                 
             if (out_path)
             {

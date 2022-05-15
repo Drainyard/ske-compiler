@@ -1,6 +1,21 @@
 ### Current state of the Ske Language Grammar
 
-<program>                ::= <expression>
+<program>                ::= <fun-decl>
+
+<fun-decl>				 ::= pub fn IDENTIFIER()
+						 |   fn IDENTIFIER() <compound-statement>
+
+<compound-statement>	 ::= { }
+						 |   { <statement-list> }
+						 |	 { <statement-list> <statement> }
+
+<statement-list>		 ::= <statement>
+						 |	 <statement-list> <statement>
+
+<statement>				 ::= <expression-statement>
+
+<expression-statement>	 ::= ;
+						 |	 <expression> ;
 
 <expression>             ::= <binary-expression>
                          |	 <unary-expression>

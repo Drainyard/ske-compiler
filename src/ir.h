@@ -258,7 +258,7 @@ struct IR_Program
     IR_Exported_Function_Array exported_function_array;
 };
 
-void ir_pretty_print(IR_Program* program, bool to_file, Allocator* allocator);
+String* ir_pretty_print(IR_Program* program, Allocator* allocator);
 
 IR_Block* ir_allocate_block(IR_Program* program)
 {
@@ -328,7 +328,7 @@ IR_Node* ir_emit_label(IR_Block* block, String* label_name, Allocator* allocator
     }
 
     IR_Node* label = ir_emit_node(block, IR_NODE_LABEL, allocator);
-    label->label.label_name = label_name; // @Study: Should the label habe a string view, or should it be owning?
+    label->label.label_name = label_name; // @Study: Should the label have a string view, or should it be owning?
     return label;
 }
 
@@ -561,7 +561,7 @@ void ir_pretty_print_value(String_Builder* sb, IR_Value* value)
     }
 }
 
-void ir_pretty_print(IR_Program* program, bool to_file, Allocator* allocator)
+String* ir_pretty_print(IR_Program* program, Allocator* allocator)
 {
     String_Builder sb;
     sb_init(&sb, 256);
@@ -685,13 +685,14 @@ void ir_pretty_print(IR_Program* program, bool to_file, Allocator* allocator)
                     {
                     case OP_SUB:
                     {
-                        sb_append(&sb, "neg     ");
+                        sb_append(&sb, "neg(");
                     }
                     break;
                     default:
                     sb_append(&sb, "unop err");
                     }
                     ir_pretty_print_value(&sb, &unop->value);
+                    sb_append(&sb, ")");
                     sb_newline(&sb);
                 }
                 break;
@@ -704,13 +705,7 @@ void ir_pretty_print(IR_Program* program, bool to_file, Allocator* allocator)
         }
     }
    
-    String* string = sb_get_result(&sb, allocator);
-    string_print(string);
-
-    /* if (to_file) */
-    /* { */
-        
-    /* } */
+    return sb_get_result(&sb, allocator);
 }
 
 #endif

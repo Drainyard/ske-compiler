@@ -14,6 +14,17 @@ typedef enum
 
     TOKEN_LEFT_PAREN,
     TOKEN_RIGHT_PAREN,
+    TOKEN_LEFT_BRACE,
+    TOKEN_RIGHT_BRACE,
+
+    TOKEN_IF, TOKEN_ELSE, TOKEN_WHILE,
+    TOKEN_RETURN, TOKEN_LET, TOKEN_MUT,
+
+    TOKEN_FALSE, TOKEN_TRUE, TOKEN_FOR,
+
+    TOKEN_PUB, TOKEN_FN,
+    
+    TOKEN_IDENTIFIER,
 
     TOKEN_EOF,
 
@@ -54,6 +65,13 @@ static void lexer_init(Lexer* lexer, String* source, String_View file_name, Stri
 static bool is_digit(char c)
 {
     return c >= '0' && c <= '9';
+}
+
+static bool is_alpha(char c)
+{
+    return (c >= 'a' && c <= 'z') ||
+        (c >= 'A' && c <= 'Z') ||
+        c == '_';
 }
 
 static bool lexer_is_at_end(Lexer* lexer)
@@ -173,6 +191,50 @@ static void lexer_skip_whitespace(Lexer* lexer)
     }
 }
 
+static Token_Type lexer_check_keyword(Lexer* lexer, i32 start, i32 length, const char* rest, Token_Type type) {
+  if (lexer->current - lexer->start == start + length &&
+      memcmp(lexer->start + start, rest, length) == 0) {
+    return type;
+  }
+
+  return TOKEN_IDENTIFIER;
+}
+
+static Token_Type lexer_identifier_type(Lexer* lexer)
+{
+    switch (lexer->start[0]) {
+    case 'i': return lexer_check_keyword(lexer, 1, 1, "f", TOKEN_IF);
+    case 'e': return lexer_check_keyword(lexer, 1, 3, "lse", TOKEN_ELSE);
+    case 'r': return lexer_check_keyword(lexer, 1, 5, "eturn", TOKEN_RETURN);
+    case 'l': return lexer_check_keyword(lexer, 1, 2, "et", TOKEN_LET);
+    case 'm': return lexer_check_keyword(lexer, 1, 2, "ut", TOKEN_MUT);
+    case 'w': return lexer_check_keyword(lexer, 1, 4, "hile", TOKEN_WHILE);
+    case 'p': return lexer_check_keyword(lexer, 1, 2, "ub", TOKEN_PUB);
+    case 't': return lexer_check_keyword(lexer, 1, 3, "rue", TOKEN_TRUE);
+    case 'f':
+    {
+        if (lexer->current - lexer->start > 1)
+        {
+            switch (lexer->start[1])
+            {
+            case 'n': return TOKEN_FN;
+            case 'a': return lexer_check_keyword(lexer, 2, 3, "lse", TOKEN_FALSE);
+            case 'o': return lexer_check_keyword(lexer, 2, 1, "or", TOKEN_FOR);
+            }
+        }
+    }
+
+    }
+    return TOKEN_IDENTIFIER;
+}
+
+static Token lexer_identifier(Lexer* lexer)
+{
+    while (is_alpha(lexer_peek_char(lexer)) || is_digit(lexer_peek_char(lexer))) lexer_advance(lexer);
+
+    return lexer_make_token(lexer, lexer_identifier_type(lexer));
+}
+
 static Token lexer_number(Lexer* lexer)
 {
     while (is_digit(lexer_peek_char(lexer))) lexer_advance(lexer);
@@ -195,6 +257,7 @@ static Token lexer_scan_token(Lexer* lexer)
 
     char c = lexer_advance(lexer);
 
+    if (is_alpha(c)) return lexer_identifier(lexer);
     if (is_digit(c)) return lexer_number(lexer);
 
     switch(c)
@@ -205,6 +268,8 @@ static Token lexer_scan_token(Lexer* lexer)
     case '/': return lexer_make_token(lexer, TOKEN_SLASH);
     case '(': return lexer_make_token(lexer, TOKEN_LEFT_PAREN);
     case ')': return lexer_make_token(lexer, TOKEN_RIGHT_PAREN);
+    case '{': return lexer_make_token(lexer, TOKEN_LEFT_BRACE);
+    case '}': return lexer_make_token(lexer, TOKEN_RIGHT_BRACE);
     }
 
     return lexer_error_token(lexer, "unexpected token");
