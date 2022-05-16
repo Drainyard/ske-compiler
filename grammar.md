@@ -8,7 +8,6 @@
 
 <compound-statement>	::= { }
 			|   { <statement-list> }
-			|   { <statement-list> <statement> }
 
 <statement-list>	::= <statement>
 			|   <statement-list> <statement>
