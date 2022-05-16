@@ -8,19 +8,19 @@
 
 <compound-statement>	::= { }
 			|   { <statement-list> }
-			|	 { <statement-list> <statement> }
+			|   { <statement-list> <statement> }
 
 <statement-list>	::= <statement>
-			|	 <statement-list> <statement>
+			|   <statement-list> <statement>
 
 <statement>		::= <expression-statement>
 
 <expression-statement>	::= ;
-			|	 <expression> ;
+			|   <expression> ;
 
 <expression>            ::= <binary-expression>
-                        |	 <unary-expression>
-                        |	 <constant-expression>
+                        |   <unary-expression>
+                        |   <constant-expression>
 
 <binary-expression>     ::= <expression> <binary-operator> <expression>
 
