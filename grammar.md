@@ -14,7 +14,7 @@
 
 <statement>		::= <expression-statement>
 
-<expression-statement>	::= ;
+<expression-statement>	::= ; // Should we have optional ;? or no ; at all?
 			|   <expression> ;
 
 <expression>            ::= <binary-expression>
