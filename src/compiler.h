@@ -9,7 +9,8 @@ typedef enum
 {
     OPT_NONE            = 0,
     OPT_ASSEMBLY_OUTPUT = 1 << 1,
-    OPT_IR_OUTPUT       = 1 << 2
+    OPT_IR_OUTPUT       = 1 << 2,
+    OPT_TOK_OUTPUT      = 1 << 3
 } Compiler_Options;
 
 bool has_flag(Compiler_Options options, int flag)
@@ -64,6 +65,10 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             else if (string_equal_cstr(&string, "--S") || string_equal_cstr(&string, "-asm"))
             {
                 arguments.options |= OPT_ASSEMBLY_OUTPUT;
+            }
+            else if (string_equal_cstr(&string, "--tokenizer") || string_equal_cstr(&string, "-T"))
+            {
+                arguments.options |= OPT_TOK_OUTPUT;
             }
             else if (string_equal_cstr(&string, "-ir"))
             {
@@ -123,15 +128,31 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
         log_error("Empty input\n");
         return false;
     }
-    
+    String* out_path = NULL;
     Token_List* tokens = lexer_tokenize(source, arguments.input_file, arguments.absolute_path);
+
+    if (has_flag(arguments.options, OPT_TOK_OUTPUT))
+    {
+        out_path = arguments.out_path ? arguments.out_path : string_allocate("out.tok", allocator);
+        String* tok_out = lexer_pretty_print(tokens, allocator);
+        FILE* temp_file = fopen(out_path->str, "w");
+        if (!temp_file)
+        {
+            fprintf(stderr, "Unable to open temp file: %s\n", out_path->str);
+            exit(1);
+        }
+
+        string_write_to_file(tok_out, temp_file);
+        fclose(temp_file);
+        return true;
+    }
+    
     Parser parser;
     parser_init(&parser, arguments.absolute_path, tokens, allocator);
 
     bool result = false;
     if (parse(&parser, false, allocator))
     {
-        String* out_path = NULL;
         IR_Program program = ir_translate_ast(parser.root, allocator);
         if (has_flag(arguments.options, OPT_IR_OUTPUT))
         {

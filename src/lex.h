@@ -17,12 +17,14 @@ typedef enum
     TOKEN_LEFT_BRACE,
     TOKEN_RIGHT_BRACE,
 
+    TOKEN_EQUAL,
+
     TOKEN_IF, TOKEN_ELSE, TOKEN_WHILE,
     TOKEN_RETURN, TOKEN_LET, TOKEN_MUT,
 
     TOKEN_FALSE, TOKEN_TRUE, TOKEN_FOR,
 
-    TOKEN_PUB, TOKEN_FN,
+    TOKEN_FN,
     
     TOKEN_IDENTIFIER,
 
@@ -215,7 +217,6 @@ static Token_Type lexer_identifier_type(Lexer* lexer)
     case 'l': return lexer_check_keyword(lexer, 1, 2, "et", TOKEN_LET);
     case 'm': return lexer_check_keyword(lexer, 1, 2, "ut", TOKEN_MUT);
     case 'w': return lexer_check_keyword(lexer, 1, 4, "hile", TOKEN_WHILE);
-    case 'p': return lexer_check_keyword(lexer, 1, 2, "ub", TOKEN_PUB);
     case 't': return lexer_check_keyword(lexer, 1, 3, "rue", TOKEN_TRUE);
     case 'f':
     {
@@ -272,6 +273,7 @@ static Token lexer_scan_token(Lexer* lexer)
     case '-': return lexer_make_token(lexer, TOKEN_MINUS);
     case '*': return lexer_make_token(lexer, TOKEN_STAR);
     case '/': return lexer_make_token(lexer, TOKEN_SLASH);
+    case '=': return lexer_make_token(lexer, TOKEN_EQUAL);
     case '(': return lexer_make_token(lexer, TOKEN_LEFT_PAREN);
     case ')': return lexer_make_token(lexer, TOKEN_RIGHT_PAREN);
     case '{': return lexer_make_token(lexer, TOKEN_LEFT_BRACE);
@@ -342,6 +344,140 @@ Token_List* lexer_tokenize(String* input, String* file_name, String* absolute_pa
     token_list_add(list, token);
 
     return list;
+}
+
+String* lexer_pretty_print(Token_List* list, Allocator* allocator)
+{
+    String_Builder sb;
+    sb_init(&sb, 256);
+
+    for (i32 i = 0; i < list->count; i++)
+    {
+        Token token = list->tokens[i];
+
+        switch (token.type)
+        {
+        case TOKEN_NUMBER:
+        {
+            i32 value = strtol(token.start, NULL, 10);
+            sb_appendf(&sb, "NUMBER('%d')\n", value);
+        }
+        break;
+        case TOKEN_PLUS:
+        {
+            sb_append(&sb, "PLUS('+')\n");
+        }
+        break;
+        case TOKEN_MINUS:
+        {
+            sb_append(&sb, "MINUS('-')\n");
+        }
+        break;
+        case TOKEN_STAR:
+        {
+            sb_append(&sb, "STAR('*')\n");
+        }
+        break;
+        case TOKEN_SLASH:
+        {
+            sb_append(&sb, "SLASH('/')\n");
+        }
+        break;
+        case TOKEN_BANG:
+        {
+            sb_append(&sb, "BANG('!')\n");
+        }
+        break;
+        case TOKEN_LEFT_PAREN:
+        {
+            sb_append(&sb, "LPAREN('(')\n");
+        }
+        break;
+        case TOKEN_RIGHT_PAREN:
+        {
+            sb_append(&sb, "RPAREN(')')\n");
+        }
+        break;
+        case TOKEN_LEFT_BRACE:
+        {
+            sb_append(&sb, "LBRACE('{')\n");
+        }
+        break;
+        case TOKEN_RIGHT_BRACE:
+        {
+            sb_append(&sb, "RBRACE('}')\n");
+        }
+        break;
+        case TOKEN_EQUAL:
+        {
+            sb_append(&sb, "EQUAL('=')\n");
+        }
+        break;
+        case TOKEN_IF:
+        {
+            sb_append(&sb, "IF('if')\n");
+        }
+        break;
+        case TOKEN_ELSE:
+        {
+            sb_append(&sb, "ELSE('else')\n");
+        }
+        break;
+        case TOKEN_WHILE:
+        {
+            sb_append(&sb, "WHILE('while')\n");
+        }
+        break;
+        case TOKEN_RETURN:
+        {
+            sb_append(&sb, "RETURN('return')\n");
+        }
+        break;
+        case TOKEN_LET:
+        {
+            sb_append(&sb, "LET('let')\n");
+        }
+        break;
+        case TOKEN_MUT:
+        {
+            sb_append(&sb, "MUT('mut')\n");
+        }
+        break;
+        case TOKEN_FALSE:
+        {
+            sb_append(&sb, "FALSE('false')\n");
+        }
+        break;
+        case TOKEN_TRUE:
+        {
+            sb_append(&sb, "TRUE('true')\n");
+        }
+        break;
+        case TOKEN_FOR:
+        {
+            sb_append(&sb, "FOR('for')\n");
+        }
+        break;
+        case TOKEN_FN:
+        {
+            sb_append(&sb, "FN('fn')\n");
+        }
+        break;
+        case TOKEN_IDENTIFIER:
+        {
+            sb_appendf(&sb, "IDENT('%.*s')\n", token.length, token.start);
+        }
+        break;
+        case TOKEN_EOF:
+        {
+            sb_append(&sb, "EOF\n");
+        }
+        break;
+        case TOKEN_ERROR: break;
+        }
+    }
+    
+    return sb_get_result(&sb, allocator);
 }
 
 

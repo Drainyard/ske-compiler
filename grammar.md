@@ -3,19 +3,20 @@
 ```
 <program>               ::= <fun-decl>
 
-<fun-decl>		::= pub fn IDENTIFIER()
-			|   fn IDENTIFIER() <compound-statement>
+<fun-decl>		        ::= 
+	                    |   fn IDENTIFIER() <compound-statement>
 
-<compound-statement>	::= { }
-			|   { <statement-list> }
+<compound-statement>	::= '{' '}'
+			            |   '{' <statement-list> '}'
 
-<statement-list>	::= <statement>
-			|   <statement-list> <statement>
+<statement-list>	    ::= <statement>
+			            |   <statement-list> <statement>
 
-<statement>		::= <expression-statement>
+<statement>		        ::= <expression-statement>
 
-<expression-statement>	::= ; // Should we have optional ;? or no ; at all?
-			|   <expression> ;
+<expression-statement>	::= ';' // Should we have optional ;? or no ; at all?
+			            |   <expression> ';'
+						|   <expression>
 
 <expression>            ::= <binary-expression>
                         |   <unary-expression>
@@ -23,15 +24,15 @@
 
 <binary-expression>     ::= <expression> <binary-operator> <expression>
 
-<binary-operator>       ::= +
-                        |   -
-                        |   *
-                        |   /
+<binary-operator>       ::= '+'
+                        |   '-'
+                        |   '*'
+                        |   '/'
 
 <unary-expression>      ::= <unary-operator> <expression>
 
-<unary-operator>        ::= -
-                        |   +
+<unary-operator>        ::= '-'
+                        |   '+'
 
 <constant-expression>   ::= <constant>
 

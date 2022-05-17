@@ -52,7 +52,7 @@ bool run_subprocess(char** argv)
     }
     return true;
 }
-#else #ifdef _WIN32
+#elif _WIN32
 bool run_subprocess(char** argv)
 {
     CreateProcess(NULL, argv);

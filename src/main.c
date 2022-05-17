@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#else #ifdef _WIN32
+#elif _WIN32
 
 #endif
 

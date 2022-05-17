@@ -1,0 +1,10 @@
+FN('fn')
+IDENT('main')
+LPAREN('(')
+RPAREN(')')
+LBRACE('{')
+NUMBER('2')
+PLUS('+')
+NUMBER('2')
+RBRACE('}')
+EOF
