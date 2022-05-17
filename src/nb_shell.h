@@ -11,7 +11,7 @@ String* create_temp_file(Allocator* allocator)
         temp_files = string_array_allocate(MAX_TEMP_FILES, allocator);
     }
 
-    String* path = string_allocate("/tmp/arc-comp-XXXXXX", allocator);
+    String* path = string_allocate("/tmp/ske-XXXXXX", allocator);
     i32 fd = mkstemp(path->str);
     if (fd == 1)
     {
@@ -34,6 +34,7 @@ void cleanup_temp_files()
     }
 }
 
+#ifdef __linux__
 bool run_subprocess(char** argv)
 {
     if (fork() == 0)
@@ -51,26 +52,12 @@ bool run_subprocess(char** argv)
     }
     return true;
 }
-
-bool run_command(String* command, const char* error_message)
+#else #ifdef _WIN32
+bool run_subprocess(char** argv)
 {
-    FILE* fp;
-    fp = popen(command->str, "r");
-    if (!fp)
-    {
-        log_error(error_message);
-        return false;
-    }
-
-    char path[1048];
-    while (fgets(path, sizeof(path), fp) != NULL)
-    {
-        log_info("%s", path);
-    }
-    pclose(fp);
-
+    CreateProcess(NULL, argv);
     return true;
 }
-
+#endif
 
 #endif

@@ -7,9 +7,13 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <errno.h>
+#ifdef __linux__
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#else #ifdef _WIN32
+
+#endif
 
 typedef int16_t    i16;
 typedef int32_t    i32;

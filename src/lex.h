@@ -90,13 +90,19 @@ static char lexer_peek_char(Lexer* lexer)
     return *lexer->current;
 }
 
-__attribute__((unused)) static char lexer_peek_next_char(Lexer* lexer)
+#ifdef __GNUC__
+__attribute__((unused))
+#endif
+static char lexer_peek_next_char(Lexer* lexer)
 {
     if (lexer_is_at_end(lexer)) return '\0';
     return lexer->current[1];
 }
 
-__attribute__((unused)) static bool lexer_match_character(Lexer* lexer, char expected)
+#ifdef __GNUC__
+__attribute__((unused))
+#endif
+static bool lexer_match_character(Lexer* lexer, char expected)
 {
     if (lexer_is_at_end(lexer)) return false;
     if (*lexer->current != expected) return false;
