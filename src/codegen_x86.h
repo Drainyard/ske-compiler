@@ -697,27 +697,27 @@ void x86_codegen_program(AST_Node* program_node, String_Builder* sb, Scratch_Reg
     x86_emit_push_name(sb, "%rbp");
     x86_emit_move_name_to_name(sb, "%rsp", "%rbp");
 
-    Scratch_Register final_reg = x86_codegen_expression(program_node->program.expression, sb, table);
+    /* Scratch_Register final_reg = x86_codegen_expression(program_node->program.expression, sb, table); */
 
-    x86_emit_move_reg_to_name(sb, final_reg, "%rax");
-    scratch_free(table, final_reg);
+    /* x86_emit_move_reg_to_name(sb, final_reg, "%rax"); */
+    /* scratch_free(table, final_reg); */
 
     // @Note: Emit instructions for fprintf call (used for now)
-    sb_append(sb, "\n");
-    x86_emit_comment_line(sb, "fprintf call to output result temporarily");
-    x86_emit_move_name_to_name(sb, "stderr", "%rax");
-    x86_emit_move_reg_to_name(sb, final_reg, "%rdx");
-    x86_emit_move_name_to_name(sb, "$format", "%rsi");
-    x86_emit_move_name_to_name(sb, "%rax", "%rdi");
-    x86_emit_move_lit_to_name(sb, 0, "%rax");
-    x86_emit_call(sb, "fprintf");
-    x86_emit_move_lit_to_name(sb, 0, "%rax");
+    /* sb_append(sb, "\n"); */
+    /* x86_emit_comment_line(sb, "fprintf call to output result temporarily"); */
+    /* x86_emit_move_name_to_name(sb, "stderr", "%rax"); */
+    /* x86_emit_move_reg_to_name(sb, final_reg, "%rdx"); */
+    /* x86_emit_move_name_to_name(sb, "$format", "%rsi"); */
+    /* x86_emit_move_name_to_name(sb, "%rax", "%rdi"); */
+    /* x86_emit_move_lit_to_name(sb, 0, "%rax"); */
+    /* x86_emit_call(sb, "fprintf"); */
+    /* x86_emit_move_lit_to_name(sb, 0, "%rax"); */
 
-    x86_emit_pop_name(sb, "%rbp");
+    /* x86_emit_pop_name(sb, "%rbp"); */
 
-    x86_emit_ret(sb);
+    /* x86_emit_ret(sb); */
 
-    x86_emit_asciz(sb, "format", "%d\\n");
+    /* x86_emit_asciz(sb, "format", "%d\\n"); */
 }
 
 String* x86_codegen_ast(AST_Node* root_node, Allocator* allocator)

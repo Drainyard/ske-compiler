@@ -10,7 +10,8 @@ typedef enum
     OPT_NONE            = 0,
     OPT_ASSEMBLY_OUTPUT = 1 << 1,
     OPT_IR_OUTPUT       = 1 << 2,
-    OPT_TOK_OUTPUT      = 1 << 3
+    OPT_TOK_OUTPUT      = 1 << 3,
+    OPT_AST_OUTPUT      = 1 << 4
 } Compiler_Options;
 
 bool has_flag(Compiler_Options options, int flag)
@@ -66,13 +67,17 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             {
                 arguments.options |= OPT_ASSEMBLY_OUTPUT;
             }
-            else if (string_equal_cstr(&string, "--tokenizer") || string_equal_cstr(&string, "-T"))
+            else if (string_equal_cstr(&string, "-tokenizer") || string_equal_cstr(&string, "--T"))
             {
                 arguments.options |= OPT_TOK_OUTPUT;
             }
             else if (string_equal_cstr(&string, "-ir"))
             {
                 arguments.options |= OPT_IR_OUTPUT;
+            }
+            else if (string_equal_cstr(&string, "-parser") || string_equal_cstr(&string, "--P"))
+            {
+                arguments.options |= OPT_AST_OUTPUT;
             }
             else if (string_equal_cstr(&string, "--h") || string_equal_cstr(&string, "-help"))
             {
@@ -83,6 +88,9 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
                 printf("  --o <file>              Place the output into <file>\n");
                 printf("  --S or -asm             Compile only; do not assemble or link.\n");
                 printf("  --c                     Compile and assembly, but do not link\n");
+                printf("  --T or -tokenizer       Tokenize and output tokens\n");
+                printf("  --P or -parser          Parse and output AST\n");
+                printf("  -ir                     Generate IR and output\n");
             }
             else if (is_source_file(&string))
             {
@@ -128,22 +136,29 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
         log_error("Empty input\n");
         return false;
     }
-    String* out_path = NULL;
+    String* out_path = arguments.out_path;
     Token_List* tokens = lexer_tokenize(source, arguments.input_file, arguments.absolute_path);
 
     if (has_flag(arguments.options, OPT_TOK_OUTPUT))
     {
-        out_path = arguments.out_path ? arguments.out_path : string_allocate("out.tok", allocator);
         String* tok_out = lexer_pretty_print(tokens, allocator);
-        FILE* temp_file = fopen(out_path->str, "w");
-        if (!temp_file)
+        if (out_path)
         {
-            fprintf(stderr, "Unable to open temp file: %s\n", out_path->str);
-            exit(1);
+            FILE* temp_file = fopen(out_path->str, "w");
+            if (!temp_file)
+            {
+                fprintf(stderr, "Unable to open temp file: %s\n", out_path->str);
+                exit(1);
+            }
+
+            string_write_to_file(tok_out, temp_file);
+            fclose(temp_file);
+        }
+        else
+        {
+            fprintf(stderr, tok_out->str);
         }
 
-        string_write_to_file(tok_out, temp_file);
-        fclose(temp_file);
         return true;
     }
     
@@ -153,20 +168,47 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
     bool result = false;
     if (parse(&parser, false, allocator))
     {
+        if (has_flag(arguments.options, OPT_AST_OUTPUT))
+        {
+            String* ast = pretty_print_ast(parser.root, allocator);
+            if (out_path)
+            {
+                FILE* temp_file = fopen(out_path->str, "w");
+                if (!temp_file)
+                {
+                    fprintf(stderr, "Unable to open temp file: %s\n", out_path->str);
+                    exit(1);
+                }
+
+                string_write_to_file(ast, temp_file);
+                fclose(temp_file);
+            }
+            else
+            {
+                fprintf(stderr, ast->str);
+            }
+            return true;
+        }
         IR_Program program = ir_translate_ast(parser.root, allocator);
         if (has_flag(arguments.options, OPT_IR_OUTPUT))
         {
-            out_path = arguments.out_path ? arguments.out_path : string_allocate("out.ir", allocator);
             String* ir_out = ir_pretty_print(&program, allocator);
-            FILE* temp_file = fopen(out_path->str, "w");
-            if (!temp_file)
+            if (out_path)
             {
-                fprintf(stderr, "Unable to open temp file: %s\n", out_path->str);
-                exit(1);
-            }
+                FILE* temp_file = fopen(out_path->str, "w");
+                if (!temp_file)
+                {
+                    fprintf(stderr, "Unable to open temp file: %s\n", out_path->str);
+                    exit(1);
+                }
 
-            string_write_to_file(ir_out, temp_file);
-            fclose(temp_file);
+                string_write_to_file(ir_out, temp_file);
+                fclose(temp_file);
+            }
+            else
+            {
+                fprintf(stderr, ir_out->str);
+            }
             return true;
         }
         
@@ -175,7 +217,23 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
         {           
             if (has_flag(arguments.options, OPT_ASSEMBLY_OUTPUT))
             {
-                out_path = arguments.out_path ? arguments.out_path : string_allocate("out.s", allocator);
+                if (out_path)
+                {
+                    FILE* temp_file = fopen(out_path->str, "w");
+                    if (!temp_file)
+                    {
+                        fprintf(stderr, "Unable to open temp file: %s\n", out_path->str);
+                        exit(1);
+                    }
+
+                    string_write_to_file(assembly, temp_file);
+                    fclose(temp_file);
+                }
+                else
+                {
+                    fprintf(stderr, assembly->str);
+                }
+                return true;
             }
             else
             {
@@ -193,11 +251,6 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
 
                 string_write_to_file(assembly, temp_file);
                 fclose(temp_file);
-
-                if (has_flag(arguments.options, OPT_ASSEMBLY_OUTPUT))
-                {
-                    return true;
-                }
 
                 String* assembly_out = create_temp_file(allocator);
                 result = compiler_assemble_x86_with_input_file(out_path, assembly_out, allocator);

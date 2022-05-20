@@ -508,7 +508,7 @@ IR_Program ir_translate_ast(AST_Node* root_node, Allocator* allocator)
     String* name = string_allocate("main", allocator);
     ir_emit_function_decl(block, name, true, allocator);
     
-    ir_translate_expression(root_node->program.expression, block, allocator, register_table);
+    /* ir_translate_expression(root_node->program.expression, block, allocator, register_table); */
 
     ir_emit_instruction(block, IR_INS_RET, allocator);
 
