@@ -491,6 +491,63 @@ IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* 
     }
 }
 
+void ir_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, IR_Register_Table* register_table)
+{
+    AST_Node_List list = body->block.declarations;
+
+    for (i32 i = 0; i < list.count; i++)
+    {
+        AST_Node* node = list.nodes[i];
+
+        switch(node->type)
+        {
+        case AST_NODE_NUMBER:
+        case AST_NODE_BINARY:
+        case AST_NODE_UNARY:
+        {
+            ir_translate_expression(node, block, allocator, register_table);
+        }
+        break;
+        default: assert(false && "Invalid AST node type.");
+        }
+    }
+    ir_emit_instruction(block, IR_INS_RET, allocator);
+}
+
+void ir_translate_program(IR_Program* program, AST_Node* ast_program, Allocator* allocator, IR_Register_Table* register_table)
+{
+    AST_Node_List declarations = ast_program->program.declarations;
+
+    for (i32 i = 0; i < declarations.count; i++)
+    {
+        AST_Node* node = declarations.nodes[i];
+
+        switch(node->type)
+        {
+        case AST_NODE_FUN_DECL:
+        {
+            IR_Block* block = ir_allocate_block(program);
+            ir_emit_function_decl(block, node->fun_decl.name, true, allocator);
+
+            ir_translate_block(block, node->fun_decl.body, allocator, register_table);
+        }
+        break;
+        case AST_NODE_NUMBER:
+        case AST_NODE_BINARY:
+        case AST_NODE_UNARY:
+        {
+            IR_Block* block = ir_allocate_block(program);
+            String* name = string_allocate("main", allocator);
+            ir_emit_function_decl(block, name, true, allocator);
+            ir_translate_expression(node->expression.expression, block, allocator, register_table);
+            ir_emit_instruction(block, IR_INS_RET, allocator);
+        }
+        break;
+        default: assert(false && "Invalid AST node type");
+        }
+    }
+}
+
 IR_Program ir_translate_ast(AST_Node* root_node, Allocator* allocator)
 {
     IR_Program program =
@@ -503,14 +560,14 @@ IR_Program ir_translate_ast(AST_Node* root_node, Allocator* allocator)
     IR_Register_Table* register_table = malloc(sizeof(IR_Register_Table));
     register_table->capacity = 0;
     register_table->inuse_table = NULL;
-    IR_Block* block = ir_allocate_block(&program);
+    /* IR_Block* block = ir_allocate_block(&program); */
     
-    String* name = string_allocate("main", allocator);
-    ir_emit_function_decl(block, name, true, allocator);
+    /* String* name = string_allocate("main", allocator); */
+    /* ir_emit_function_decl(block, name, true, allocator); */
+
+    ir_translate_program(&program, root_node, allocator, register_table);
     
     /* ir_translate_expression(root_node->program.expression, block, allocator, register_table); */
-
-    ir_emit_instruction(block, IR_INS_RET, allocator);
 
     /* ir_pretty_print(&program, true, allocator); */
 

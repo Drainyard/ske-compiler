@@ -89,10 +89,8 @@ void ast_node_list_add(AST_Node_List* list, AST_Node* node)
         list->capacity = list->capacity == 0 ? 2 : list->capacity * 2;
         list->nodes = realloc(list->nodes, list->capacity * sizeof(AST_Node*));
     }
-
     list->nodes[list->count++] = node;
 }
-
 
 typedef enum
 {
@@ -109,13 +107,6 @@ typedef enum
     PREC_PRIMARY
 } Precedence;
 
-/* typedef struct */
-/* { */
-/*     AST_Node* nodes; */
-/*     i32 capacity; */
-/*     i32 count; */
-/* } AST_Store; */
-
 typedef struct
 {
     Token current;
@@ -127,8 +118,6 @@ typedef struct
     String_View absolute_path;
 
     Allocator* allocator;
-
-    /* AST_Store ast_store; */
 
     bool had_error;
     bool panic_mode;
