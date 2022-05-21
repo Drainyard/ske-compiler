@@ -568,6 +568,13 @@ static void pretty_print_declaration(AST_Node* declaration, i32 indentation, Str
         sb_append(builder, ")");
     }
     break;
+    case AST_NODE_NUMBER:
+    case AST_NODE_BINARY:
+    case AST_NODE_UNARY:
+    {
+        pretty_print_expression(declaration, indentation, builder);
+    }
+    break;
     default: assert(false && "Not a declaration."); break;
     }
 }

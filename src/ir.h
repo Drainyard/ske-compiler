@@ -539,7 +539,7 @@ void ir_translate_program(IR_Program* program, AST_Node* ast_program, Allocator*
             IR_Block* block = ir_allocate_block(program);
             String* name = string_allocate("main", allocator);
             ir_emit_function_decl(block, name, true, allocator);
-            ir_translate_expression(node->expression.expression, block, allocator, register_table);
+            ir_translate_expression(node, block, allocator, register_table);
             ir_emit_instruction(block, IR_INS_RET, allocator);
         }
         break;
