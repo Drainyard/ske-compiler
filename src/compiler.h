@@ -63,11 +63,11 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
                 arguments.out_path = string_allocate(argv[i + 1], allocator);
                 i++;
             }
-            else if (string_equal_cstr(&string, "--S") || string_equal_cstr(&string, "-asm"))
+            else if (string_equal_cstr(&string, "-assembly"))
             {
                 arguments.options |= OPT_ASSEMBLY_OUTPUT;
             }
-            else if (string_equal_cstr(&string, "-tokenizer") || string_equal_cstr(&string, "--T"))
+            else if (string_equal_cstr(&string, "-tokenizer"))
             {
                 arguments.options |= OPT_TOK_OUTPUT;
             }
@@ -75,7 +75,7 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             {
                 arguments.options |= OPT_IR_OUTPUT;
             }
-            else if (string_equal_cstr(&string, "-parser") || string_equal_cstr(&string, "--P"))
+            else if (string_equal_cstr(&string, "-parser"))
             {
                 arguments.options |= OPT_AST_OUTPUT;
             }
@@ -86,10 +86,10 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
 
                 printf("  --h or -help            Display this information\n");
                 printf("  --o <file>              Place the output into <file>\n");
-                printf("  --S or -asm             Compile only; do not assemble or link.\n");
-                printf("  --c                     Compile and assembly, but do not link\n");
-                printf("  --T or -tokenizer       Tokenize and output tokens\n");
-                printf("  --P or -parser          Parse and output AST\n");
+                printf("  -assembly               Compile only; do not assemble or link.\n");
+                printf("  --c                     Compile and assemble, but do not link\n");
+                printf("  -tokenizer              Tokenize and output tokens\n");
+                printf("  -parser                 Parse and output AST\n");
                 printf("  -ir                     Generate IR and output\n");
             }
             else if (is_source_file(&string))

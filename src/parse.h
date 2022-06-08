@@ -6,6 +6,7 @@ typedef enum
     AST_NODE_STATEMENT,
     AST_NODE_PROGRAM,
     AST_NODE_FUN_DECL,
+    AST_NODE_RETURN,
     AST_NODE_BLOCK,
     AST_NODE_NUMBER,
     AST_NODE_BINARY,
@@ -60,6 +61,10 @@ struct AST_Node
         {
             AST_Node* statement;
         } statement;
+        struct
+        {
+            AST_Node* expression;
+        } return_statement;
         struct
         {
             String* name;
@@ -308,9 +313,42 @@ static AST_Node* parser_fun_declaration(Parser* parser)
     return fun_node;
 }
 
+static AST_Node* parser_return_statement(Parser* parser)
+{
+    if (parser_match(parser, TOKEN_SEMICOLON))
+    {
+        AST_Node* return_node = parser_add_node(AST_NODE_RETURN, parser->allocator);
+        return_node->return_statement.expression = NULL;
+        parser_consume(parser, TOKEN_SEMICOLON, "Expect ';' after expression.");
+        return return_node;
+    }
+    else
+    {
+        AST_Node* return_node = parser_add_node(AST_NODE_RETURN, parser->allocator);
+        return_node->return_statement.expression = parser_expression(parser);
+        parser_consume(parser, TOKEN_SEMICOLON, "Expect ';' after expression.");
+        return return_node;
+    }
+    return NULL;
+}
+
+static AST_Node* parser_expression_statement(Parser* parser)
+{
+    AST_Node* expression = parser_expression(parser);
+    parser_consume(parser, TOKEN_SEMICOLON, "Expect ';' after expression.");
+    return expression;
+}
+
 static AST_Node* parser_statement(Parser* parser)
 {
-    return parser_expression(parser);
+    if (parser_match(parser, TOKEN_RETURN))
+    {
+        return parser_return_statement(parser);
+    }
+    else
+    {
+        return parser_expression_statement(parser);
+    }
 }
 
 static AST_Node* parser_declaration(Parser* parser)
@@ -398,7 +436,7 @@ Parse_Rule rules[] = {
   /* [TOKEN_DOT]           = {NULL,            NULL,          PREC_NONE}, */
   [TOKEN_MINUS]            = {parser_unary,    parser_binary, PREC_TERM},
   [TOKEN_PLUS]             = {NULL,            parser_binary, PREC_TERM},
-  /* [TOKEN_SEMICOLON]     = {NULL,            NULL,          PREC_NONE}, */
+  [TOKEN_SEMICOLON]        = {NULL,            NULL,          PREC_NONE},
   [TOKEN_SLASH]            = {NULL,            parser_binary, PREC_FACTOR},
   [TOKEN_STAR]             = {NULL,            parser_binary, PREC_FACTOR},
   [TOKEN_BANG]             = {NULL,            NULL,          PREC_NONE},
@@ -416,7 +454,7 @@ Parse_Rule rules[] = {
   [TOKEN_FOR]              = {NULL,            NULL,          PREC_NONE},
   [TOKEN_IF]               = {NULL,            NULL,          PREC_NONE},
   /* [TOKEN_NIL]           = {NULL,            NULL,          PREC_NONE}, */
-  /* [TOKEN_RETURN]        = {NULL,            NULL,          PREC_NONE}, */
+  [TOKEN_RETURN]           = {NULL,            NULL,          PREC_NONE},
   /* [TOKEN_THIS]          = {NULL,            NULL,          PREC_NONE}, */
   [TOKEN_TRUE]             = {NULL,            NULL,          PREC_NONE},
   [TOKEN_WHILE]            = {NULL,            NULL,          PREC_NONE},
@@ -441,6 +479,8 @@ static char* parser_type_string(AST_Node_Type type)
     return "AST_NODE_PROGRAM";
     case AST_NODE_FUN_DECL:
     return "AST_NODE_FUN_DECL";
+    case AST_NODE_RETURN:
+    return "AST_NODE_RETURN";
     case AST_NODE_BLOCK:
     return "AST_NODE_BLOCK";
     case AST_NODE_NUMBER:
@@ -549,30 +589,45 @@ static void pretty_print_expression(AST_Node* node, i32 indentation, String_Buil
     }
 }
 
+static void pretty_print_statement(AST_Node* statement, i32 indentation, String_Builder* builder)
+{
+    switch(statement->type)
+    {
+    case AST_NODE_RETURN:
+    {
+        sb_indent(builder, indentation);
+        sb_append(builder, "Return(\n");
+        pretty_print_expression(statement->return_statement.expression, indentation, builder);
+        sb_append(builder, ")");
+    }
+    break;
+    default: assert(false && "Not a valid statement type"); break;
+    }
+}
+
 static void pretty_print_declaration(AST_Node* declaration, i32 indentation, String_Builder* builder)
 {
     switch(declaration->type)
     {
     case AST_NODE_FUN_DECL:
     {
-        sb_appendf(builder, "Function(%s, ()\n", declaration->fun_decl.name->str);
+        sb_indent(builder, indentation);
+        sb_appendf(builder, "Function(%s, ()", declaration->fun_decl.name->str);
 
         AST_Node_List block = declaration->fun_decl.body->block.declarations;
+
+        if (block.count > 0)
+        {
+            sb_append(builder, ",\n");
+        }
 
         for (i32 i = 0; i < block.count; i++)
         {
             AST_Node* node = block.nodes[i];
-            pretty_print_expression(node, indentation, builder);
+            pretty_print_statement(node, indentation + 1, builder);
         }
 
-        sb_append(builder, ")");
-    }
-    break;
-    case AST_NODE_NUMBER:
-    case AST_NODE_BINARY:
-    case AST_NODE_UNARY:
-    {
-        pretty_print_expression(declaration, indentation, builder);
+        sb_append(builder, ")\n");
     }
     break;
     default: assert(false && "Not a declaration."); break;
@@ -582,7 +637,7 @@ static void pretty_print_declaration(AST_Node* declaration, i32 indentation, Str
 static void pretty_print_program(AST_Node* program_node, i32 indentation, String_Builder* builder)
 {
     sb_append(builder, "(");
-    sb_append(builder, "Program\t\n ");
+    sb_append(builder, "Program\t\n");
     indentation++;
 
     AST_Node_List list = program_node->program.declarations;

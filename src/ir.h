@@ -129,6 +129,12 @@ struct IR_Move
     IR_Location dst;
 };
 
+typedef struct IR_Return IR_Return;
+struct IR_Return
+{
+    IR_Register return_register;
+};
+
 typedef struct IR_Push IR_Push;
 struct IR_Push
 {
@@ -175,11 +181,12 @@ struct IR_Instruction
     IR_Instruction_Type type;
     union
     {
-        IR_Move  move;
-        IR_Push  push;
-        IR_Pop   pop;
-        IR_BinOp binop;
-        IR_UnOp  unop;
+        IR_Move   move;
+        IR_Return ret;
+        IR_Push   push;
+        IR_Pop    pop;
+        IR_BinOp  binop;
+        IR_UnOp   unop;
     };
 };
 
@@ -339,6 +346,16 @@ IR_Node* ir_emit_instruction(IR_Block* block, IR_Instruction_Type instruction_ty
     return node;
 }
 
+IR_Node* ir_emit_return(IR_Block* block, IR_Register reg, Allocator* allocator)
+{
+    IR_Node* node = ir_emit_instruction(block, IR_INS_RET, allocator);
+    IR_Return* ret = &node->instruction.ret;
+
+    ret->return_register = reg;
+
+    return node;
+}
+
 IR_UnOp* ir_emit_unop(IR_Block* block, IR_Register reg, IR_Op operator, Allocator* allocator)
 {
     IR_Node* node = ir_emit_instruction(block, IR_INS_UNOP, allocator);
@@ -366,6 +383,22 @@ IR_Push* ir_emit_push_int(IR_Block* block, i32 value, Allocator* allocator)
     ir_value->integer = value;
     
     return push;
+}
+
+IR_Move* ir_emit_move_reg_to_reg(IR_Block* block, IR_Register src_reg, IR_Register dst_reg, Allocator* allocator)
+{
+    IR_Node* node = ir_emit_instruction(block, IR_INS_MOV, allocator);
+    IR_Move* move = &node->instruction.move;
+
+    IR_Value* src = &move->src;
+    src->type = IR_LOCATION_REGISTER;
+    src->loc.reg = src_reg;
+
+    IR_Location* dst = &move->dst;
+    dst->type = IR_LOCATION_REGISTER;
+    dst->reg = dst_reg;
+
+    return move;
 }
 
 IR_Move* ir_emit_move_lit_to_reg(IR_Block* block, i32 value, IR_Register reg, Allocator* allocator)
@@ -501,6 +534,14 @@ void ir_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
 
         switch(node->type)
         {
+        case AST_NODE_RETURN:
+        {
+            IR_Register reg = ir_translate_expression(node->return_statement.expression, block, allocator, register_table);
+            IR_Register dst = ir_register_alloc(register_table);
+            ir_emit_move_reg_to_reg(block, reg, dst, allocator);
+            ir_emit_return(block, dst, allocator);
+        }
+        break;
         case AST_NODE_NUMBER:
         case AST_NODE_BINARY:
         case AST_NODE_UNARY:
@@ -511,7 +552,6 @@ void ir_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
         default: assert(false && "Invalid AST node type.");
         }
     }
-    ir_emit_instruction(block, IR_INS_RET, allocator);
 }
 
 void ir_translate_program(IR_Program* program, AST_Node* ast_program, Allocator* allocator, IR_Register_Table* register_table)
@@ -731,7 +771,9 @@ String* ir_pretty_print(IR_Program* program, Allocator* allocator)
                 break;
                 case IR_INS_RET:
                 {
-                    sb_append(&sb, "ret");
+                    IR_Return* ret = &instruction->ret;
+                    sb_append(&sb, "ret ");
+                    ir_pretty_print_register(&sb, &ret->return_register);
                     sb_newline(&sb);
                 }
                 break;

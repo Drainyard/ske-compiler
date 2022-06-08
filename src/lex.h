@@ -9,6 +9,7 @@ typedef enum
     TOKEN_MINUS,
     TOKEN_STAR,
     TOKEN_SLASH,
+    TOKEN_SEMICOLON,
 
     TOKEN_BANG,
 
@@ -224,7 +225,7 @@ static Token_Type lexer_identifier_type(Lexer* lexer)
             switch (lexer->start[1])
             {
             case 'a': return lexer_check_keyword(lexer, 2, 3, "lse", TOKEN_FALSE);
-            case 'o': return lexer_check_keyword(lexer, 2, 1, "or", TOKEN_FOR);
+            case 'o': return lexer_check_keyword(lexer, 2, 2, "or", TOKEN_FOR);
             }
         }
     }
@@ -286,7 +287,7 @@ static Token lexer_scan_token(Lexer* lexer)
         if (lexer_match_character(lexer, '=')) return lexer_make_token(lexer, TOKEN_COLON_EQUAL);
         return lexer_make_token(lexer, TOKEN_COLON);
     }
-    
+    case ';': return lexer_make_token(lexer, TOKEN_SEMICOLON);
     }
 
     return lexer_error_token(lexer, "unexpected token");
@@ -321,7 +322,7 @@ void token_list_free(Token_List* list)
 
 void token_list_maybe_expand(Token_List* list)
 {
-    if (list->count + 1 >= list->count)
+    if (list->count + 1 >= list->capacity)
     {
         list->capacity *= 2;
         list->tokens = realloc(list->tokens, list->capacity);
@@ -390,6 +391,11 @@ String* lexer_pretty_print(Token_List* list, Allocator* allocator)
         case TOKEN_SLASH:
         {
             sb_append(&sb, "SLASH('/')\n");
+        }
+        break;
+        case TOKEN_SEMICOLON:
+        {
+            sb_append(&sb, "SEMICOLON(';')\n");
         }
         break;
         case TOKEN_BANG:
