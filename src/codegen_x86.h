@@ -509,7 +509,13 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                 {
                 case IR_INS_RET:
                 {
-                    /* x86_emit_ret(&sb); */
+                    IR_Return* ret = &instruction->ret;
+                    if (ret->has_return_value)
+                    {
+                        Scratch_Register return_reg = get_or_add_scratch_from_temp(&temp_table, ret->return_register, &table);
+                        x86_emit_move_reg_to_name(&sb, return_reg, "%rax"); // calling convention defined return
+                    }
+                    x86_emit_ret(&sb);
                 }
                 break;
                 case IR_INS_MOV:

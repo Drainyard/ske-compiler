@@ -364,6 +364,7 @@ static AST_Node* parser_declaration(Parser* parser)
     {
         return parser_statement(parser);
     }
+    return NULL;
 }
 
 static AST_Node* parser_binary(Parser* parser, AST_Node* left)

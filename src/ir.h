@@ -133,6 +133,7 @@ typedef struct IR_Return IR_Return;
 struct IR_Return
 {
     IR_Register return_register;
+    bool has_return_value;
 };
 
 typedef struct IR_Push IR_Push;
@@ -346,12 +347,20 @@ IR_Node* ir_emit_instruction(IR_Block* block, IR_Instruction_Type instruction_ty
     return node;
 }
 
-IR_Node* ir_emit_return(IR_Block* block, IR_Register reg, Allocator* allocator)
+IR_Node* ir_emit_return(IR_Block* block, IR_Register* reg, Allocator* allocator)
 {
     IR_Node* node = ir_emit_instruction(block, IR_INS_RET, allocator);
     IR_Return* ret = &node->instruction.ret;
 
-    ret->return_register = reg;
+    if (reg)
+    {
+        ret->return_register = *reg;
+        ret->has_return_value = true;
+    }
+    else
+    {
+        ret->has_return_value = false;
+    }
 
     return node;
 }
@@ -536,10 +545,18 @@ void ir_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
         {
         case AST_NODE_RETURN:
         {
-            IR_Register reg = ir_translate_expression(node->return_statement.expression, block, allocator, register_table);
-            IR_Register dst = ir_register_alloc(register_table);
-            ir_emit_move_reg_to_reg(block, reg, dst, allocator);
-            ir_emit_return(block, dst, allocator);
+            if (node->return_statement.expression)
+            {
+                IR_Register reg = ir_translate_expression(node->return_statement.expression, block, allocator, register_table);
+                IR_Register dst = ir_register_alloc(register_table);
+                
+                ir_emit_move_reg_to_reg(block, reg, dst, allocator);
+                ir_emit_return(block, &dst, allocator);
+            }
+            else
+            {
+                ir_emit_return(block, NULL, allocator);
+            }
         }
         break;
         case AST_NODE_NUMBER:
@@ -772,8 +789,13 @@ String* ir_pretty_print(IR_Program* program, Allocator* allocator)
                 case IR_INS_RET:
                 {
                     IR_Return* ret = &instruction->ret;
-                    sb_append(&sb, "ret ");
-                    ir_pretty_print_register(&sb, &ret->return_register);
+                    sb_append(&sb, "ret");
+                    if (ret->has_return_value)
+                    {
+                        sb_append(&sb, " ");
+                        ir_pretty_print_register(&sb, &ret->return_register);
+                    }
+                    
                     sb_newline(&sb);
                 }
                 break;
