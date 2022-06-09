@@ -1,5 +1,5 @@
-FN('fn')
 IDENT('main')
+COLON_COLON('::')
 LPAREN('(')
 RPAREN(')')
 LBRACE('{')

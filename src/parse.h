@@ -6,6 +6,8 @@ typedef enum
     AST_NODE_STATEMENT,
     AST_NODE_PROGRAM,
     AST_NODE_FUN_DECL,
+    AST_NODE_RETURN,
+    AST_NODE_BLOCK,
     AST_NODE_NUMBER,
     AST_NODE_BINARY,
     AST_NODE_UNARY,
@@ -16,8 +18,16 @@ typedef enum
 typedef enum
 {
     TYPE_SPEC_INT,
-    TYPE_SPEC_VOID
+    TYPE_SPEC_UNIT
 } Type_Specifier;
+
+typedef struct  AST_Node_List AST_Node_List;
+struct AST_Node_List
+{
+    struct AST_Node** nodes;
+    i32 capacity;
+    i32 count;
+};
 
 typedef struct AST_Node AST_Node;
 struct AST_Node
@@ -41,7 +51,7 @@ struct AST_Node
         } binary;
         struct
         {
-            AST_Node* expression;
+            AST_Node_List declarations;
         } program;
         struct
         {
@@ -53,14 +63,19 @@ struct AST_Node
         } statement;
         struct
         {
-            const char* name;
+            AST_Node* expression;
+        } return_statement;
+        struct
+        {
+            String* name;
             AST_Node* type_specifier;
             AST_Node* arguments;
+            AST_Node* body;
         } fun_decl;
-        /* struct */
-        /* { */
-        /*     AST_Node_Handle fun_decl; */
-        /* } program; */
+        struct
+        {
+            AST_Node_List declarations;
+        } block;
         struct
         {
             Type_Specifier type;
@@ -72,13 +87,15 @@ struct AST_Node
     };
 };
 
-typedef struct AST_Nodes AST_Nodes;
-struct AST_Nodes
+void ast_node_list_add(AST_Node_List* list, AST_Node* node)
 {
-    AST_Node_Type* types;
-    AST_Node* nodes;
-    i32 count;
-};
+    if (list->count + 1 > list->capacity)
+    {
+        list->capacity = list->capacity == 0 ? 2 : list->capacity * 2;
+        list->nodes = realloc(list->nodes, list->capacity * sizeof(AST_Node*));
+    }
+    list->nodes[list->count++] = node;
+}
 
 typedef enum
 {
@@ -95,13 +112,6 @@ typedef enum
     PREC_PRIMARY
 } Precedence;
 
-/* typedef struct */
-/* { */
-/*     AST_Node* nodes; */
-/*     i32 capacity; */
-/*     i32 count; */
-/* } AST_Store; */
-
 typedef struct
 {
     Token current;
@@ -113,8 +123,6 @@ typedef struct
     String_View absolute_path;
 
     Allocator* allocator;
-
-    /* AST_Store ast_store; */
 
     bool had_error;
     bool panic_mode;
@@ -180,13 +188,10 @@ void parser_init(Parser* parser, String* absolute_path, Token_List* tokens, Allo
     parser->absolute_path = sv_create(absolute_path);
 
     parser->allocator = allocator;
-
-    /* ast_store_init(&parser->ast_store); */
 }
 
 void parser_free(Parser* parser)
 {
-    /* parser->ast_store.count = 0; */
     parser->allocator->free_all(parser->allocator);
     parser->token_stream = NULL;
     parser->had_error = false;
@@ -226,6 +231,7 @@ AST_Node* parser_add_node(AST_Node_Type node_type, Allocator* allocator)
 static Parse_Rule* parser_get_rule(Token_Type type);
 static AST_Node* parser_expression(Parser* parser);
 static AST_Node* parser_precedence(Parser* parser, Precedence precedence);
+static AST_Node* parser_declaration(Parser* parser);
 
 static AST_Node* parser_precedence(Parser* parser, Precedence precedence)
 {
@@ -262,6 +268,103 @@ static AST_Node* parser_number(Parser* parser, AST_Node* _)
 static AST_Node* parser_expression(Parser* parser)
 {
     return parser_precedence(parser, PREC_ASSIGNMENT);
+}
+
+static AST_Node* parser_block(Parser* parser)
+{
+    AST_Node* block = parser_add_node(AST_NODE_BLOCK, parser->allocator);
+    block->block.declarations.capacity = 0;
+    block->block.declarations.count = 0;
+    block->block.declarations.nodes = NULL;
+    
+    while (!parser_check(parser, TOKEN_RIGHT_BRACE) && !parser_check(parser, TOKEN_EOF))
+    {
+        ast_node_list_add(&block->block.declarations, parser_declaration(parser));
+    }
+
+    parser_consume(parser, TOKEN_RIGHT_BRACE, "Expect '}' after block.");
+
+    return block;
+}
+
+static AST_Node* parser_fun_declaration(Parser* parser)
+{
+    AST_Node* fun_node = parser_add_node(AST_NODE_FUN_DECL, parser->allocator);
+
+    Token prev = parser->previous;
+    fun_node->fun_decl.name = string_allocate_empty(prev.length, parser->allocator);
+    sprintf(fun_node->fun_decl.name->str, "%.*s", prev.length, prev.start);
+
+    parser_consume(parser, TOKEN_COLON_COLON, "Expect '::' after function identifier.");
+
+    parser_consume(parser, TOKEN_LEFT_PAREN, "Expect '(' after '::' in function declaration.");
+
+    if (!parser_check(parser, TOKEN_RIGHT_PAREN))
+    {
+        // @Incomplete: Handle arguments here
+        assert(false);
+    }
+
+    parser_consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+    parser_consume(parser, TOKEN_LEFT_BRACE, "Expect '{' function body.");
+
+    fun_node->fun_decl.body = parser_block(parser);
+    
+    return fun_node;
+}
+
+static AST_Node* parser_return_statement(Parser* parser)
+{
+    if (parser_match(parser, TOKEN_SEMICOLON))
+    {
+        AST_Node* return_node = parser_add_node(AST_NODE_RETURN, parser->allocator);
+        return_node->return_statement.expression = NULL;
+        parser_consume(parser, TOKEN_SEMICOLON, "Expect ';' after expression.");
+        return return_node;
+    }
+    else
+    {
+        AST_Node* return_node = parser_add_node(AST_NODE_RETURN, parser->allocator);
+        return_node->return_statement.expression = parser_expression(parser);
+        parser_consume(parser, TOKEN_SEMICOLON, "Expect ';' after expression.");
+        return return_node;
+    }
+    return NULL;
+}
+
+static AST_Node* parser_expression_statement(Parser* parser)
+{
+    AST_Node* expression = parser_expression(parser);
+    parser_consume(parser, TOKEN_SEMICOLON, "Expect ';' after expression.");
+    return expression;
+}
+
+static AST_Node* parser_statement(Parser* parser)
+{
+    if (parser_match(parser, TOKEN_RETURN))
+    {
+        return parser_return_statement(parser);
+    }
+    else
+    {
+        return parser_expression_statement(parser);
+    }
+}
+
+static AST_Node* parser_declaration(Parser* parser)
+{
+    if (parser_match(parser, TOKEN_IDENTIFIER))
+    {
+        if (parser_check(parser, TOKEN_COLON_COLON))
+        {
+            return parser_fun_declaration(parser);
+        }
+    }
+    else
+    {
+        return parser_statement(parser);
+    }
+    return NULL;
 }
 
 static AST_Node* parser_binary(Parser* parser, AST_Node* left)
@@ -334,7 +437,7 @@ Parse_Rule rules[] = {
   /* [TOKEN_DOT]           = {NULL,            NULL,          PREC_NONE}, */
   [TOKEN_MINUS]            = {parser_unary,    parser_binary, PREC_TERM},
   [TOKEN_PLUS]             = {NULL,            parser_binary, PREC_TERM},
-  /* [TOKEN_SEMICOLON]     = {NULL,            NULL,          PREC_NONE}, */
+  [TOKEN_SEMICOLON]        = {NULL,            NULL,          PREC_NONE},
   [TOKEN_SLASH]            = {NULL,            parser_binary, PREC_FACTOR},
   [TOKEN_STAR]             = {NULL,            parser_binary, PREC_FACTOR},
   [TOKEN_BANG]             = {NULL,            NULL,          PREC_NONE},
@@ -350,10 +453,9 @@ Parse_Rule rules[] = {
   [TOKEN_ELSE]             = {NULL,            NULL,          PREC_NONE},
   [TOKEN_FALSE]            = {NULL,            NULL,          PREC_NONE},
   [TOKEN_FOR]              = {NULL,            NULL,          PREC_NONE},
-  [TOKEN_FN]               = {NULL,            NULL,          PREC_NONE},
   [TOKEN_IF]               = {NULL,            NULL,          PREC_NONE},
   /* [TOKEN_NIL]           = {NULL,            NULL,          PREC_NONE}, */
-  /* [TOKEN_RETURN]        = {NULL,            NULL,          PREC_NONE}, */
+  [TOKEN_RETURN]           = {NULL,            NULL,          PREC_NONE},
   /* [TOKEN_THIS]          = {NULL,            NULL,          PREC_NONE}, */
   [TOKEN_TRUE]             = {NULL,            NULL,          PREC_NONE},
   [TOKEN_WHILE]            = {NULL,            NULL,          PREC_NONE},
@@ -378,6 +480,10 @@ static char* parser_type_string(AST_Node_Type type)
     return "AST_NODE_PROGRAM";
     case AST_NODE_FUN_DECL:
     return "AST_NODE_FUN_DECL";
+    case AST_NODE_RETURN:
+    return "AST_NODE_RETURN";
+    case AST_NODE_BLOCK:
+    return "AST_NODE_BLOCK";
     case AST_NODE_NUMBER:
     return "AST_NODE_NUMBER";
     case AST_NODE_BINARY:
@@ -484,16 +590,70 @@ static void pretty_print_expression(AST_Node* node, i32 indentation, String_Buil
     }
 }
 
+static void pretty_print_statement(AST_Node* statement, i32 indentation, String_Builder* builder)
+{
+    switch(statement->type)
+    {
+    case AST_NODE_RETURN:
+    {
+        sb_indent(builder, indentation);
+        sb_append(builder, "Return(\n");
+        pretty_print_expression(statement->return_statement.expression, indentation, builder);
+        sb_append(builder, ")");
+    }
+    break;
+    default: assert(false && "Not a valid statement type"); break;
+    }
+}
+
+static void pretty_print_declaration(AST_Node* declaration, i32 indentation, String_Builder* builder)
+{
+    switch(declaration->type)
+    {
+    case AST_NODE_FUN_DECL:
+    {
+        sb_indent(builder, indentation);
+        sb_appendf(builder, "Function(%s, ()", declaration->fun_decl.name->str);
+
+        AST_Node_List block = declaration->fun_decl.body->block.declarations;
+
+        if (block.count > 0)
+        {
+            sb_append(builder, ",\n");
+        }
+
+        for (i32 i = 0; i < block.count; i++)
+        {
+            AST_Node* node = block.nodes[i];
+            pretty_print_statement(node, indentation + 1, builder);
+        }
+
+        sb_append(builder, ")\n");
+    }
+    break;
+    default: assert(false && "Not a declaration."); break;
+    }
+}
+
 static void pretty_print_program(AST_Node* program_node, i32 indentation, String_Builder* builder)
 {
     sb_append(builder, "(");
-    sb_append(builder, "Program\t\n ");
+    sb_append(builder, "Program\t\n");
     indentation++;
-    pretty_print_expression(program_node->program.expression, indentation, builder);
+
+    AST_Node_List list = program_node->program.declarations;
+
+    for (i32 i = 0; i < list.count; i++)
+    {
+        AST_Node* declaration = list.nodes[i];
+        pretty_print_declaration(declaration, indentation, builder);
+    }
+    
+    /* pretty_print_expression(program_node->program.expression, indentation, builder); */
     sb_append(builder, ")");
 }
 
-static void pretty_print_ast(AST_Node* root, Allocator* allocator)
+static String* pretty_print_ast(AST_Node* root, Allocator* allocator)
 {
     assert(root->type == AST_NODE_PROGRAM);
     String_Builder builder;
@@ -501,8 +661,7 @@ static void pretty_print_ast(AST_Node* root, Allocator* allocator)
     pretty_print_program(root, 0, &builder);
     sb_append(&builder, "\n");
 
-    String* string = sb_get_result(&builder, allocator);
-    string_print(string);
+    return sb_get_result(&builder, allocator);
 }
 
 bool parse(Parser* parser, bool print_ast, Allocator* allocator)
@@ -512,12 +671,17 @@ bool parse(Parser* parser, bool print_ast, Allocator* allocator)
     if (!parser_match(parser, TOKEN_EOF))
     {
         parser->root = parser_add_node(AST_NODE_PROGRAM, parser->allocator);
-    
-        parser->root->program.expression = parser_expression(parser);
+        parser->root->program.declarations.count = 0;
+        parser->root->program.declarations.capacity = 0;
+        parser->root->program.declarations.nodes = NULL;
+
+        while (!parser_match(parser, TOKEN_EOF))
+        {
+            ast_node_list_add(&parser->root->program.declarations, parser_declaration(parser));
+        }
+        /* parser->root->program.expression = parser_expression(parser); */
     }
     
-    parser_consume(parser, TOKEN_EOF, "Expect end of expression");
-
     if (!parser->had_error && print_ast)
     {
         pretty_print_ast(parser->root, allocator);

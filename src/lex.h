@@ -9,6 +9,7 @@ typedef enum
     TOKEN_MINUS,
     TOKEN_STAR,
     TOKEN_SLASH,
+    TOKEN_SEMICOLON,
 
     TOKEN_BANG,
 
@@ -17,14 +18,15 @@ typedef enum
     TOKEN_LEFT_BRACE,
     TOKEN_RIGHT_BRACE,
 
-    TOKEN_EQUAL,
+    TOKEN_COLON, // type specifier
+    TOKEN_COLON_COLON, // constant decl
+    TOKEN_COLON_EQUAL, // mutable decl
+    TOKEN_EQUAL, // asignment
+    TOKEN_EQUAL_EQUAL, // equality
 
     TOKEN_IF, TOKEN_ELSE, TOKEN_WHILE,
-    TOKEN_RETURN, TOKEN_LET, TOKEN_MUT,
-
+    TOKEN_RETURN, 
     TOKEN_FALSE, TOKEN_TRUE, TOKEN_FOR,
-
-    TOKEN_FN,
     
     TOKEN_IDENTIFIER,
 
@@ -214,8 +216,6 @@ static Token_Type lexer_identifier_type(Lexer* lexer)
     case 'i': return lexer_check_keyword(lexer, 1, 1, "f", TOKEN_IF);
     case 'e': return lexer_check_keyword(lexer, 1, 3, "lse", TOKEN_ELSE);
     case 'r': return lexer_check_keyword(lexer, 1, 5, "eturn", TOKEN_RETURN);
-    case 'l': return lexer_check_keyword(lexer, 1, 2, "et", TOKEN_LET);
-    case 'm': return lexer_check_keyword(lexer, 1, 2, "ut", TOKEN_MUT);
     case 'w': return lexer_check_keyword(lexer, 1, 4, "hile", TOKEN_WHILE);
     case 't': return lexer_check_keyword(lexer, 1, 3, "rue", TOKEN_TRUE);
     case 'f':
@@ -224,9 +224,8 @@ static Token_Type lexer_identifier_type(Lexer* lexer)
         {
             switch (lexer->start[1])
             {
-            case 'n': return TOKEN_FN;
             case 'a': return lexer_check_keyword(lexer, 2, 3, "lse", TOKEN_FALSE);
-            case 'o': return lexer_check_keyword(lexer, 2, 1, "or", TOKEN_FOR);
+            case 'o': return lexer_check_keyword(lexer, 2, 2, "or", TOKEN_FOR);
             }
         }
     }
@@ -238,7 +237,6 @@ static Token_Type lexer_identifier_type(Lexer* lexer)
 static Token lexer_identifier(Lexer* lexer)
 {
     while (is_alpha(lexer_peek_char(lexer)) || is_digit(lexer_peek_char(lexer))) lexer_advance(lexer);
-
     return lexer_make_token(lexer, lexer_identifier_type(lexer));
 }
 
@@ -273,11 +271,23 @@ static Token lexer_scan_token(Lexer* lexer)
     case '-': return lexer_make_token(lexer, TOKEN_MINUS);
     case '*': return lexer_make_token(lexer, TOKEN_STAR);
     case '/': return lexer_make_token(lexer, TOKEN_SLASH);
-    case '=': return lexer_make_token(lexer, TOKEN_EQUAL);
+    case '=':
+    {
+        if (lexer_match_character(lexer, '=')) return lexer_make_token(lexer, TOKEN_EQUAL_EQUAL);
+        return lexer_make_token(lexer, TOKEN_EQUAL);
+    }
+    
     case '(': return lexer_make_token(lexer, TOKEN_LEFT_PAREN);
     case ')': return lexer_make_token(lexer, TOKEN_RIGHT_PAREN);
     case '{': return lexer_make_token(lexer, TOKEN_LEFT_BRACE);
     case '}': return lexer_make_token(lexer, TOKEN_RIGHT_BRACE);
+    case ':':
+    {
+        if (lexer_match_character(lexer, ':')) return lexer_make_token(lexer, TOKEN_COLON_COLON);
+        if (lexer_match_character(lexer, '=')) return lexer_make_token(lexer, TOKEN_COLON_EQUAL);
+        return lexer_make_token(lexer, TOKEN_COLON);
+    }
+    case ';': return lexer_make_token(lexer, TOKEN_SEMICOLON);
     }
 
     return lexer_error_token(lexer, "unexpected token");
@@ -312,7 +322,7 @@ void token_list_free(Token_List* list)
 
 void token_list_maybe_expand(Token_List* list)
 {
-    if (list->count + 1 >= list->count)
+    if (list->count + 1 >= list->capacity)
     {
         list->capacity *= 2;
         list->tokens = realloc(list->tokens, list->capacity);
@@ -383,6 +393,11 @@ String* lexer_pretty_print(Token_List* list, Allocator* allocator)
             sb_append(&sb, "SLASH('/')\n");
         }
         break;
+        case TOKEN_SEMICOLON:
+        {
+            sb_append(&sb, "SEMICOLON(';')\n");
+        }
+        break;
         case TOKEN_BANG:
         {
             sb_append(&sb, "BANG('!')\n");
@@ -413,6 +428,26 @@ String* lexer_pretty_print(Token_List* list, Allocator* allocator)
             sb_append(&sb, "EQUAL('=')\n");
         }
         break;
+        case TOKEN_EQUAL_EQUAL:
+        {
+            sb_append(&sb, "EQUAL_EQUAL('==')\n");
+        }
+        break;
+        case TOKEN_COLON:
+        {
+            sb_append(&sb, "COLON('::')\n");
+        }
+        break;
+        case TOKEN_COLON_COLON:
+        {
+            sb_append(&sb, "COLON_COLON('::')\n");
+        }
+        break;
+        case TOKEN_COLON_EQUAL:
+        {
+            sb_append(&sb, "COLON_EQUAL(':=')\n");
+        }
+        break;
         case TOKEN_IF:
         {
             sb_append(&sb, "IF('if')\n");
@@ -433,16 +468,6 @@ String* lexer_pretty_print(Token_List* list, Allocator* allocator)
             sb_append(&sb, "RETURN('return')\n");
         }
         break;
-        case TOKEN_LET:
-        {
-            sb_append(&sb, "LET('let')\n");
-        }
-        break;
-        case TOKEN_MUT:
-        {
-            sb_append(&sb, "MUT('mut')\n");
-        }
-        break;
         case TOKEN_FALSE:
         {
             sb_append(&sb, "FALSE('false')\n");
@@ -456,11 +481,6 @@ String* lexer_pretty_print(Token_List* list, Allocator* allocator)
         case TOKEN_FOR:
         {
             sb_append(&sb, "FOR('for')\n");
-        }
-        break;
-        case TOKEN_FN:
-        {
-            sb_append(&sb, "FN('fn')\n");
         }
         break;
         case TOKEN_IDENTIFIER:

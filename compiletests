@@ -84,4 +84,4 @@ for n in $FAILING_TESTS; do
 	test_expect $NO_EXT $EXPECT_FAILING
 done
 
-echo "${SKE} ${BOLD}${SUCCEEDING_TEST_COUNT}/${TOTAL_TESTS}${RESET} tests succeeded"
+echo "${SKE} ${BOLD}${GREEN}passed: ${SUCCEEDING_TEST_COUNT} ${RED}failed: ${FAILING_TEST_COUNT} ${YELLOW}skipped: 0${RESET}"
