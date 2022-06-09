@@ -4,8 +4,8 @@
 typedef struct String String;
 struct String
 {
-    int length;
-    char* str;    
+    size_t   length;
+    char*    str;    
 };
 
 typedef struct String_View String_View;
@@ -23,7 +23,7 @@ String_View sv_create(String* string)
     return view;
 }
 
-int sv_len(String_View view)
+size_t sv_len(String_View view)
 {
     return view.string->length;
 }
@@ -80,9 +80,9 @@ String* string_copy(String* input, Allocator* allocator)
 
 typedef struct
 {
-    char* string;
-    i32 current_index;
-    i32 capacity;
+    char*  string;
+    size_t current_index;
+    size_t capacity;
 } String_Builder;
 
 String* string_create_from_file_with_allocator(FILE* file, Allocator* allocator)
@@ -131,7 +131,7 @@ String* string_createf(Allocator* allocator, const char* format, ...)
 
 bool string_equal_cstr(String* lhs, const char* rhs)
 {
-    i32 len = strlen(rhs);
+    size_t len = strlen(rhs);
     if(len != lhs->length) return false;
 
     for (i32 i = 0; i < lhs->length; i++)
@@ -143,10 +143,10 @@ bool string_equal_cstr(String* lhs, const char* rhs)
 
 bool string_ends_with_cstr(String* lhs, const char* rhs)
 {
-    i32 len = strlen(rhs);
+    size_t len = strlen(rhs);
     if (len > lhs->length) return false;
 
-    i32 start = lhs->length - len;
+    size_t start = lhs->length - len;
     for (i32 i = 0; i < len; i++)
     {
         if (lhs->str[start + i] != rhs[i]) return false;
@@ -164,7 +164,7 @@ void string_fprintf(String* string, FILE* file)
     fprintf(file, "%s", string->str);
 }
 
-String* string_substring(String* string, i32 start, i32 length, Allocator* allocator)
+String* string_substring(String* string, size_t start, size_t length, Allocator* allocator)
 {
     if (start < 0) start = 0;
     if (length <= 0) return NULL;
@@ -175,7 +175,7 @@ String* string_substring(String* string, i32 start, i32 length, Allocator* alloc
     }
 
     String* substr = string_allocate_empty(length, allocator);
-    i32 index = start;
+    size_t index = start;
     for (i32 i = 0; i < length; i++)
     {
         substr->str[i] = string->str[index++];
@@ -196,8 +196,8 @@ String* string_concat_str(String* lhs, String* rhs, Allocator* allocator)
         new_string->str[i] = lhs->str[i];
     }
 
-    i32 index = 0;
-    for (i32 i = lhs->length; i < lhs->length + rhs->length; i++)
+    size_t index = 0;
+    for (size_t i = lhs->length; i < lhs->length + rhs->length; i++)
     {
         new_string->str[i] = rhs->str[index++];
     }
@@ -207,7 +207,7 @@ String* string_concat_str(String* lhs, String* rhs, Allocator* allocator)
 
 String* string_concat_cstr(String* lhs, char* rhs, Allocator* allocator)
 {
-    i32 rhs_len = strlen(rhs);
+    size_t rhs_len = strlen(rhs);
     if(lhs->length == 0) return string_allocate(rhs, allocator);
     if(rhs_len == 0) return string_allocate(lhs->str, allocator);
     String* new_string = string_allocate_empty(lhs->length + rhs_len, allocator);
@@ -217,8 +217,8 @@ String* string_concat_cstr(String* lhs, char* rhs, Allocator* allocator)
         new_string->str[i] = lhs->str[i];
     }
 
-    i32 index = 0;
-    for (i32 i = lhs->length; i < lhs->length + rhs_len; i++)
+    size_t index = 0;
+    for (size_t i = lhs->length; i < lhs->length + rhs_len; i++)
     {
         new_string->str[i] = rhs[index++];
     }
@@ -229,8 +229,8 @@ String* string_concat_cstr(String* lhs, char* rhs, Allocator* allocator)
 typedef struct
 {
     String** strings;
-    i32 count;
-    i32 capacity;
+    i32      count;
+    size_t   capacity;
 } String_Array;
 
 String_Array* string_array_allocate(i32 capacity, Allocator* allocator)
@@ -279,14 +279,14 @@ String_Array* string_split(String* string, char delim, Allocator* allocator)
     return array;
 }
 
-void sb_init(String_Builder* builder, i32 initial_capacity)
+void sb_init(String_Builder* builder, size_t initial_capacity)
 {
     builder->capacity = initial_capacity;
     builder->string = calloc(builder->capacity, 1);
     builder->current_index = 0;
 }
 
-void sb_init_with_allocator(String_Builder* builder, i32 initial_capacity, Allocator* allocator)
+void sb_init_with_allocator(String_Builder* builder, size_t initial_capacity, Allocator* allocator)
 {
     builder->capacity = initial_capacity;
     builder->string = allocator->allocate(allocator, builder->capacity);
@@ -297,7 +297,7 @@ void sb_init_with_allocator(String_Builder* builder, i32 initial_capacity, Alloc
     builder->current_index = 0;
 }
 
-static unsigned int next_power_of_two(i32 n)
+static size_t next_power_of_two(size_t n)
 {
     i32 power = 1;
     if (n && !(n & (n - 1)))
@@ -314,7 +314,7 @@ static unsigned int next_power_of_two(i32 n)
 }
 
 #define LOAD_FACTOR 2
-static void sb_maybe_expand(String_Builder* builder, i32 extra_length)
+static void sb_maybe_expand(String_Builder* builder, size_t extra_length)
 {
     if (!builder->string)
     {
@@ -323,10 +323,10 @@ static void sb_maybe_expand(String_Builder* builder, i32 extra_length)
  
     if(builder->current_index + extra_length >= builder->capacity)
     {
-        i32 old_capacity = builder->capacity;
+        size_t old_capacity = builder->capacity;
         builder->capacity *= LOAD_FACTOR;
         builder->string = realloc(builder->string, builder->capacity);
-        for (i32 i = old_capacity; i < builder->capacity; i++)
+        for (size_t i = old_capacity; i < builder->capacity; i++)
         {
             builder->string[i] = '\0';
         }
@@ -335,7 +335,7 @@ static void sb_maybe_expand(String_Builder* builder, i32 extra_length)
 
 void sb_append(String_Builder* builder, const char* str)
 {
-    i32 len = strlen(str);
+    size_t len = strlen(str);
     if(len == 0)
     {
         return;
@@ -343,8 +343,8 @@ void sb_append(String_Builder* builder, const char* str)
     
     sb_maybe_expand(builder, len);
 
-    i32 c = 0;
-    for (i32 i = builder->current_index; i < builder->current_index + len; i++)
+    size_t c = 0;
+    for (size_t i = builder->current_index; i < builder->current_index + len; i++)
     {
         builder->string[i] = str[c++];
     }

@@ -8,7 +8,8 @@ set EXECUTABLE_NAME=__ske
 
 setlocal ENABLEDELAYEDEXPANSION
 
-set CommonCompilerFlags=/MD -fp:fast -fp:except- -nologo /Od -Oi -W4 -Gm- -GR- -EHa- -FC -Z7 /TC /Fe%EXECUTABLE_NAME%
+set Ignore=-wd4201 -wd4996 -wd4100
+set CommonCompilerFlags=/MD -fp:fast -fp:except- -nologo /Od -Oi -W4 -Gm- -GR- -EHa- -FC -Z7 /TC /Fe%EXECUTABLE_NAME% %Ignore%
 set CommonLinkerFlags=shell32.lib kernel32.lib
 set ExtraLinkerFlags=/NODEFAULTLIB:"LIBCMT" -incremental:no -opt:ref
 

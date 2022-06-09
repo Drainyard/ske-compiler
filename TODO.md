@@ -2,10 +2,11 @@
 - [x] Bug in IR virtual registers when reallocating the returned register is not marked as in-use
 
 # Features
+- [ ] Use *W functions in Win32 when working with files
+- [ ] Add an OS agnostic layer over platform code
 - [ ] Handle arguments for which compilation step to stop at linker output
 - [ ] Add more failing tests
 - [ ] Add function calls
-- [ ] Add function declarations
 - [ ] Add variable bindings (let/var/const?)
 - [ ] Add string types
 - [ ] Add a type checker stage
@@ -17,6 +18,7 @@
 - [ ] Add different allocator types that are more dynamic than arenas (Something that allows better freeing)
 - [ ] Add a CST (Concrete Syntax Tree) stage for better error messages
 
+- [X] Add function declarations
 - [x] Compile to some IR. Could be basic blocks or some other even more basic assembly IR so we can output to multiple platforms more easily
 - [X] Add a few tests (find some way to test code coverage maybe?)
 - [X] Add test system with succeeding and failing files testing output

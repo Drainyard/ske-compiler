@@ -258,6 +258,7 @@ static AST_Node* parser_precedence(Parser* parser, Precedence precedence)
 
 static AST_Node* parser_number(Parser* parser, AST_Node* _)
 {
+    (void)_;
     i32 value = strtol(parser->previous.start, NULL, 10);
     AST_Node* number_node = parser_add_node(AST_NODE_NUMBER, parser->allocator);
     number_node->number = value;
@@ -329,7 +330,6 @@ static AST_Node* parser_return_statement(Parser* parser)
         parser_consume(parser, TOKEN_SEMICOLON, "Expect ';' after expression.");
         return return_node;
     }
-    return NULL;
 }
 
 static AST_Node* parser_expression_statement(Parser* parser)

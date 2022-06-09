@@ -132,6 +132,7 @@ static Token lexer_make_token(Lexer* lexer, Token_Type type)
 
 static void lexer_verror_at(Lexer* lexer, char* location, char* fmt, va_list ap)
 {
+    (void)location;
     fprintf(stderr, "\x1b[1;37m");
     i32 length = fprintf(stderr, sv_null_terminated_string(lexer->absolute_path));
     length += fprintf(stderr, ":%d:%d:\x1b[31m error: ", lexer->line, lexer->position_on_line);
@@ -162,7 +163,7 @@ static Token lexer_error_token(Lexer* lexer, char* message)
         {
             .type     = TOKEN_ERROR,
             .start    = lexer->current,
-            .length   = strlen(message),
+            .length   = (i32)strlen(message),
             .line     = lexer->line,
             .position = lexer->position_on_line
         };

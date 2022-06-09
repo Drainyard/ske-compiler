@@ -129,7 +129,8 @@ void* arena_resize(Arena* arena, void* old_memory, size_t old_size, size_t new_s
 
 void arena_free(Allocator* allocator, void* ptr)
 {
-    
+    (void)allocator;
+    (void)ptr;
 }
 
 void arena_free_all(Allocator* allocator)

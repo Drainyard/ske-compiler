@@ -12,7 +12,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #elif _WIN32
-
+#define WIN32_LEAN_AND_MEAN
+#define VC_EXTRA_LEAN
+#include "windows.h"
 #endif
 
 typedef int16_t    i16;

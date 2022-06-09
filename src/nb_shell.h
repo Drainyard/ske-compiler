@@ -55,9 +55,11 @@ bool run_subprocess(char** argv)
 #elif _WIN32
 bool run_subprocess(char** argv)
 {
-    CreateProcess(NULL, argv);
+    (void)argv;
+    /* CreateProcessW(NULL, argv); */
     return true;
 }
+
 #endif
 
 #endif
