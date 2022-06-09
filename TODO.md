@@ -1,6 +1,9 @@
 # Bugs
 - [x] Bug in IR virtual registers when reallocating the returned register is not marked as in-use
 
+# Improvements
+- [ ] Use a simpler grammar syntax in the grammar file
+
 # Features
 - [ ] Use *W functions in Win32 when working with files
 - [ ] Add an OS agnostic layer over platform code
