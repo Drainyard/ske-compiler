@@ -6,6 +6,7 @@ typedef enum
     AST_NODE_STATEMENT,
     AST_NODE_PROGRAM,
     AST_NODE_FUN_DECL,
+    AST_NODE_CALL,
     AST_NODE_RETURN,
     AST_NODE_BLOCK,
     AST_NODE_NUMBER,
@@ -72,6 +73,10 @@ struct AST_Node
             AST_Node* arguments;
             AST_Node* body;
         } fun_decl;
+        struct
+        {
+            String* name;
+        } fun_call;
         struct
         {
             AST_Node_List declarations;
@@ -423,13 +428,22 @@ static AST_Node* parser_unary(Parser* parser, AST_Node* rest)
 
 static AST_Node* parser_grouping(Parser* parser, AST_Node* previous)
 {
-    AST_Node* handle = parser_expression(parser);
+    AST_Node* grouping = parser_expression(parser);
     parser_consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
-    return handle;
+    return grouping;
+}
+
+static AST_Node* parser_call(Parser* parser, AST_Node* previous)
+{
+    AST_Node* call = parser_add_node(AST_NODE_CALL, parser->allocator);
+    Token prev = parser->previous;
+    call->fun_call.name = string_allocate_empty(prev.length, parser->allocator);
+    sprintf(call->fun_call.name->str, "%.*s", prev.length, prev.start);
+    return call;
 }
 
 Parse_Rule rules[] = {
-  [TOKEN_LEFT_PAREN]       = {parser_grouping, NULL,          PREC_NONE},
+  [TOKEN_LEFT_PAREN]       = {parser_grouping, parser_call,   PREC_CALL},
   [TOKEN_RIGHT_PAREN]      = {NULL,            NULL,          PREC_NONE},
   [TOKEN_LEFT_BRACE]       = {NULL,            NULL,          PREC_NONE},
   [TOKEN_RIGHT_BRACE]      = {NULL,            NULL,          PREC_NONE},
@@ -480,6 +494,8 @@ static char* parser_type_string(AST_Node_Type type)
     return "AST_NODE_PROGRAM";
     case AST_NODE_FUN_DECL:
     return "AST_NODE_FUN_DECL";
+    case AST_NODE_CALL:
+    return "AST_NODE_CALL";
     case AST_NODE_RETURN:
     return "AST_NODE_RETURN";
     case AST_NODE_BLOCK:
