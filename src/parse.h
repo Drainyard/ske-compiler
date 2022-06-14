@@ -219,6 +219,11 @@ static bool parser_check(Parser* parser, Token_Type type)
     return parser->current.type == type;
 }
 
+static bool parser_check_next(Parser* parser, Token_Type type)
+{
+    return parser->token_stream->tokens[parser->current_token + 1].type == type;
+}
+
 static bool parser_match(Parser* parser, Token_Type type)
 {
     if (!parser_check(parser, type)) return false;
@@ -269,6 +274,12 @@ static AST_Node* parser_number(Parser* parser, AST_Node* _)
     number_node->number = value;
 
     return number_node;
+}
+
+static AST_Node* parser_variable(Parser* parser, AST_Node* previous)
+{
+    /* parser_advance(parser); */
+    return NULL;
 }
 
 static AST_Node* parser_expression(Parser* parser)
@@ -358,11 +369,16 @@ static AST_Node* parser_statement(Parser* parser)
 
 static AST_Node* parser_declaration(Parser* parser)
 {
-    if (parser_match(parser, TOKEN_IDENTIFIER))
+    if (parser_check(parser, TOKEN_IDENTIFIER))
     {
-        if (parser_check(parser, TOKEN_COLON_COLON))
+        if (parser_check_next(parser, TOKEN_COLON_COLON))
         {
+            parser_advance(parser);
             return parser_fun_declaration(parser);
+        }
+        else if (parser_check_next(parser, TOKEN_LEFT_PAREN))
+        {
+            return parser_statement(parser);
         }
     }
     else
@@ -462,7 +478,7 @@ Parse_Rule rules[] = {
   /* [TOKEN_GREATER_EQUAL] = {NULL,            NULL,          PREC_NONE}, */
   /* [TOKEN_LESS]          = {NULL,            NULL,          PREC_NONE}, */
   /* [TOKEN_LESS_EQUAL]    = {NULL,            NULL,          PREC_NONE}, */
-  [TOKEN_IDENTIFIER]       = {NULL,            NULL,          PREC_NONE},
+  [TOKEN_IDENTIFIER]       = {parser_variable, NULL,          PREC_NONE},
   [TOKEN_NUMBER]           = {parser_number,   NULL,          PREC_NONE},
   [TOKEN_ELSE]             = {NULL,            NULL,          PREC_NONE},
   [TOKEN_FALSE]            = {NULL,            NULL,          PREC_NONE},
