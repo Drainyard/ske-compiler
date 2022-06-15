@@ -95,15 +95,15 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             else if (is_source_file(&string))
             {
                 arguments.input_file = string_copy(&string, allocator);
-                char* full_path = realpath(string.str, NULL);
-                if (!full_path)
+                String full_path;
+                ;
+                if (!absolute_path(&string, &full_path))
                 {
                     fprintf(stderr, "\x1b[1;37mInvalid input path: \x1b[0m%s\n", string.str);
                 }
                 else
                 {
-                    String local = string_create(full_path);
-                    arguments.absolute_path = string_copy(&local, allocator);
+                    arguments.absolute_path = string_copy(&full_path, allocator);
                 }
             }
             else

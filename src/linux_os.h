@@ -1,8 +1,5 @@
-#ifndef NB_SHELL
-#define NB_SHELL
-
-String_Array* temp_files;
-#define MAX_TEMP_FILES 32
+#ifndef LINUX_OS_H
+#define LINUX_OS_H
 
 String* create_temp_file(Allocator* allocator)
 {
@@ -34,7 +31,6 @@ void cleanup_temp_files()
     }
 }
 
-#ifdef __linux__
 bool run_subprocess(char** argv)
 {
     if (fork() == 0)
@@ -52,9 +48,15 @@ bool run_subprocess(char** argv)
     }
     return true;
 }
-#elif _WIN32
 
-
-#endif
+bool absolute_path(String* str, String* out)
+{
+    char* path = realpath(str->str, NULL);
+    if (!path)
+    {
+        return false;
+    }
+    string_set(out, path);
+}
 
 #endif

@@ -28,7 +28,15 @@ typedef uintptr_t  umm;
 #include "nb_memory.h"
 #include "nb_string.h"
 #include "nb_file.h"
-#include "nb_shell.h"
+//#include "nb_shell.h"
+#include "os.h"
+
+#ifdef __linux__
+#include "linux_os.h"
+#elif _WIN32
+#include "win32_os.h"
+#endif
+
 #include "lex.h"
 #include "parse.h"
 #include "ir.h"
