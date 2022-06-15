@@ -5,8 +5,10 @@
 - [ ] Use a simpler grammar syntax in the grammar file
 
 # Features
+- [ ] Make codegen more platform agnostic, and put platform specific things somewhere else
+- [ ] Use NASM on Windows, and possibly change to Intel syntax on Linux for GAS
+- [ ] Possibly move AST definition to an `ast.h` file, and possibly change it to be less union craziness
 - [ ] Use *W functions in Win32 when working with files
-- [ ] Add an OS agnostic layer over platform code
 - [ ] Handle arguments for which compilation step to stop at linker output
 - [ ] Add more failing tests
 - [ ] Add function calls
@@ -21,6 +23,7 @@
 - [ ] Add different allocator types that are more dynamic than arenas (Something that allows better freeing)
 - [ ] Add a CST (Concrete Syntax Tree) stage for better error messages
 
+- [X] Add an OS agnostic layer over platform code
 - [X] Add function declarations
 - [x] Compile to some IR. Could be basic blocks or some other even more basic assembly IR so we can output to multiple platforms more easily
 - [X] Add a few tests (find some way to test code coverage maybe?)
