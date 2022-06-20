@@ -37,6 +37,15 @@ typedef uintptr_t  umm;
 #include "win32_os.h"
 #endif
 
+static void compiler_bug(const char* message)
+{
+    fprintf(stderr, "\x1b[1;31m");
+    fprintf(stderr, "Compiler bug: %s\n", message);
+    fprintf(stderr, "\x1b[0m\n");
+
+    assert(false);
+}
+
 #include "lex.h"
 #include "parse.h"
 #include "ir.h"

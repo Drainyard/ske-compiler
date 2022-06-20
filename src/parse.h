@@ -117,7 +117,8 @@ typedef enum
     PREC_PRIMARY
 } Precedence;
 
-typedef struct
+typedef struct Parser Parser;
+struct Parser
 {
     Token current;
     Token previous;
@@ -133,7 +134,7 @@ typedef struct
     bool panic_mode;
 
     AST_Node* root;
-} Parser;
+};
 
 typedef AST_Node* (*Parse_Fn)(Parser*, AST_Node* left);
 typedef struct
@@ -219,11 +220,6 @@ static bool parser_check(Parser* parser, Token_Type type)
     return parser->current.type == type;
 }
 
-static bool parser_check_next(Parser* parser, Token_Type type)
-{
-    return parser->token_stream->tokens[parser->current_token + 1].type == type;
-}
-
 static bool parser_match(Parser* parser, Token_Type type)
 {
     if (!parser_check(parser, type)) return false;
@@ -242,6 +238,7 @@ static Parse_Rule* parser_get_rule(Token_Type type);
 static AST_Node* parser_expression(Parser* parser);
 static AST_Node* parser_precedence(Parser* parser, Precedence precedence);
 static AST_Node* parser_declaration(Parser* parser);
+static AST_Node* parser_call(Parser* parser, AST_Node* previous);
 
 static AST_Node* parser_precedence(Parser* parser, Precedence precedence)
 {
@@ -278,6 +275,7 @@ static AST_Node* parser_number(Parser* parser, AST_Node* _)
 
 static AST_Node* parser_variable(Parser* parser, AST_Node* previous)
 {
+    //Token identifier = parser->current;
     /* parser_advance(parser); */
     return NULL;
 }
@@ -304,15 +302,12 @@ static AST_Node* parser_block(Parser* parser)
     return block;
 }
 
-static AST_Node* parser_fun_declaration(Parser* parser)
+static AST_Node* parser_fun_declaration(Parser* parser, Token* identifier)
 {
     AST_Node* fun_node = parser_add_node(AST_NODE_FUN_DECL, parser->allocator);
 
-    Token prev = parser->previous;
-    fun_node->fun_decl.name = string_allocate_empty(prev.length, parser->allocator);
-    sprintf(fun_node->fun_decl.name->str, "%.*s", prev.length, prev.start);
-
-    parser_consume(parser, TOKEN_COLON_COLON, "Expect '::' after function identifier.");
+    fun_node->fun_decl.name = string_allocate_empty(identifier->length, parser->allocator);
+    sprintf(fun_node->fun_decl.name->str, "%.*s", identifier->length, identifier->start);
 
     parser_consume(parser, TOKEN_LEFT_PAREN, "Expect '(' after '::' in function declaration.");
 
@@ -367,19 +362,33 @@ static AST_Node* parser_statement(Parser* parser)
     }
 }
 
+static AST_Node* parser_const_declaration(Parser* parser, Token* identifier)
+{
+    if (parser_check(parser, TOKEN_LEFT_PAREN))
+    {
+        return parser_fun_declaration(parser, identifier);
+    }
+    return NULL;
+}
+
 static AST_Node* parser_declaration(Parser* parser)
 {
     if (parser_check(parser, TOKEN_IDENTIFIER))
     {
-        if (parser_check_next(parser, TOKEN_COLON_COLON))
+        Token identifier = parser->current;
+        parser_advance(parser);
+        if (parser_check(parser, TOKEN_COLON_COLON))
         {
             parser_advance(parser);
-            return parser_fun_declaration(parser);
+            return parser_const_declaration(parser, &identifier);
         }
-        else if (parser_check_next(parser, TOKEN_LEFT_PAREN))
+        else if (parser_check(parser, TOKEN_LEFT_PAREN))
         {
-            return parser_statement(parser);
+            AST_Node* call_node = parser_call(parser, NULL);
+            parser_consume(parser, TOKEN_SEMICOLON, "Expect ';' after function call.");
+            return call_node;
         }
+        return parser_statement(parser);
     }
     else
     {
@@ -455,6 +464,8 @@ static AST_Node* parser_call(Parser* parser, AST_Node* previous)
     Token prev = parser->previous;
     call->fun_call.name = string_allocate_empty(prev.length, parser->allocator);
     sprintf(call->fun_call.name->str, "%.*s", prev.length, prev.start);
+    parser_advance(parser);
+    parser_consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after argument list of function call.");
     return call;
 }
 
@@ -546,8 +557,8 @@ static void paren(String_Builder* builder, Pretty_Print_Fn print_fn, AST_Node* n
 
 static void pretty_print_operator(Token_Type operator, String_Builder* builder)
 {
-    sb_append(builder, "(");
-    sb_append(builder, "Op: ");
+    /* sb_append(builder, "("); */
+    /* sb_append(builder, "Op: "); */
     switch (operator)
     {
     case TOKEN_PLUS: sb_append(builder, "+"); break;
@@ -557,7 +568,7 @@ static void pretty_print_operator(Token_Type operator, String_Builder* builder)
     case TOKEN_ERROR: sb_append(builder, "ERROR"); break;
     default: assert(false);
     }
-    sb_append(builder, ")");
+    /* sb_append(builder, ")"); */
 }
 
 static void pretty_print_unary(AST_Node* node, i32 indentation, String_Builder* builder)
@@ -576,22 +587,24 @@ static void pretty_print_unary(AST_Node* node, i32 indentation, String_Builder* 
 
 static void pretty_print_binary(AST_Node* binary, i32 indentation, String_Builder* builder)
 {
-    sb_append(builder, "Binary\t\n ");
-    indentation++;
-    pretty_print_expression(binary->binary.left, indentation, builder);
-    sb_append(builder, ",\n");
-    sb_indent(builder, indentation);
-    sb_append(builder, " ");
-    
-    pretty_print_operator(binary->binary.operator, builder);
+    /* sb_append(builder, "Binary\t\n "); */
 
-    sb_append(builder, ",\n ");
-    pretty_print_expression(binary->binary.right, indentation, builder);
+    sb_indent(builder, indentation);
+    sb_append(builder, "(");
+    pretty_print_operator(binary->binary.operator, builder);
+    sb_append(builder, " ");    
+    
+    pretty_print_expression(binary->binary.left, 0, builder);
+    /* sb_indent(builder, indentation); */
+    sb_append(builder, " ");   
+
+    pretty_print_expression(binary->binary.right, 0, builder);
+    sb_append(builder, ")");
 }
 
 static void pretty_print_number(AST_Node* number, i32 indentation, String_Builder* builder)
 {
-    sb_appendf(builder, "Number: %d", number->number);
+    sb_appendf(builder, "%d", number->number);
 }
 
 static void pretty_print_expression(AST_Node* node, i32 indentation, String_Builder* builder)
@@ -600,17 +613,20 @@ static void pretty_print_expression(AST_Node* node, i32 indentation, String_Buil
     {
     case AST_NODE_UNARY:
     {
-        paren(builder, pretty_print_unary, node, indentation);
+        pretty_print_unary(node, 0, builder);
+        /* paren(builder, pretty_print_unary, node, 0); */
     }
     break;
     case AST_NODE_BINARY:
     {
-        paren(builder, pretty_print_binary, node, indentation);
+        pretty_print_binary(node, 0, builder);
+        /* paren(builder, pretty_print_binary, node, 0); */
     }
     break;
     case AST_NODE_NUMBER:
     {
-        paren(builder, pretty_print_number, node, indentation);
+        pretty_print_number(node, 0, builder);
+        /* paren(builder, pretty_print_number, node, 0); */
     }
     break;
     default:
@@ -629,9 +645,16 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
     case AST_NODE_RETURN:
     {
         sb_indent(builder, indentation);
-        sb_append(builder, "Return(\n");
+        sb_append(builder, "(return \n");
+        sb_indent(builder, indentation + 1);
         pretty_print_expression(statement->return_statement.expression, indentation, builder);
         sb_append(builder, ")");
+    }
+    break;
+    case AST_NODE_CALL:
+    {
+        sb_indent(builder, indentation);
+        sb_appendf(builder, "(call %s)", statement->fun_call.name->str);
     }
     break;
     default: assert(false && "Not a valid statement type"); break;
@@ -645,7 +668,7 @@ static void pretty_print_declaration(AST_Node* declaration, i32 indentation, Str
     case AST_NODE_FUN_DECL:
     {
         sb_indent(builder, indentation);
-        sb_appendf(builder, "Function(%s, ()", declaration->fun_decl.name->str);
+        sb_appendf(builder, "(fun %s ()", declaration->fun_decl.name->str);
 
         AST_Node_List block = declaration->fun_decl.body->block.declarations;
 
@@ -670,7 +693,7 @@ static void pretty_print_declaration(AST_Node* declaration, i32 indentation, Str
 static void pretty_print_program(AST_Node* program_node, i32 indentation, String_Builder* builder)
 {
     sb_append(builder, "(");
-    sb_append(builder, "Program\t\n");
+    sb_append(builder, "program\t\n");
     indentation++;
 
     AST_Node_List list = program_node->program.declarations;

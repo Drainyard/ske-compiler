@@ -57,6 +57,7 @@ bool absolute_path(String* str, String* out)
         return false;
     }
     string_set(out, path);
+    return true;
 }
 
 #endif

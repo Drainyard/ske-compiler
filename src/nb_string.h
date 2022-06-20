@@ -129,16 +129,17 @@ String* string_createf(Allocator* allocator, const char* format, ...)
     return result;
 }
 
+bool string_equal(String* lhs, String* rhs)
+{
+    if (lhs->length != rhs->length) return false;
+    return strncmp(lhs->str, rhs->str, lhs->length) == 0;
+}
+
 bool string_equal_cstr(String* lhs, const char* rhs)
 {
     size_t len = strlen(rhs);
     if(len != lhs->length) return false;
-
-    for (i32 i = 0; i < lhs->length; i++)
-    {
-        if (lhs->str[i] != rhs[i]) return false;
-    }
-    return true;
+    return strncmp(lhs->str, rhs, len) == 0;
 }
 
 bool string_ends_with_cstr(String* lhs, const char* rhs)

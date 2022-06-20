@@ -473,9 +473,9 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
 
     Scratch_Register current_reg;
 
-    for (i32 i = 0; i < program_node->exported_function_array.count; i++)
+    for (i32 i = 0; i < program_node->function_array.count; i++)
     {
-        String_View name = program_node->exported_function_array.function_names[i];
+        String_View name = program_node->function_array.functions[i].name;
         sb_appendf(&sb, ".global %s\n", name.string->str);
     }
 
@@ -516,6 +516,13 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                         x86_emit_move_reg_to_name(&sb, return_reg, "%rax"); // calling convention defined return
                     }
                     x86_emit_ret(&sb);
+                }
+                break;
+                case IR_INS_CALL:
+                {
+                    IR_Call* call = &instruction->call;
+                    String_View* name = ir_get_function_name(program_node, call->function_index);
+                    x86_emit_call(&sb, name->string->str);
                 }
                 break;
                 case IR_INS_MOV:
@@ -662,10 +669,11 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                     free_temp_scratch(&temp_table, ir_left_reg, &table);
                 }
                 break;
-                default: break;
+                default: compiler_bug("Unhandled IR instruction."); break;
             }
             break;
             }
+            default: break;;
             }
         }
     }

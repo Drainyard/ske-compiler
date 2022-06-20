@@ -9,6 +9,7 @@ typedef enum
     IR_INS_POP,
     IR_INS_BINOP,
     IR_INS_RET,
+    IR_INS_CALL,
     IR_INS_UNOP,
     IR_INS_COUNT
 } IR_Instruction_Type;
@@ -136,6 +137,12 @@ struct IR_Return
     bool has_return_value;
 };
 
+typedef struct IR_Call IR_Call;
+struct IR_Call
+{
+    i32 function_index;
+};
+
 typedef struct IR_Push IR_Push;
 struct IR_Push
 {
@@ -184,6 +191,7 @@ struct IR_Instruction
     {
         IR_Move   move;
         IR_Return ret;
+        IR_Call   call;
         IR_Push   push;
         IR_Pop    pop;
         IR_BinOp  binop;
@@ -251,19 +259,27 @@ typedef struct
     i32 capacity;
 } IR_Block_Array;
 
-typedef struct
+typedef struct IR_Function IR_Function;
+struct IR_Function
 {
-    String_View* function_names;
+    String_View name;
+    bool exported;
+};
+
+typedef struct IR_Function_Array IR_Function_Array;
+struct IR_Function_Array
+{
+    IR_Function* functions;
     i32 count;
     i32 capacity;
-} IR_Exported_Function_Array;
+};
 
 typedef struct IR_Program IR_Program;
 struct IR_Program
 {
     IR_Data_Array data_array;
     IR_Block_Array block_array;
-    IR_Exported_Function_Array exported_function_array;
+    IR_Function_Array function_array;
 };
 
 String* ir_pretty_print(IR_Program* program, Allocator* allocator);
@@ -303,16 +319,39 @@ IR_Node* ir_emit_node(IR_Block* block, IR_Node_Type node_type, Allocator* alloca
     return node;
 }
 
-void ir_add_exported_function(IR_Program* program, String* name)
+void ir_add_function(IR_Program* program, String* name, bool exported)
 {
-    IR_Exported_Function_Array* array = &program->exported_function_array;
+    IR_Function_Array* array = &program->function_array;
     if (array->count + 1 > array->capacity)
     {
         array->capacity = array->capacity == 0 ? 2 : array->capacity * 2;
-        array->function_names = realloc(array->function_names, sizeof(String_View) * array->capacity);
+        array->functions = realloc(array->functions, sizeof(IR_Function) * array->capacity);
     }
 
-    array->function_names[array->count++] = sv_create(name);
+    IR_Function* function = &array->functions[array->count++];
+    function->name = sv_create(name);
+    function->exported = exported;
+}
+
+i32 ir_find_function(IR_Program* program, String* name)
+{
+    IR_Function_Array functions = program->function_array;
+    for (i32 i = 0; i < functions.count; i++)
+    {
+        String_View fun_name = functions.functions[i].name;
+        if (string_equal(name, fun_name.string))
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+String_View* ir_get_function_name(IR_Program* program, i32 index)
+{
+    if (index == -1) return NULL;
+    if (program->function_array.count <= index) return NULL;
+    return &program->function_array.functions[index].name;
 }
 
 IR_Node* ir_emit_function_decl(IR_Block* block, String* name, bool export, Allocator* allocator)
@@ -320,10 +359,8 @@ IR_Node* ir_emit_function_decl(IR_Block* block, String* name, bool export, Alloc
     IR_Node* function_decl = ir_emit_node(block, IR_NODE_FUNCTION_DECL, allocator);
     function_decl->function.export = export;
     function_decl->function.name   = name;
-    if (export)
-    {
-        ir_add_exported_function(block->parent_program, name);
-    }
+    ir_add_function(block->parent_program, name, export);
+
     return function_decl;
 }
 
@@ -559,6 +596,18 @@ void ir_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
             }
         }
         break;
+        case AST_NODE_CALL:
+        {
+            String* fun_name = node->fun_call.name;
+            i32 index = ir_find_function(block->parent_program, fun_name);
+            assert(index != -1 && "Unknown function.");
+            if (index != -1)
+            {
+                IR_Node* call = ir_emit_instruction(block, IR_INS_CALL, allocator);
+                call->instruction.call.function_index = index;
+            }
+        }
+        break;
         case AST_NODE_NUMBER:
         case AST_NODE_BINARY:
         case AST_NODE_UNARY:
@@ -611,7 +660,7 @@ IR_Program ir_translate_ast(AST_Node* root_node, Allocator* allocator)
         {
             .data_array  = {0},
             .block_array = {0},
-            .exported_function_array = {0}
+            .function_array = {0}
         };
 
     IR_Register_Table* register_table = malloc(sizeof(IR_Register_Table));
@@ -797,6 +846,13 @@ String* ir_pretty_print(IR_Program* program, Allocator* allocator)
                     }
                     
                     sb_newline(&sb);
+                }
+                break;
+                case IR_INS_CALL:
+                {
+                    IR_Call* call = &instruction->call;
+                    String_View name = program->function_array.functions[call->function_index].name;
+                    sb_appendf(&sb, "call %s\n", name.string->str);
                 }
                 break;
                 case IR_INS_UNOP:

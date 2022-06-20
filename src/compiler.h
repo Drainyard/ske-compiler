@@ -53,7 +53,7 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
 
                 /* String* command = string_create_from_arena("", 1 , ALLOCATOR(&string_arena)); */
             }
-            else if (string_equal_cstr(&string, "--o") || string_equal_cstr(&string, "-outpath"))
+            else if (string_equal_cstr(&string, "-outfile"))
             {
                 if(argc < i + 1)
                 {
@@ -85,9 +85,9 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
                 printf("Options\n");
 
                 printf("  --h or -help            Display this information\n");
-                printf("  --o <file>              Place the output into <file>\n");
-                printf("  -assembly               Compile only; do not assemble or link.\n");
-                printf("  --c                     Compile and assemble, but do not link\n");
+                printf("  -outfile <file>         Place the output into <file>\n");
+                printf("  -assembly               Output assembly.\n");
+                printf("  -compile                Compile and assemble, but do not link\n");
                 printf("  -tokenizer              Tokenize and output tokens\n");
                 printf("  -parser                 Parse and output AST\n");
                 printf("  -ir                     Generate IR and output\n");
@@ -95,8 +95,8 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             else if (is_source_file(&string))
             {
                 arguments.input_file = string_copy(&string, allocator);
-                String full_path;
-                ;
+                char buf[128];
+                String full_path = { .length = 128, .str = buf};
                 if (!absolute_path(&string, &full_path))
                 {
                     fprintf(stderr, "\x1b[1;37mInvalid input path: \x1b[0m%s\n", string.str);
