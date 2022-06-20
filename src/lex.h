@@ -10,7 +10,8 @@ typedef enum
     TOKEN_STAR,
     TOKEN_SLASH,
     TOKEN_SEMICOLON,
-
+    TOKEN_COMMA,
+    
     TOKEN_BANG,
 
     TOKEN_LEFT_PAREN,
@@ -29,6 +30,7 @@ typedef enum
     TOKEN_FALSE, TOKEN_TRUE, TOKEN_FOR,
     
     TOKEN_IDENTIFIER,
+    TOKEN_STRING,
 
     TOKEN_EOF,
 
@@ -150,7 +152,7 @@ static void lexer_verror_at(Lexer* lexer, char* location, char* fmt, va_list ap)
     /* fprintf(stderr, "%*s^ ", length, ""); */
 }
 
-static void lexer_error_tok(Lexer* lexer, Token* token, char* fmt, ...)
+static void lexer_error_tokenf(Lexer* lexer, Token* token, char* fmt, ...)
 {
     va_list(ap);
     va_start(ap, fmt);
@@ -168,9 +170,22 @@ static Token lexer_error_token(Lexer* lexer, char* message)
             .position = lexer->position_on_line
         };
 
-    lexer_error_tok(lexer, &token, message);
+    lexer_error_tokenf(lexer, &token, message);
     
     return token;
+}
+
+static Token lexer_string(Lexer* lexer)
+{
+    while (lexer_peek_char(lexer) != '"' && !lexer_is_at_end(lexer))
+    {
+        if (lexer_peek_char(lexer) == '\n') lexer->line++;
+        lexer_advance(lexer);
+    }
+
+    if (lexer_is_at_end(lexer)) return lexer_error_token(lexer, "Unterminated string.");
+    lexer_advance(lexer);
+    return lexer_make_token(lexer, TOKEN_STRING);
 }
 
 static void lexer_skip_whitespace(Lexer* lexer)
@@ -289,6 +304,8 @@ static Token lexer_scan_token(Lexer* lexer)
         return lexer_make_token(lexer, TOKEN_COLON);
     }
     case ';': return lexer_make_token(lexer, TOKEN_SEMICOLON);
+    case '"': return lexer_string(lexer);
+    case ',': return lexer_make_token(lexer, TOKEN_COMMA);
     }
 
     return lexer_error_token(lexer, "unexpected token");
@@ -399,6 +416,11 @@ String* lexer_pretty_print(Token_List* list, Allocator* allocator)
             sb_append(&sb, "SEMICOLON(';')\n");
         }
         break;
+        case TOKEN_COMMA:
+        {
+            sb_append(&sb, "COMMA(',')\n");
+        }
+        break;
         case TOKEN_BANG:
         {
             sb_append(&sb, "BANG('!')\n");
@@ -487,6 +509,11 @@ String* lexer_pretty_print(Token_List* list, Allocator* allocator)
         case TOKEN_IDENTIFIER:
         {
             sb_appendf(&sb, "IDENT('%.*s')\n", token.length, token.start);
+        }
+        break;
+        case TOKEN_STRING:
+        {
+            sb_appendf(&sb, "STRING('%.*s')\n", token.length, token.start);
         }
         break;
         case TOKEN_EOF:

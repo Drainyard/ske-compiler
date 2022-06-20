@@ -13,16 +13,16 @@
 #define DISTRO_DEFAULT_FOREGROUND "\033[39m"
 #define DISTRO_DEFAULT_BACKGROUND "\033[49m"
 
-static void log_info(const char* format, ...)
-{
-    fprintf(stderr, GREEN_FOREGROUND);
-    fprintf(stderr, "[info]: ");
-    fprintf(stderr, DISTRO_DEFAULT_FOREGROUND);
-    va_list arglist;
-    va_start(arglist, format);
-    vfprintf(stderr, format, arglist);
-    va_end(arglist);
-}
+/* static void log_info(const char* format, ...) */
+/* { */
+/*     fprintf(stderr, GREEN_FOREGROUND); */
+/*     fprintf(stderr, "[info]: "); */
+/*     fprintf(stderr, DISTRO_DEFAULT_FOREGROUND); */
+/*     va_list arglist; */
+/*     va_start(arglist, format); */
+/*     vfprintf(stderr, format, arglist); */
+/*     va_end(arglist); */
+/* } */
 
 static void log_error(const char* format, ...)
 {

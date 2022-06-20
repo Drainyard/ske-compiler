@@ -7,9 +7,11 @@ typedef enum
     AST_NODE_PROGRAM,
     AST_NODE_FUN_DECL,
     AST_NODE_CALL,
+    AST_NODE_ARGUMENT_LIST,
     AST_NODE_RETURN,
     AST_NODE_BLOCK,
     AST_NODE_NUMBER,
+    AST_NODE_STRING,
     AST_NODE_BINARY,
     AST_NODE_UNARY,
     AST_NODE_TYPE_SPECIFIER,
@@ -38,6 +40,7 @@ struct AST_Node
     union
     {
         i32 number; // @Incomplete: Should be expanded to other constant types (float, string, etc.)
+        String* string;
         struct
         {
             AST_Node* expression;
@@ -75,7 +78,13 @@ struct AST_Node
         } fun_decl;
         struct
         {
+            AST_Node** arguments;
+            i32 count;
+        } argument_list;
+        struct
+        {
             String* name;
+            AST_Node* arguments;
         } fun_call;
         struct
         {
@@ -280,6 +289,15 @@ static AST_Node* parser_variable(Parser* parser, AST_Node* previous)
     return NULL;
 }
 
+static AST_Node* parser_string(Parser* parser, AST_Node* previous)
+{
+    Token string = parser->current;
+    AST_Node* string_node = parser_add_node(AST_NODE_STRING, parser->allocator);
+    string_node->string = string_allocate_empty(string.length, parser->allocator);
+    sprintf(string_node->string->str, "%.*s", string.length, string.start);
+    return string_node;
+}
+
 static AST_Node* parser_expression(Parser* parser)
 {
     return parser_precedence(parser, PREC_ASSIGNMENT);
@@ -458,6 +476,30 @@ static AST_Node* parser_grouping(Parser* parser, AST_Node* previous)
     return grouping;
 }
 
+static AST_Node* parser_argument_list(Parser* parser, AST_Node* previous)
+{
+    u8 arg_count = 0;
+    AST_Node* argument_list = parser_add_node(AST_NODE_ARGUMENT_LIST, parser->allocator);
+    argument_list->argument_list.arguments = parser->allocator->allocate(parser->allocator, sizeof(AST_Node) * 16);
+    
+    if (!parser_check(parser, TOKEN_RIGHT_PAREN))
+    {
+        do
+        {
+            argument_list->argument_list.arguments[arg_count] = parser_expression(parser);
+            if (arg_count == 255)
+            {
+                parser_error(parser, "Can't have more than 255 arguments.");
+            }
+            arg_count++;
+        } while (parser_match(parser, TOKEN_COMMA));
+    }
+    argument_list->argument_list.count = arg_count;
+    parser_consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after arguments.");
+
+    return argument_list;
+}
+
 static AST_Node* parser_call(Parser* parser, AST_Node* previous)
 {
     AST_Node* call = parser_add_node(AST_NODE_CALL, parser->allocator);
@@ -465,7 +507,7 @@ static AST_Node* parser_call(Parser* parser, AST_Node* previous)
     call->fun_call.name = string_allocate_empty(prev.length, parser->allocator);
     sprintf(call->fun_call.name->str, "%.*s", prev.length, prev.start);
     parser_advance(parser);
-    parser_consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after argument list of function call.");
+    call->fun_call.arguments = parser_argument_list(parser, NULL);
     return call;
 }
 
@@ -490,6 +532,7 @@ Parse_Rule rules[] = {
   /* [TOKEN_LESS]          = {NULL,            NULL,          PREC_NONE}, */
   /* [TOKEN_LESS_EQUAL]    = {NULL,            NULL,          PREC_NONE}, */
   [TOKEN_IDENTIFIER]       = {parser_variable, NULL,          PREC_NONE},
+  [TOKEN_STRING]           = {parser_string,   NULL,          PREC_NONE},
   [TOKEN_NUMBER]           = {parser_number,   NULL,          PREC_NONE},
   [TOKEN_ELSE]             = {NULL,            NULL,          PREC_NONE},
   [TOKEN_FALSE]            = {NULL,            NULL,          PREC_NONE},
@@ -515,12 +558,12 @@ static char* parser_type_string(AST_Node_Type type)
     {
     case AST_NODE_STATEMENT:
     return "AST_NODE_STATEMENT";
-    /* case AST_NODE_EXPRESSION: */
-    /* return "AST_NODE_EXPRESSION"; */
     case AST_NODE_PROGRAM:
     return "AST_NODE_PROGRAM";
     case AST_NODE_FUN_DECL:
     return "AST_NODE_FUN_DECL";
+    case AST_NODE_ARGUMENT_LIST:
+    return "AST_NODE_ARGUMENT_LIST";
     case AST_NODE_CALL:
     return "AST_NODE_CALL";
     case AST_NODE_RETURN:
@@ -529,6 +572,8 @@ static char* parser_type_string(AST_Node_Type type)
     return "AST_NODE_BLOCK";
     case AST_NODE_NUMBER:
     return "AST_NODE_NUMBER";
+    case AST_NODE_STRING:
+    return "AST_NODE_STRING";
     case AST_NODE_BINARY:
     return "AST_NODE_BINARY";
     case AST_NODE_UNARY:
@@ -543,17 +588,18 @@ static char* parser_type_string(AST_Node_Type type)
 
 static void pretty_print_unary(AST_Node* node, i32 indentation, String_Builder* builder);
 static void pretty_print_binary(AST_Node* binary, i32 indentation, String_Builder* builder);
+static void pretty_print_string(AST_Node* string, i32 indentation, String_Builder* builder);
 static void pretty_print_expression(AST_Node* node, i32 indentation, String_Builder* builder);
 
 typedef void (*Pretty_Print_Fn)(AST_Node*, i32, String_Builder*);
 
-static void paren(String_Builder* builder, Pretty_Print_Fn print_fn, AST_Node* node, i32 indentation)
-{
-    sb_indent(builder, indentation);
-    sb_append(builder, "(");
-    print_fn(node, indentation, builder);
-    sb_append(builder, ")");
-}
+/* static void paren(String_Builder* builder, Pretty_Print_Fn print_fn, AST_Node* node, i32 indentation) */
+/* { */
+/*     sb_indent(builder, indentation); */
+/*     sb_append(builder, "("); */
+/*     print_fn(node, indentation, builder); */
+/*     sb_append(builder, ")"); */
+/* } */
 
 static void pretty_print_operator(Token_Type operator, String_Builder* builder)
 {
@@ -607,6 +653,11 @@ static void pretty_print_number(AST_Node* number, i32 indentation, String_Builde
     sb_appendf(builder, "%d", number->number);
 }
 
+static void pretty_print_string(AST_Node* string, i32 indentation, String_Builder* builder)
+{
+    sb_appendf(builder, "%.*s", string->string->length, string->string->str);
+}
+
 static void pretty_print_expression(AST_Node* node, i32 indentation, String_Builder* builder)
 {
     switch(node->type)
@@ -614,19 +665,21 @@ static void pretty_print_expression(AST_Node* node, i32 indentation, String_Buil
     case AST_NODE_UNARY:
     {
         pretty_print_unary(node, 0, builder);
-        /* paren(builder, pretty_print_unary, node, 0); */
     }
     break;
     case AST_NODE_BINARY:
     {
         pretty_print_binary(node, 0, builder);
-        /* paren(builder, pretty_print_binary, node, 0); */
     }
     break;
     case AST_NODE_NUMBER:
     {
         pretty_print_number(node, 0, builder);
-        /* paren(builder, pretty_print_number, node, 0); */
+    }
+    break;
+    case AST_NODE_STRING:
+    {
+        pretty_print_string(node, 0, builder);
     }
     break;
     default:
@@ -654,7 +707,16 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
     case AST_NODE_CALL:
     {
         sb_indent(builder, indentation);
-        sb_appendf(builder, "(call %s)", statement->fun_call.name->str);
+        sb_appendf(builder, "(call %s", statement->fun_call.name->str);
+
+        AST_Node* arguments = statement->fun_call.arguments;
+        for (i32 i = 0; i < arguments->argument_list.count; i++)
+        {
+            AST_Node* argument = arguments->argument_list.arguments[i];
+            pretty_print_expression(argument, 0, builder);
+            sb_append(builder, " ");
+        }
+        sb_append(builder, ")");
     }
     break;
     default: assert(false && "Not a valid statement type"); break;

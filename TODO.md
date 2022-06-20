@@ -8,6 +8,7 @@
 - [ ] Make codegen more platform agnostic, and put platform specific things somewhere else
 - [ ] Use NASM on Windows, and possibly change to Intel syntax on Linux for GAS
 - [ ] Fix stack alignment in codegen
+- [ ] Write a Hello, World! program in Ske
 - [ ] Possibly move AST definition to an `ast.h` file, and possibly change it to be less union craziness
 - [ ] Use *W functions in Win32 when working with files
 - [ ] Handle arguments for which compilation step to stop at linker output
