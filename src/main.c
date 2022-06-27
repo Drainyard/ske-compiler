@@ -49,6 +49,7 @@ static void compiler_bug(const char* message)
 }
 
 #include "lex.h"
+#include "ast.h"
 #include "parse.h"
 #include "ir.h"
 #include "codegen_x86.h"

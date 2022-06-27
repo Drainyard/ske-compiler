@@ -349,72 +349,6 @@ void x86_emit_move_name_to_name(String_Builder* sb, const char* src, const char*
     sb_appendf(sb, "movq    %s, %s\n", src, dst);
 }
 
-Scratch_Register x86_codegen_expression(AST_Node*, String_Builder*, Scratch_Register_Table*);
-
-Scratch_Register x86_codegen_expression(AST_Node* node, String_Builder* sb, Scratch_Register_Table* table)
-{
-    switch (node->type)
-    {
-    case AST_NODE_NUMBER:
-    {
-        Scratch_Register reg = scratch_alloc(table);
-        x86_emit_move_lit_to_reg(sb, node->number, reg);
-        return reg;
-    }
-    case AST_NODE_BINARY:
-    {
-        Scratch_Register left_reg = x86_codegen_expression(node->binary.left, sb, table);
-        Scratch_Register right_reg = x86_codegen_expression(node->binary.right, sb, table);
-
-        Token_Type operator = node->binary.operator;
-
-        switch(operator)
-        {
-        case TOKEN_PLUS:
-        {
-            x86_emit_add(sb, left_reg, right_reg);
-        }
-        break;
-        case TOKEN_MINUS:
-        {
-            // @Note: Subtract source from dest -> right from left
-            x86_emit_sub(sb, left_reg, right_reg);
-            i32 temp = right_reg;
-            right_reg = left_reg;
-            left_reg = temp;
-        }
-        break;
-        case TOKEN_STAR:
-        {
-            x86_emit_mul(sb, left_reg, right_reg);
-        }
-        break;
-        case TOKEN_SLASH:
-        {
-            x86_emit_div(sb, left_reg, right_reg);
-        }
-        break;
-        default:
-        assert("Invalid token type" && false);
-        }
-        
-        scratch_free(table, left_reg);
-        return right_reg;
-    }
-    case AST_NODE_UNARY:
-    {
-        Scratch_Register reg = x86_codegen_expression(node->unary.expression, sb, table);
-        x86_emit_unary(sb, reg);
-        return reg;
-    }
-    default:
-    printf("%d\n", node->type);
-    assert("Unsupported AST Node" && false);
-    }
-
-    return -1;
-}
-
 void x86_emit_ret(String_Builder* sb)
 {
     sb_indent(sb, 8);
@@ -475,8 +409,12 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
 
     for (i32 i = 0; i < program_node->function_array.count; i++)
     {
-        String_View name = program_node->function_array.functions[i].name;
-        sb_appendf(&sb, ".global %s\n", name.string->str);
+        IR_Function function = program_node->function_array.functions[i];
+        if (function.exported)
+        {
+            String_View name = program_node->function_array.functions[i].name;
+            sb_appendf(&sb, ".global %s\n", name.string->str);
+        }
     }
 
     for (i32 i = 0; i < program_node->block_array.count; i++)
