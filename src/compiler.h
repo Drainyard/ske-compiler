@@ -125,7 +125,7 @@ bool compiler_assemble_x86_with_input_file(String* file_path, String* output_pat
 
 bool compiler_link(String* input_file_path, String* output_file_path, Allocator* allocator)
 {
-    char *cmd[] = {"gcc", "-o", output_file_path->str, input_file_path->str, "-lm", "-no-pie", NULL};
+    char *cmd[] = {"ld", "-o", output_file_path->str, "-dynamic-linker", "/lib64/ld-linux-x86-64.so.2", "-lc", input_file_path->str, "-lm", "-no-pie", NULL};
     return run_subprocess(cmd); 
 }
 

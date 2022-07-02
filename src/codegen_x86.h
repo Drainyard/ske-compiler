@@ -392,6 +392,34 @@ void x86_emit_header(String_Builder* sb)
     sb_append(sb, ".text\n");
 }
 
+void x86_emit_xor_name_name(String_Builder* sb, const char* n1, const char* n2)
+{
+    sb_indent(sb, 8);
+    sb_appendf(sb, "xor     %s, %s\n", n1, n2);
+}
+
+typedef enum
+{
+    LINUX_SC_EXIT = 60
+} Linux_Syscall;
+
+void x86_emit_syscall(String_Builder* sb, Linux_Syscall syscall)
+{
+    x86_emit_move_lit_to_name(sb, (i32)syscall, "%rax");
+    x86_emit_xor_name_name(sb, "%rdi", "%rdi");
+    sb_indent(sb, 8);
+    sb_append(sb, "syscall\n");
+}
+
+void x86_emit_start(String_Builder* sb)
+{
+    sb_append(sb, ".global _start\n");
+    sb_append(sb, "_start:\n");
+
+    x86_emit_call(sb, "main");
+    x86_emit_syscall(sb, LINUX_SC_EXIT);
+}
+
 String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
 {
     String_Builder sb;
@@ -403,10 +431,6 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
     Temp_Table temp_table;
     temp_table_init(&temp_table);
     
-    x86_emit_header(&sb);
-
-    Scratch_Register current_reg;
-
     for (i32 i = 0; i < program_node->function_array.count; i++)
     {
         IR_Function function = program_node->function_array.functions[i];
@@ -416,6 +440,12 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
             sb_appendf(&sb, ".global %s\n", name.string->str);
         }
     }
+    
+    x86_emit_start(&sb);
+
+    sb_append(&sb, ".text\n");
+
+    Scratch_Register current_reg;
 
     for (i32 i = 0; i < program_node->block_array.count; i++)
     {
@@ -643,8 +673,8 @@ void x86_codegen_program(AST_Node* program_node, String_Builder* sb, Scratch_Reg
 {
     sb_append(sb, ".data\n");
     sb_append(sb, ".text\n");
-    sb_append(sb, ".global main\n");
-    sb_append(sb, "main:\n");
+    sb_append(sb, ".global _start\n");
+    sb_append(sb, "_start:\n");
 
     x86_emit_push_name(sb, "%rbp");
     x86_emit_move_name_to_name(sb, "%rsp", "%rbp");
