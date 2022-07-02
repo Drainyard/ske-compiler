@@ -119,7 +119,7 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
 
 bool compiler_assemble_x86_with_input_file(String* file_path, String* output_path, Allocator* allocator)
 {
-    char *cmd[] = {"as", "-c", file_path->str, "-o", output_path->str, NULL};
+    char *cmd[] = {"as", "-g", "-c", file_path->str, "-o", output_path->str, NULL};
     return run_subprocess(cmd);
 }
 

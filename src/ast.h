@@ -258,9 +258,13 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
     case AST_NODE_RETURN:
     {
         sb_indent(builder, indentation);
-        sb_append(builder, "(return \n");
-        sb_indent(builder, indentation + 1);
-        pretty_print_expression(statement->return_statement.expression, indentation, builder);
+        sb_append(builder, "(return");
+        if (statement->return_statement.expression)
+        {
+            sb_append(builder, "\n");
+            sb_indent(builder, indentation + 1);
+            pretty_print_expression(statement->return_statement.expression, indentation, builder);
+        }
         sb_append(builder, ")");
     }
     break;

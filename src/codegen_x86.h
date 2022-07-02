@@ -265,9 +265,9 @@ void x86_emit_mul(String_Builder* sb, int src, int dst);
 void x86_emit_sub(String_Builder* sb, int src, int dst);
 void x86_emit_add(String_Builder* sb, int src, int dst);
 
-void x86_emit_label(String_Builder* sb, String* label)
+void x86_emit_label(String_Builder* sb, const char* label)
 {
-    sb_appendf(sb, "%s:\n", label->str);
+    sb_appendf(sb, "%s:\n", label);
 }
 
 void x86_emit_add(String_Builder* sb, int src, int dst)
@@ -383,13 +383,7 @@ void x86_emit_call(String_Builder* sb, const char* function)
 void x86_emit_comment_line(String_Builder* sb, const char* comment)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "#;; %s\n", comment);
-}
-
-void x86_emit_header(String_Builder* sb)
-{
-    sb_append(sb, ".data\n");
-    sb_append(sb, ".text\n");
+    sb_appendf(sb, "# %s\n", comment);
 }
 
 void x86_emit_xor_name_name(String_Builder* sb, const char* n1, const char* n2)
@@ -414,9 +408,15 @@ void x86_emit_syscall(String_Builder* sb, Linux_Syscall syscall)
 void x86_emit_start(String_Builder* sb)
 {
     sb_append(sb, ".global _start\n");
-    sb_append(sb, "_start:\n");
+
+    sb_append(sb, ".text\n");
+
+    x86_emit_label(sb, "_start");
+
+    x86_emit_xor_name_name(sb, "%rbp", "%rbp");
 
     x86_emit_call(sb, "main");
+
     x86_emit_syscall(sb, LINUX_SC_EXIT);
 }
 
@@ -443,8 +443,6 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
     
     x86_emit_start(&sb);
 
-    sb_append(&sb, ".text\n");
-
     Scratch_Register current_reg;
 
     for (i32 i = 0; i < program_node->block_array.count; i++)
@@ -460,13 +458,13 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
             {
                 IR_Function_Decl* fun = &node->function;
                 sb_appendf(&sb, "%s:\n", fun->name->str);
-                x86_emit_push_name(&sb, "%rbp");
-                x86_emit_move_name_to_name(&sb, "%rsp", "%rbp");
+                /* x86_emit_push_name(&sb, "%rbp"); */
+                /* x86_emit_move_name_to_name(&sb, "%rsp", "%rbp"); */
             }
             break;
             case IR_NODE_LABEL:
             {
-                x86_emit_label(&sb, node->label.label_name);
+                x86_emit_label(&sb, node->label.label_name->str);
             }
             break;
             case IR_NODE_INSTRUCTION:
@@ -641,27 +639,24 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
             }
             break;
             }
-            default: break;;
+            default: break;
             }
         }
     }
 
-    x86_emit_move_reg_to_name(&sb, current_reg, "%rax");
-    scratch_free(&table, current_reg);
+    /* sb_append(&sb, "\n"); */
+    /* x86_emit_comment_line(&sb, "fprintf call to output result temporarily"); */
+    /* x86_emit_move_name_to_name(&sb, "stderr", "%rax"); */
+    /* x86_emit_move_reg_to_name(&sb, current_reg, "%rdx"); */
+    /* x86_emit_move_name_to_name(&sb, "$format", "%rsi"); */
+    /* x86_emit_move_name_to_name(&sb, "%rax", "%rdi"); */
+    /* x86_emit_move_lit_to_name(&sb, 0, "%rax"); */
+    /* x86_emit_call(&sb, "fprintf"); */
+    /* x86_emit_move_lit_to_name(&sb, 0, "%rax"); */
 
-    sb_append(&sb, "\n");
-    x86_emit_comment_line(&sb, "fprintf call to output result temporarily");
-    x86_emit_move_name_to_name(&sb, "stderr", "%rax");
-    x86_emit_move_reg_to_name(&sb, current_reg, "%rdx");
-    x86_emit_move_name_to_name(&sb, "$format", "%rsi");
-    x86_emit_move_name_to_name(&sb, "%rax", "%rdi");
-    x86_emit_move_lit_to_name(&sb, 0, "%rax");
-    x86_emit_call(&sb, "fprintf");
-    x86_emit_move_lit_to_name(&sb, 0, "%rax");
+    /* x86_emit_pop_name(&sb, "%rbp"); */
 
-    x86_emit_pop_name(&sb, "%rbp");
-
-    x86_emit_ret(&sb);
+    /* x86_emit_ret(&sb); */
 
     x86_emit_asciz(&sb, "format", "%d\\n");
 

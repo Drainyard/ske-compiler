@@ -236,7 +236,7 @@ static AST_Node* parser_fun_declaration(Parser* parser, Token* identifier)
 
 static AST_Node* parser_return_statement(Parser* parser)
 {
-    if (parser_match(parser, TOKEN_SEMICOLON))
+    if (parser_check(parser, TOKEN_SEMICOLON))
     {
         AST_Node* return_node = parser_add_node(AST_NODE_RETURN, parser->allocator);
         return_node->return_statement.expression = NULL;
