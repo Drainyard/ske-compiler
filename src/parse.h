@@ -135,6 +135,7 @@ AST_Node* parser_add_node(AST_Node_Type node_type, Allocator* allocator)
 }
 
 static Parse_Rule* parser_get_rule(Token_Type type);
+static AST_Node* parser_statement(Parser* parser);
 static AST_Node* parser_expression(Parser* parser);
 static AST_Node* parser_precedence(Parser* parser, Precedence precedence);
 static AST_Node* parser_declaration(Parser* parser);
@@ -259,11 +260,36 @@ static AST_Node* parser_expression_statement(Parser* parser)
     return expression;
 }
 
+static AST_Node* parser_if_statement(Parser* parser)
+{
+    AST_Node* if_node = parser_add_node(AST_NODE_IF, parser->allocator);
+
+    if_node->if_statement.condition = parser_expression(parser);
+    
+    if_node->if_statement.then_arm = parser_statement(parser);
+    if_node->if_statement.else_arm = NULL;
+
+    if (parser_match(parser, TOKEN_ELSE))
+    {
+        if_node->if_statement.else_arm = parser_statement(parser);
+    }
+    
+    return if_node;
+}
+
 static AST_Node* parser_statement(Parser* parser)
 {
     if (parser_match(parser, TOKEN_RETURN))
     {
         return parser_return_statement(parser);
+    }
+    else if (parser_match(parser, TOKEN_IF))
+    {
+        return parser_if_statement(parser);
+    }
+    else if (parser_match(parser, TOKEN_LEFT_BRACE))
+    {
+        return parser_block(parser);
     }
     else
     {

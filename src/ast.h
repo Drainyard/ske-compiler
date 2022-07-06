@@ -8,6 +8,7 @@ typedef enum
     AST_NODE_FUN_DECL,
     AST_NODE_CALL,
     AST_NODE_ARGUMENT_LIST,
+    AST_NODE_IF,
     AST_NODE_RETURN,
     AST_NODE_BLOCK,
     AST_NODE_NUMBER,
@@ -71,6 +72,12 @@ struct AST_Node
         } return_statement;
         struct
         {
+            AST_Node* condition;
+            AST_Node* then_arm;
+            AST_Node* else_arm;
+        } if_statement;
+        struct
+        {
             String* name;
             AST_Node* type_specifier;
             AST_Node* arguments;
@@ -128,6 +135,8 @@ static char* parser_type_string(AST_Node_Type type)
     return "AST_NODE_CALL";
     case AST_NODE_RETURN:
     return "AST_NODE_RETURN";
+    case AST_NODE_IF:
+    return "AST_NODE_IF";
     case AST_NODE_BLOCK:
     return "AST_NODE_BLOCK";
     case AST_NODE_NUMBER:
@@ -265,6 +274,23 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
             sb_indent(builder, indentation + 1);
             pretty_print_expression(statement->return_statement.expression, indentation, builder);
         }
+        sb_append(builder, ")");
+    }
+    break;
+    case AST_NODE_IF:
+    {
+        sb_indent(builder, indentation);
+        sb_append(builder, "(if ");
+        pretty_print_expression(statement->if_statement.condition, indentation, builder);
+        sb_append(builder, " ");
+        pretty_print_statement(statement->if_statement.then_arm, indentation, builder);
+
+        if (statement->if_statement.else_arm)
+        {
+            sb_append(builder, " ");
+            pretty_print_statement(statement->if_statement.else_arm, indentation, builder);
+        }
+        
         sb_append(builder, ")");
     }
     break;

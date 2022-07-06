@@ -67,7 +67,7 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             {
                 arguments.options |= OPT_ASSEMBLY_OUTPUT;
             }
-            else if (string_equal_cstr(&string, "-tokenizer"))
+            else if (string_equal_cstr(&string, "-tokenize"))
             {
                 arguments.options |= OPT_TOK_OUTPUT;
             }

@@ -1,9 +1,32 @@
 #ifndef SKE_X86_CODEGEN_H
 #define SKE_X86_CODEGEN_H
 
+#define SKE_CODEGEN_INTEL 1
+
 typedef enum
 {
+    SCRATCH_RBX,
+    SCRATCH_R10,
+    SCRATCH_R11,
+    SCRATCH_R12,
+    SCRATCH_R13,
+    SCRATCH_R14,
+    SCRATCH_R15,
+    SCRATCH_COUNT
+} Scratch_Register;
+
+typedef enum
+{
+    REG_RAX,
     REG_RBX,
+    REG_RCX,
+    REG_RDX,
+    REG_RSI,
+    REG_RDI,
+    REG_RBP,
+    REG_RSP,
+    REG_R8,
+    REG_R9,
     REG_R10,
     REG_R11,
     REG_R12,
@@ -11,27 +34,27 @@ typedef enum
     REG_R14,
     REG_R15,
     REG_COUNT
-} Scratch_Register;
+} Register;
 
 typedef struct
 {
-    bool inuse_table[REG_COUNT];
+    bool inuse_table[SCRATCH_COUNT];
 } Scratch_Register_Table;
 
 void scratch_table_init(Scratch_Register_Table* table)
 {
-    table->inuse_table[REG_RBX] = false;
-    table->inuse_table[REG_R10] = false;
-    table->inuse_table[REG_R11] = false;
-    table->inuse_table[REG_R12] = false;
-    table->inuse_table[REG_R13] = false;
-    table->inuse_table[REG_R14] = false;
-    table->inuse_table[REG_R15] = false;
+    table->inuse_table[SCRATCH_RBX] = false;
+    table->inuse_table[SCRATCH_R10] = false;
+    table->inuse_table[SCRATCH_R11] = false;
+    table->inuse_table[SCRATCH_R12] = false;
+    table->inuse_table[SCRATCH_R13] = false;
+    table->inuse_table[SCRATCH_R14] = false;
+    table->inuse_table[SCRATCH_R15] = false;
 }
 
 Scratch_Register scratch_alloc(Scratch_Register_Table* table)
 {
-    for (i32 i = 0; i < REG_COUNT; i++)
+    for (i32 i = 0; i < SCRATCH_COUNT; i++)
     {
         if (!table->inuse_table[i])
         {
@@ -49,9 +72,52 @@ void scratch_free(Scratch_Register_Table* table, Scratch_Register reg)
     table->inuse_table[reg] = false;
 }
 
-const char* scratch_register_names[REG_COUNT] =
+#ifdef SKE_CODEGEN_INTEL
+const char* register_names[REG_COUNT] =
 {
+    [REG_RAX] = "rax",
+    [REG_RBX] = "rbx",
+    [REG_RCX] = "rcx",
+    [REG_RDX] = "rdx",
+    [REG_RSI] = "rsi",
+    [REG_RDI] = "rdi",
+    [REG_RBP] = "rbp",
+    [REG_RSP] = "rsp",
+    [REG_R8 ] = "r8",
+    [REG_R9 ] = "r9",
+    [REG_R10] = "r10",
+    [REG_R11] = "r11",
+    [REG_R12] = "r12",
+    [REG_R13] = "r13",
+    [REG_R14] = "r14",
+    [REG_R15] = "r15",
+};
+
+const char* scratch_register_names[SCRATCH_COUNT] =
+{
+    [SCRATCH_RBX] = "rbx",
+    [SCRATCH_R10] = "r10",
+    [SCRATCH_R11] = "r11",
+    [SCRATCH_R12] = "r12",
+    [SCRATCH_R13] = "r13",
+    [SCRATCH_R14] = "r14",
+    [SCRATCH_R15] = "r15",
+};
+
+#elif SKE_CODEGEN_AT_T
+
+const char* register_names[REG_COUNT] =
+{
+    [REG_RAX] = "%rax",
     [REG_RBX] = "%rbx",
+    [REG_RCX] = "%rcx",
+    [REG_RDX] = "%rdx",
+    [REG_RSI] = "%rsi",
+    [REG_RDI] = "%rdi",
+    [REG_RBP] = "%rbp",
+    [REG_RSP] = "%rsp",
+    [REG_R8 ] = "%r8",
+    [REG_R9 ] = "%r9",
     [REG_R10] = "%r10",
     [REG_R11] = "%r11",
     [REG_R12] = "%r12",
@@ -59,6 +125,19 @@ const char* scratch_register_names[REG_COUNT] =
     [REG_R14] = "%r14",
     [REG_R15] = "%r15",
 };
+
+const char* scratch_register_names[SCRATCH_COUNT] =
+{
+    [SCRATCH_RBX] = "%rbx",
+    [SCRATCH_R10] = "%r10",
+    [SCRATCH_R11] = "%r11",
+    [SCRATCH_R12] = "%r12",
+    [SCRATCH_R13] = "%r13",
+    [SCRATCH_R14] = "%r14",
+    [SCRATCH_R15] = "%r15",
+};
+#endif
+
 
 typedef struct Temp_Table_Entry Temp_Table_Entry;
 i32 hash_int(i32 a)
@@ -95,7 +174,7 @@ static i32 temp_table_find_entry(i32* keys, Scratch_Register* entries, i32 capac
         i32 found_key = keys[index];
         if (found_key == -1)
         {
-            if (entries[index] == REG_COUNT)
+            if (entries[index] == SCRATCH_COUNT)
             {
                 return tombstone != -1 ? tombstone : index;
             }
@@ -123,7 +202,7 @@ static void temp_table_adjust_capacity(Temp_Table* table, i32 capacity)
         for (i32 i = 0; i < capacity; i++)
         {
             new_keys[i] = -1;
-            new_entries[i] = REG_COUNT;
+            new_entries[i] = SCRATCH_COUNT;
         }
         
         table->count = 0;
@@ -132,7 +211,7 @@ static void temp_table_adjust_capacity(Temp_Table* table, i32 capacity)
             i32 old_key = table->keys[i];
             Scratch_Register old_reg = table->entries[i];
 
-            if (old_reg == REG_COUNT) continue;
+            if (old_reg == SCRATCH_COUNT) continue;
 
             i32 index = temp_table_find_entry(new_keys, new_entries, capacity, old_key);
             new_keys[index] = table->keys[i];
@@ -154,8 +233,8 @@ static bool temp_table_set(Temp_Table *table, i32 key, Scratch_Register reg)
     }
 
     i32 index = temp_table_find_entry(table->keys, table->entries, table->capacity, key);
-    bool new_entry = table->entries[index] == REG_COUNT;
-    if (new_entry && table->entries[index] == REG_COUNT) table->count++;
+    bool new_entry = table->entries[index] == SCRATCH_COUNT;
+    if (new_entry && table->entries[index] == SCRATCH_COUNT) table->count++;
 
     table->keys[index] = key;
     table->entries[index] = reg;
@@ -167,7 +246,7 @@ static bool temp_table_get(Temp_Table* table, i32 key, Scratch_Register* reg)
     if (table->count == 0) return false;
 
     i32 index = temp_table_find_entry(table->keys, table->entries, table->capacity, key);
-    if (table->entries[index] == REG_COUNT) return false;
+    if (table->entries[index] == SCRATCH_COUNT) return false;
 
     *reg = table->entries[index];
     return true;
@@ -178,10 +257,10 @@ static bool temp_table_delete(Temp_Table* table, i32 key)
     if (table->count == 0) return false;
 
     i32 index = temp_table_find_entry(table->keys, table->entries, table->capacity, key);
-    if (table->entries[index] == REG_COUNT) return false;
+    if (table->entries[index] == SCRATCH_COUNT) return false;
 
     table->keys[index] = -1;
-    table->entries[index] = REG_RBX; // dummy value
+    table->entries[index] = SCRATCH_RBX; // dummy value
     
     return true;
 }
@@ -220,21 +299,43 @@ typedef enum
     INS_RET,
     INS_NEG,
     INS_CQO,
+    INS_XOR,
+    INS_CALL,
     INS_COUNT
 } Instruction;
 
-const char* instruction_name[INS_COUNT] =
+
+const char* instruction_names[INS_COUNT] =
 {
-    [INS_MOV ] = "movq   ",
-    [INS_PUSH] = "pushq  ",
-    [INS_POP ] = "popq   ",
-    [INS_ADD ] = "addq   ",
-    [INS_SUB ] = "subq   ",
-    [INS_MUL ] = "mulq   ",
-    [INS_DIV ] = "divq   ",
-    [INS_RET ] = "ret    ",
-    [INS_NEG ] = "negq   ",
-    [INS_CQO ] = "cqo    "
+    [INS_MOV ] = "mov",
+    [INS_PUSH] = "push",
+    [INS_POP]  = "pop",
+    [INS_ADD]  = "add",
+    [INS_SUB]  = "sub",
+    [INS_MUL]  = "mul",
+    [INS_DIV]  = "div",
+    [INS_RET]  = "ret",
+    [INS_NEG]  = "neg",
+    [INS_CQO]  = "cqo",
+    [INS_XOR]  = "xor",
+    [INS_CALL] = "call"
+};
+
+typedef enum
+{
+    SUFFIX_BYTE,
+    SUFFIX_WORD,
+    SUFFIX_LONG,
+    SUFFIX_QUAD,
+    SUFFIX_COUNT
+} Type_Suffix;
+
+const char instruction_suffix[SUFFIX_COUNT] =
+{
+    [SUFFIX_BYTE] = 'b',
+    [SUFFIX_WORD] = 'w',
+    [SUFFIX_LONG] = 'l',
+    [SUFFIX_QUAD] = 'q',
 };
 
 const char* scratch_name(Scratch_Register reg)
@@ -253,118 +354,161 @@ String* label_name(i32 label, Allocator* allocator)
     return string_createf(allocator, ".L%d", label);
 }
 
-void x86_emit_move_reg_to_reg(String_Builder* sb, int src, int dst);
-void x86_emit_move_lit_to_reg(String_Builder* sb, int num, int dst);
-void x86_emit_move_name_to_reg(String_Builder* sb, const char* src, int dst);
-void x86_emit_move_reg_to_name(String_Builder* sb, int src, const char* dst);
+void x86_emit_move_reg_to_reg(String_Builder* sb, Scratch_Register src, Scratch_Register dst);
+void x86_emit_move_lit_to_reg(String_Builder* sb, i32 num, Scratch_Register dst);
+void x86_emit_move_name_to_reg(String_Builder* sb, const char* src, Scratch_Register dst);
+void x86_emit_move_reg_to_name(String_Builder* sb, Scratch_Register src, const char* dst);
 void x86_emit_move_name_to_name(String_Builder* sb, const char* src, const char* dst);
 
-void x86_emit_unary(String_Builder* sb, int reg);
-void x86_emit_div(String_Builder* sb, int src, int dst);
-void x86_emit_mul(String_Builder* sb, int src, int dst);
-void x86_emit_sub(String_Builder* sb, int src, int dst);
-void x86_emit_add(String_Builder* sb, int src, int dst);
+void x86_emit_unary(String_Builder* sb, Scratch_Register reg);
+void x86_emit_div(String_Builder* sb, Scratch_Register src, Scratch_Register dst);
+void x86_emit_mul(String_Builder* sb, Scratch_Register src, Scratch_Register dst);
+void x86_emit_sub(String_Builder* sb, Scratch_Register src, Scratch_Register dst);
+void x86_emit_add(String_Builder* sb, Scratch_Register src, Scratch_Register dst);
 
 void x86_emit_label(String_Builder* sb, const char* label)
 {
     sb_appendf(sb, "%s:\n", label);
 }
 
-void x86_emit_add(String_Builder* sb, int src, int dst)
+void x86_emit_add(String_Builder* sb, Scratch_Register src, Scratch_Register dst)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "addq    %s, %s\n", scratch_name(src), scratch_name(dst));
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_ADD], scratch_name(dst), scratch_name(src));
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_ADD], scratch_name(src), scratch_name(dst));
+#endif
+    
 }
 
-void x86_emit_sub(String_Builder* sb, int src, int dst)
+void x86_emit_sub(String_Builder* sb, Scratch_Register src, Scratch_Register dst)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "subq    %s, %s\n", scratch_name(dst), scratch_name(src));   
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_SUB], scratch_name(dst), scratch_name(src));
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_SUB], scratch_name(src), scratch_name(dst));
+#endif
 }
 
-void x86_emit_mul(String_Builder* sb, int src, int dst)
+void x86_emit_mul(String_Builder* sb, Scratch_Register src, Scratch_Register dst)
 {
-    x86_emit_move_reg_to_name(sb, src, "%rax");
+    x86_emit_move_reg_to_name(sb, src, register_names[REG_RAX]);
 
     const char* dst_name = scratch_name(dst);
     sb_indent(sb, 8);
-    sb_appendf(sb, "imulq   %s\n", dst_name);
+    sb_appendf(sb, "%s     %s\n", instruction_names[INS_MUL], dst_name);
 
-    x86_emit_move_name_to_name(sb, "%rax", dst_name);
+    x86_emit_move_name_to_name(sb, register_names[REG_RAX], dst_name);
 }
 
-void x86_emit_div(String_Builder* sb, int src, int dst) 
+void x86_emit_div(String_Builder* sb, Scratch_Register src, Scratch_Register dst) 
 {
-    x86_emit_move_reg_to_name(sb, src, "%rax");
+    x86_emit_move_reg_to_name(sb, src, register_names[REG_RAX]);
 
     sb_indent(sb, 8);
-    sb_append(sb, "cqo\n");
+    sb_appendf(sb, "%s\n", instruction_names[INS_CQO]); 
 
     sb_indent(sb, 8);
     const char* dst_name = scratch_name(dst);
-    sb_appendf(sb, "idivq   %s\n", dst_name);
+    sb_appendf(sb, "%s    %s\n", instruction_names[INS_DIV], dst_name);
 
-    x86_emit_move_name_to_name(sb, "%rax", dst_name);
+    x86_emit_move_name_to_name(sb, register_names[REG_RAX], dst_name);
 }
 
-void x86_emit_unary(String_Builder* sb, int src)
+void x86_emit_unary(String_Builder* sb, Scratch_Register src)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "negq    %s\n", scratch_name(src));
+    sb_appendf(sb, "%s     %s\n", instruction_names[INS_NEG], scratch_name(src));
 }
 
-void x86_emit_move_reg_to_reg(String_Builder* sb, int src, int dst)
+void x86_emit_move_reg_to_reg(String_Builder* sb, Scratch_Register src, Scratch_Register dst)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "movq    %s, %s\n", scratch_name(src), scratch_name(dst));
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], scratch_name(dst), scratch_name(src));
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], scratch_name(src), scratch_name(dst));
+#endif
 }
 
-void x86_emit_move_lit_to_reg(String_Builder* sb, int num, int dst)
+static char literal_prefix()
 {
-    sb_indent(sb, 8);
-    sb_appendf(sb, "movq    $%d, %s\n", num, scratch_name(dst));
+#ifdef SKE_CODEGEN_INTEL
+    return ' ';
+#elif SKE_CODEGEN_AT_T
+    return '$';
+#endif
+    return ' ';
 }
 
-void x86_emit_move_lit_to_name(String_Builder* sb, int num, const char* dst)
+void x86_emit_move_lit_to_reg(String_Builder* sb, i32 num, Scratch_Register dst)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "movq    $%d, %s\n", num, dst);
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %c%d\n", instruction_names[INS_MOV], scratch_name(dst), literal_prefix(), num);
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %c%d, %s\n", instruction_names[INS_MOV], literal_prefix(), num, scratch_name(dst));
+#endif
 }
 
-void x86_emit_move_name_to_reg(String_Builder* sb, const char* src, int dst)
+void x86_emit_move_lit_to_name(String_Builder* sb, i32 num, const char* dst)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "movq    %s, %s\n", src, scratch_name(dst));
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %c%d\n", instruction_names[INS_MOV], dst, literal_prefix(), num);
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %c%d, %s\n", instruction_names[INS_MOV], literal_prefix(), num, dst);
+#endif
 }
 
-void x86_emit_move_reg_to_name(String_Builder* sb, int src, const char* dst)
+void x86_emit_move_name_to_reg(String_Builder* sb, const char* src, Scratch_Register dst)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "movq    %s, %s\n", scratch_name(src), dst);
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], scratch_name(dst), src);
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], src,  scratch_name(dst));
+#endif
+}
+
+void x86_emit_move_reg_to_name(String_Builder* sb, Scratch_Register src, const char* dst)
+{
+    sb_indent(sb, 8);
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], dst, scratch_name(src));
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], scratch_name(src),  dst);
+#endif
 }
 
 void x86_emit_move_name_to_name(String_Builder* sb, const char* src, const char* dst)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "movq    %s, %s\n", src, dst);
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], dst, src);
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], src,  dst);
+#endif
 }
 
 void x86_emit_ret(String_Builder* sb)
 {
     sb_indent(sb, 8);
-    sb_append(sb, "ret\n");
+    sb_appendf(sb, "%s\n", instruction_names[INS_RET]);
 }
 
 void x86_emit_pop_name(String_Builder* sb, const char* name)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "popq    %s\n", name);
+    sb_appendf(sb, "%s     %s\n", instruction_names[INS_POP], name);
 }
 
 void x86_emit_push_name(String_Builder* sb, const char* name)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "pushq   %s\n", name);
+    sb_appendf(sb, "%s     %s\n", name, instruction_names[INS_PUSH]);
 }
 
 void x86_emit_asciz(String_Builder* sb, const char* name, const char* value)
@@ -377,7 +521,7 @@ void x86_emit_asciz(String_Builder* sb, const char* name, const char* value)
 void x86_emit_call(String_Builder* sb, const char* function)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "call    %s\n", function);
+    sb_appendf(sb, "%s    %s\n", instruction_names[INS_CALL], function);
 }
 
 void x86_emit_comment_line(String_Builder* sb, const char* comment)
@@ -389,7 +533,12 @@ void x86_emit_comment_line(String_Builder* sb, const char* comment)
 void x86_emit_xor_name_name(String_Builder* sb, const char* n1, const char* n2)
 {
     sb_indent(sb, 8);
-    sb_appendf(sb, "xor     %s, %s\n", n1, n2);
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_XOR], n2, n1);
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_XOR], n1, n2);
+#endif
+
 }
 
 typedef enum
@@ -399,8 +548,16 @@ typedef enum
 
 void x86_emit_syscall(String_Builder* sb, Linux_Syscall syscall)
 {
-    x86_emit_move_lit_to_name(sb, (i32)syscall, "%rax");
-    x86_emit_xor_name_name(sb, "%rdi", "%rdi");
+    x86_emit_move_lit_to_name(sb, (i32)syscall, register_names[REG_RAX]);
+    sb_indent(sb, 8);
+    sb_append(sb, "syscall\n");
+}
+
+void x86_emit_exit_syscall(String_Builder* sb)
+{
+    x86_emit_move_name_to_name(sb, register_names[REG_RAX], register_names[REG_RDI]);  
+    x86_emit_move_lit_to_name(sb, LINUX_SC_EXIT, register_names[REG_RAX]);
+
     sb_indent(sb, 8);
     sb_append(sb, "syscall\n");
 }
@@ -413,10 +570,11 @@ void x86_emit_start(String_Builder* sb)
 
     x86_emit_label(sb, "_start");
 
-    x86_emit_xor_name_name(sb, "%rbp", "%rbp");
+    x86_emit_xor_name_name(sb, register_names[REG_RBP], register_names[REG_RBP]);
 
     x86_emit_call(sb, "main");
-
+    x86_emit_move_name_to_name(sb, register_names[REG_RAX], register_names[REG_RDI]);
+    
     x86_emit_syscall(sb, LINUX_SC_EXIT);
 }
 
@@ -430,6 +588,8 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
 
     Temp_Table temp_table;
     temp_table_init(&temp_table);
+
+    sb_append(&sb, ".intel_syntax noprefix\n\n");
     
     for (i32 i = 0; i < program_node->function_array.count; i++)
     {
@@ -479,7 +639,7 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                     if (ret->has_return_value)
                     {
                         Scratch_Register return_reg = get_or_add_scratch_from_temp(&temp_table, ret->return_register, &table);
-                        x86_emit_move_reg_to_name(&sb, return_reg, "%rax"); // calling convention defined return
+                        x86_emit_move_reg_to_name(&sb, return_reg, register_names[REG_RAX]); // calling convention defined return
                     }
                     x86_emit_ret(&sb);
                 }
@@ -658,7 +818,7 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
 
     /* x86_emit_ret(&sb); */
 
-    x86_emit_asciz(&sb, "format", "%d\\n");
+    /* x86_emit_asciz(&sb, "format", "%d\\n"); */
 
     String* assembly = sb_get_result(&sb, allocator);
     return assembly;
@@ -671,8 +831,8 @@ void x86_codegen_program(AST_Node* program_node, String_Builder* sb, Scratch_Reg
     sb_append(sb, ".global _start\n");
     sb_append(sb, "_start:\n");
 
-    x86_emit_push_name(sb, "%rbp");
-    x86_emit_move_name_to_name(sb, "%rsp", "%rbp");
+    x86_emit_push_name(sb, register_names[REG_RBP]);
+    x86_emit_move_name_to_name(sb, register_names[REG_RSP], register_names[REG_RBP]);
 
     /* Scratch_Register final_reg = x86_codegen_expression(program_node->program.expression, sb, table); */
 
