@@ -260,6 +260,10 @@ static void pretty_print_expression(AST_Node* node, i32 indentation, String_Buil
     }
 }
 
+static void pretty_print_block(AST_Node* block, i32 indentation, String_Builder* builder);
+static void pretty_print_statement(AST_Node* statement, i32 indentation, String_Builder* builder);
+static void pretty_print_expression(AST_Node* expression, i32 indentation, String_Builder* builder);
+
 static void pretty_print_statement(AST_Node* statement, i32 indentation, String_Builder* builder)
 {
     switch(statement->type)
@@ -282,13 +286,13 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
         sb_indent(builder, indentation);
         sb_append(builder, "(if ");
         pretty_print_expression(statement->if_statement.condition, indentation, builder);
-        sb_append(builder, " ");
-        pretty_print_statement(statement->if_statement.then_arm, indentation, builder);
+        sb_append(builder, " \n");
+        pretty_print_block(statement->if_statement.then_arm, indentation, builder);
+        sb_append(builder, "\n");
 
         if (statement->if_statement.else_arm)
         {
-            sb_append(builder, " ");
-            pretty_print_statement(statement->if_statement.else_arm, indentation, builder);
+            pretty_print_block(statement->if_statement.else_arm, indentation, builder);
         }
         
         sb_append(builder, ")");
@@ -313,6 +317,16 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
     }
 }
 
+static void pretty_print_block(AST_Node* block, i32 indentation, String_Builder* builder)
+{
+    AST_Node_List* list = &block->block.declarations;
+    for (i32 i = 0; i < list->count; i++)
+    {
+        AST_Node* node = list->nodes[i];
+        pretty_print_statement(node, indentation + 1, builder);
+    }
+}
+
 static void pretty_print_declaration(AST_Node* declaration, i32 indentation, String_Builder* builder)
 {
     switch(declaration->type)
@@ -329,11 +343,7 @@ static void pretty_print_declaration(AST_Node* declaration, i32 indentation, Str
             sb_append(builder, ",\n");
         }
 
-        for (i32 i = 0; i < block.count; i++)
-        {
-            AST_Node* node = block.nodes[i];
-            pretty_print_statement(node, indentation + 1, builder);
-        }
+        pretty_print_block(declaration->fun_decl.body, indentation, builder);
 
         sb_append(builder, ")\n");
     }

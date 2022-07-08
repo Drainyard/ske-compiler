@@ -7,6 +7,8 @@ typedef enum
     IR_INS_MOV,
     IR_INS_PUSH,
     IR_INS_POP,
+    IR_INS_IF,
+    IR_INS_JMP,
     IR_INS_BINOP,
     IR_INS_RET,
     IR_INS_CALL,
@@ -143,6 +145,25 @@ struct IR_Call
     i32 function_index;
 };
 
+typedef struct IR_Label IR_Label;
+struct IR_Label
+{
+    String* label_name;
+};
+
+typedef struct IR_Jump IR_Jump;
+struct IR_Jump
+{
+    IR_Label label;
+};
+
+typedef struct IR_If IR_If;
+struct IR_If
+{
+    IR_Jump jump;
+    
+};
+
 typedef struct IR_Push IR_Push;
 struct IR_Push
 {
@@ -189,20 +210,16 @@ struct IR_Instruction
     IR_Instruction_Type type;
     union
     {
-        IR_Move   move;
-        IR_Return ret;
-        IR_Call   call;
-        IR_Push   push;
-        IR_Pop    pop;
-        IR_BinOp  binop;
-        IR_UnOp   unop;
+        IR_Move    move;
+        IR_Return  ret;
+        IR_Call    call;
+        IR_If compare;
+        IR_Jump    jump;
+        IR_Push    push;
+        IR_Pop     pop;
+        IR_BinOp   binop;
+        IR_UnOp    unop;
     };
-};
-
-typedef struct IR_Label IR_Label;
-struct IR_Label
-{
-    String* label_name;
 };
 
 typedef enum
@@ -594,6 +611,11 @@ void ir_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
             {
                 ir_emit_return(block, NULL, allocator);
             }
+        }
+        break;
+        case AST_NODE_IF:
+        {
+            
         }
         break;
         case AST_NODE_CALL:
