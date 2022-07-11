@@ -182,6 +182,18 @@ typedef enum
     OP_SUB,
     OP_MUL,
     OP_DIV,
+    OP_NOT,
+    OP_EQUAL,
+    OP_ASSIGN,
+    OP_BIT_OR,
+    OP_BIT_AND,
+    OP_OR,
+    OP_AND,
+    OP_LESS,
+    OP_GREATER,
+    OP_LESS_EQUAL,
+    OP_GREATER_EQUAL,
+    OP_NOT_EQUAL
 } IR_Op;
 
 typedef struct IR_BinOp IR_BinOp;
@@ -298,6 +310,16 @@ struct IR_Program
     IR_Block_Array block_array;
     IR_Function_Array function_array;
 };
+
+static void ir_error(char* format, ...)
+{
+    va_list(ap);
+    va_start(ap, format);
+    vfprintf(stderr, format, ap);
+    va_end(ap);
+
+    exit(1);
+}
 
 String* ir_pretty_print(IR_Program* program, Allocator* allocator);
 
@@ -527,6 +549,66 @@ IR_BinOp* ir_emit_div(IR_Block* block, IR_Register left, IR_Register right, IR_R
     return ir_emit_binop(block, left, right, OP_DIV, table, allocator);
 }
 
+IR_BinOp* ir_emit_not(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_NOT, table, allocator);
+}
+
+IR_BinOp* ir_emit_equal(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_EQUAL, table, allocator);
+}
+
+IR_BinOp* ir_emit_assign(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_ASSIGN, table, allocator);
+}
+
+IR_BinOp* ir_emit_bit_or(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_BIT_OR, table, allocator);
+}
+
+IR_BinOp* ir_emit_bit_and(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_BIT_AND, table, allocator);
+}
+
+IR_BinOp* ir_emit_or(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_OR, table, allocator);
+}
+
+IR_BinOp* ir_emit_and(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_AND, table, allocator);
+}
+
+IR_BinOp* ir_emit_less(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_LESS, table, allocator);
+}
+
+IR_BinOp* ir_emit_greater(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_GREATER, table, allocator);
+}
+
+IR_BinOp* ir_emit_less_equal(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_LESS_EQUAL, table, allocator);
+}
+
+IR_BinOp* ir_emit_greater_equal(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_GREATER_EQUAL, table, allocator);
+}
+
+IR_BinOp* ir_emit_not_equal(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+{
+    return ir_emit_binop(block, left, right, OP_NOT_EQUAL, table, allocator);
+}
+
 IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* allocator, IR_Register_Table* table)
 {
     switch(node->type)
@@ -551,34 +633,105 @@ IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* 
             IR_BinOp* binop = ir_emit_add(block, left_reg, right_reg, table, allocator);
             return binop->destination;
         }
-        break;
         case TOKEN_MINUS:
         {
             IR_BinOp* binop = ir_emit_sub(block, left_reg, right_reg, table, allocator);
             return binop->destination;
         }
-        break;
         case TOKEN_STAR:
         {
             IR_BinOp* binop = ir_emit_mul(block, left_reg, right_reg, table, allocator);
             return binop->destination;
         }
-        break;
         case TOKEN_SLASH:
         {
             IR_BinOp* binop = ir_emit_div(block, left_reg, right_reg, table, allocator);
             return binop->destination;
         }
-        break;
+        case TOKEN_BANG:
+        {
+            IR_BinOp* binop = ir_emit_not(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
+        case TOKEN_EQUAL_EQUAL:
+        {
+            IR_BinOp* binop = ir_emit_equal(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
+        case TOKEN_EQUAL:
+        {
+            IR_BinOp* binop = ir_emit_assign(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
+        case TOKEN_PIPE:
+        {
+            IR_BinOp* binop = ir_emit_bit_or(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
+        case TOKEN_AMPERSAND:
+        {
+            IR_BinOp* binop = ir_emit_bit_and(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
+        case TOKEN_PIPE_PIPE:
+        {
+            IR_BinOp* binop = ir_emit_or(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
+        case TOKEN_AMPERSAND_AMPERSAND:
+        {
+            IR_BinOp* binop = ir_emit_and(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
+        case TOKEN_LESS:
+        {
+            IR_BinOp* binop = ir_emit_less(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
+        case TOKEN_GREATER:
+        {
+            IR_BinOp* binop = ir_emit_greater(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
+        case TOKEN_LESS_EQUAL:
+        {
+            IR_BinOp* binop = ir_emit_less_equal(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
+        case TOKEN_GREATER_EQUAL:
+        {
+            IR_BinOp* binop = ir_emit_greater_equal(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
+        case TOKEN_BANG_EQUAL:
+        {
+            IR_BinOp* binop = ir_emit_not_equal(block, left_reg, right_reg, table, allocator);
+            return binop->destination;
+        }
         default:
-        assert("Unsupported operator for binary operations" && false);
+        ir_error("Unsupported operator for binary operations\n");
         break;
         }
     }
     case AST_NODE_UNARY:
     {
         IR_Register reg = ir_translate_expression(node->unary.expression, block, allocator, table);
-        ir_emit_unop(block, reg, OP_SUB, allocator);
+        Token_Type operator = node->unary.operator;
+        switch(operator)
+        {
+        case TOKEN_MINUS:
+        {
+            ir_emit_unop(block, reg, OP_SUB, allocator);
+        }
+        break;
+        case TOKEN_BANG:
+        {
+            ir_emit_unop(block, reg, OP_NOT, allocator);
+        }
+        break;
+        default: ir_error("Unsupported operator for unary operations\n");
+        }
+        
         return reg;
     }
     default:
@@ -851,6 +1004,62 @@ String* ir_pretty_print(IR_Program* program, Allocator* allocator)
                         sb_append(&sb, " / ");
                     }
                     break;
+                    case OP_NOT_EQUAL:
+                    {
+                        sb_append(&sb, " != ");
+                    }
+                    break;
+                    case OP_EQUAL:
+                    {
+                        sb_append(&sb, " == ");
+                    }
+                    break;
+                    case OP_ASSIGN:
+                    {
+                        sb_append(&sb, " = ");
+                    }
+                    break;
+                    case OP_BIT_OR:
+                    {
+                        sb_append(&sb, " | ");
+                    }
+                    break;
+                    case OP_BIT_AND:
+                    {
+                        sb_append(&sb, " & ");
+                    }
+                    break;
+                    case OP_OR:
+                    {
+                        sb_append(&sb, " || ");
+                    }
+                    break;
+                    case OP_AND:
+                    {
+                        sb_append(&sb, " && ");
+                    }
+                    break;
+                    case OP_LESS:
+                    {
+                        sb_append(&sb, " < ");
+                    }
+                    break;
+                    case OP_GREATER:
+                    {
+                        sb_append(&sb, " > ");
+                    }
+                    break;
+                    case OP_LESS_EQUAL:
+                    {
+                        sb_append(&sb, " <= ");
+                    }
+                    break;
+                    case OP_GREATER_EQUAL:
+                    {
+                        sb_append(&sb, " >= ");
+                    }
+                    break;
+                    default: ir_error("Unsupported operator for binary operation\n");
                     }
                     ir_pretty_print_value(&sb, &binop->right);
 

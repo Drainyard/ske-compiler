@@ -176,12 +176,21 @@ static void pretty_print_operator(Token_Type operator, String_Builder* builder)
     /* sb_append(builder, "Op: "); */
     switch (operator)
     {
-    case TOKEN_PLUS: sb_append(builder, "+"); break;
-    case TOKEN_MINUS: sb_append(builder, "-"); break;
-    case TOKEN_STAR:  sb_append(builder, "*"); break;
-    case TOKEN_SLASH: sb_append(builder, "/"); break;
+    case TOKEN_PLUS:          sb_append(builder, "+"); break;
+    case TOKEN_MINUS:         sb_append(builder, "-"); break;
+    case TOKEN_STAR:          sb_append(builder, "*"); break;
+    case TOKEN_SLASH:         sb_append(builder, "/"); break;
+    case TOKEN_EQUAL_EQUAL:   sb_append(builder, "=="); break;
+    case TOKEN_EQUAL:         sb_append(builder, "="); break;
+    case TOKEN_BANG_EQUAL:    sb_append(builder, "!="); break;
+    case TOKEN_PIPE:          sb_append(builder, "|"); break;
+    case TOKEN_PIPE_PIPE:     sb_append(builder, "||"); break;
+    case TOKEN_LESS:          sb_append(builder, "<"); break;
+    case TOKEN_LESS_EQUAL:    sb_append(builder, "<="); break;
+    case TOKEN_GREATER:       sb_append(builder, ">"); break;
+    case TOKEN_GREATER_EQUAL: sb_append(builder, ">="); break;
     case TOKEN_ERROR: sb_append(builder, "ERROR"); break;
-    default: assert(false);
+    default: compiler_bug("AST pretty printer: Unknown operator");
     }
     /* sb_append(builder, ")"); */
 }

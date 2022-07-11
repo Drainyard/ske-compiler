@@ -1,7 +1,9 @@
 #ifndef SKE_X86_CODEGEN_H
 #define SKE_X86_CODEGEN_H
 
-#define SKE_CODEGEN_INTEL 1
+/* #define SKE_CODEGEN_INTEL 1 */
+#define SKE_CODEGEN_AT_T 1
+#define ASM_OUT_INDENT 4
 
 typedef enum
 {
@@ -33,6 +35,7 @@ typedef enum
     REG_R13,
     REG_R14,
     REG_R15,
+    REG_AL,
     REG_COUNT
 } Register;
 
@@ -91,6 +94,7 @@ const char* register_names[REG_COUNT] =
     [REG_R13] = "r13",
     [REG_R14] = "r14",
     [REG_R15] = "r15",
+    [REG_AL]  = "al"
 };
 
 const char* scratch_register_names[SCRATCH_COUNT] =
@@ -124,6 +128,7 @@ const char* register_names[REG_COUNT] =
     [REG_R13] = "%r13",
     [REG_R14] = "%r14",
     [REG_R15] = "%r15",
+    [REG_AL]  = "%al"
 };
 
 const char* scratch_register_names[SCRATCH_COUNT] =
@@ -296,6 +301,7 @@ typedef enum
     INS_SUB,
     INS_MUL,
     INS_DIV,
+    INS_CMP,
     INS_RET,
     INS_NEG,
     INS_CQO,
@@ -314,6 +320,7 @@ const char* instruction_names[INS_COUNT] =
     [INS_SUB]  = "sub",
     [INS_MUL]  = "mul",
     [INS_DIV]  = "div",
+    [INS_CMP]  = "cmp",
     [INS_RET]  = "ret",
     [INS_NEG]  = "neg",
     [INS_CQO]  = "cqo",
@@ -373,7 +380,7 @@ void x86_emit_label(String_Builder* sb, const char* label)
 
 void x86_emit_add(String_Builder* sb, Scratch_Register src, Scratch_Register dst)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
     sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_ADD], scratch_name(dst), scratch_name(src));
 #elif SKE_CODEGEN_AT_T
@@ -384,7 +391,7 @@ void x86_emit_add(String_Builder* sb, Scratch_Register src, Scratch_Register dst
 
 void x86_emit_sub(String_Builder* sb, Scratch_Register src, Scratch_Register dst)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
     sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_SUB], scratch_name(dst), scratch_name(src));
 #elif SKE_CODEGEN_AT_T
@@ -397,7 +404,7 @@ void x86_emit_mul(String_Builder* sb, Scratch_Register src, Scratch_Register dst
     x86_emit_move_reg_to_name(sb, src, register_names[REG_RAX]);
 
     const char* dst_name = scratch_name(dst);
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
     sb_appendf(sb, "%s     %s\n", instruction_names[INS_MUL], dst_name);
 
     x86_emit_move_name_to_name(sb, register_names[REG_RAX], dst_name);
@@ -407,25 +414,93 @@ void x86_emit_div(String_Builder* sb, Scratch_Register src, Scratch_Register dst
 {
     x86_emit_move_reg_to_name(sb, src, register_names[REG_RAX]);
 
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
     sb_appendf(sb, "%s\n", instruction_names[INS_CQO]); 
 
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
     const char* dst_name = scratch_name(dst);
     sb_appendf(sb, "%s    %s\n", instruction_names[INS_DIV], dst_name);
 
     x86_emit_move_name_to_name(sb, register_names[REG_RAX], dst_name);
 }
 
+void x86_emit_cmp(String_Builder* sb, Scratch_Register lhs, Scratch_Register rhs, IR_Op operator)
+{
+    x86_emit_move_reg_to_name(sb, lhs, register_names[REG_RAX]);
+
+    sb_indent(sb, ASM_OUT_INDENT);
+
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_CMP], register_names[REG_RAX], scratch_name(rhs));
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_CMP], scratch_name(rhs), register_names[REG_RAX]);
+#endif
+}
+
+void x86_emit_setcc(String_Builder* sb, IR_Op operator, Scratch_Register result_reg)
+{
+    sb_indent(sb, ASM_OUT_INDENT);
+
+    char* instruction = NULL;
+    switch(operator)
+    {
+    case OP_NOT_EQUAL:
+    {
+        instruction = "setne";
+    }
+    break;
+    case OP_EQUAL:
+    {
+        instruction = "sete ";
+    }
+    break;
+    case OP_OR:
+    {
+        not_implemented("Binary or (||)");
+    }
+    break;
+    case OP_AND:
+    {
+        not_implemented("Binary and (&&)");
+    }
+    break;
+    case OP_LESS:
+    {
+        instruction = "setl ";
+    }
+    break;
+    case OP_GREATER:
+    {
+        instruction = "setg ";
+    }
+    break;
+    case OP_LESS_EQUAL:
+    {
+        instruction = "setle";
+    }
+    break;
+    case OP_GREATER_EQUAL:
+    {
+        instruction = "setge";
+    }
+    break;
+    default: compiler_bug("Comparison: Invalid operator.");
+    }
+
+    sb_appendf(sb, "%s   %s\n", instruction, register_names[REG_AL]);
+
+    x86_emit_move_name_to_reg(sb, register_names[REG_AL], result_reg);
+}
+
 void x86_emit_unary(String_Builder* sb, Scratch_Register src)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
     sb_appendf(sb, "%s     %s\n", instruction_names[INS_NEG], scratch_name(src));
 }
 
 void x86_emit_move_reg_to_reg(String_Builder* sb, Scratch_Register src, Scratch_Register dst)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
     sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], scratch_name(dst), scratch_name(src));
 #elif SKE_CODEGEN_AT_T
@@ -445,7 +520,7 @@ static char literal_prefix()
 
 void x86_emit_move_lit_to_reg(String_Builder* sb, i32 num, Scratch_Register dst)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
     sb_appendf(sb, "%s     %s, %c%d\n", instruction_names[INS_MOV], scratch_name(dst), literal_prefix(), num);
 #elif SKE_CODEGEN_AT_T
@@ -455,7 +530,7 @@ void x86_emit_move_lit_to_reg(String_Builder* sb, i32 num, Scratch_Register dst)
 
 void x86_emit_move_lit_to_name(String_Builder* sb, i32 num, const char* dst)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
     sb_appendf(sb, "%s     %s, %c%d\n", instruction_names[INS_MOV], dst, literal_prefix(), num);
 #elif SKE_CODEGEN_AT_T
@@ -465,7 +540,7 @@ void x86_emit_move_lit_to_name(String_Builder* sb, i32 num, const char* dst)
 
 void x86_emit_move_name_to_reg(String_Builder* sb, const char* src, Scratch_Register dst)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
     sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], scratch_name(dst), src);
 #elif SKE_CODEGEN_AT_T
@@ -475,7 +550,7 @@ void x86_emit_move_name_to_reg(String_Builder* sb, const char* src, Scratch_Regi
 
 void x86_emit_move_reg_to_name(String_Builder* sb, Scratch_Register src, const char* dst)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
     sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], dst, scratch_name(src));
 #elif SKE_CODEGEN_AT_T
@@ -485,7 +560,7 @@ void x86_emit_move_reg_to_name(String_Builder* sb, Scratch_Register src, const c
 
 void x86_emit_move_name_to_name(String_Builder* sb, const char* src, const char* dst)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
     sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], dst, src);
 #elif SKE_CODEGEN_AT_T
@@ -495,44 +570,56 @@ void x86_emit_move_name_to_name(String_Builder* sb, const char* src, const char*
 
 void x86_emit_ret(String_Builder* sb)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
     sb_appendf(sb, "%s\n", instruction_names[INS_RET]);
 }
 
 void x86_emit_pop_name(String_Builder* sb, const char* name)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
     sb_appendf(sb, "%s     %s\n", instruction_names[INS_POP], name);
+}
+
+void x86_emit_pop_reg(String_Builder* sb, Register reg)
+{
+    sb_indent(sb, ASM_OUT_INDENT);
+    sb_appendf(sb, "%s     %s\n", register_names[reg], instruction_names[INS_POP]);
 }
 
 void x86_emit_push_name(String_Builder* sb, const char* name)
 {
-    sb_indent(sb, 8);
-    sb_appendf(sb, "%s     %s\n", name, instruction_names[INS_PUSH]);
+    sb_indent(sb, ASM_OUT_INDENT);
+    sb_appendf(sb, "%s     %s\n", instruction_names[INS_PUSH], name);
+}
+
+void x86_emit_push_reg(String_Builder* sb, Register reg)
+{
+    sb_indent(sb, ASM_OUT_INDENT);
+    sb_appendf(sb, "%s     %s\n", register_names[reg], instruction_names[INS_PUSH]);
 }
 
 void x86_emit_asciz(String_Builder* sb, const char* name, const char* value)
 {
     sb_appendf(sb, "%s:\n", name);
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
     sb_appendf(sb, ".asciz \"%s\"\n", value);
 }
 
 void x86_emit_call(String_Builder* sb, const char* function)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
     sb_appendf(sb, "%s    %s\n", instruction_names[INS_CALL], function);
 }
 
 void x86_emit_comment_line(String_Builder* sb, const char* comment)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
     sb_appendf(sb, "# %s\n", comment);
 }
 
 void x86_emit_xor_name_name(String_Builder* sb, const char* n1, const char* n2)
 {
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
     sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_XOR], n2, n1);
 #elif SKE_CODEGEN_AT_T
@@ -549,7 +636,7 @@ typedef enum
 void x86_emit_syscall(String_Builder* sb, Linux_Syscall syscall)
 {
     x86_emit_move_lit_to_name(sb, (i32)syscall, register_names[REG_RAX]);
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
     sb_append(sb, "syscall\n");
 }
 
@@ -558,7 +645,7 @@ void x86_emit_exit_syscall(String_Builder* sb)
     x86_emit_move_name_to_name(sb, register_names[REG_RAX], register_names[REG_RDI]);  
     x86_emit_move_lit_to_name(sb, LINUX_SC_EXIT, register_names[REG_RAX]);
 
-    sb_indent(sb, 8);
+    sb_indent(sb, ASM_OUT_INDENT);
     sb_append(sb, "syscall\n");
 }
 
@@ -573,6 +660,7 @@ void x86_emit_start(String_Builder* sb)
     x86_emit_xor_name_name(sb, register_names[REG_RBP], register_names[REG_RBP]);
 
     x86_emit_call(sb, "main");
+    
     x86_emit_move_name_to_name(sb, register_names[REG_RAX], register_names[REG_RDI]);
     
     x86_emit_syscall(sb, LINUX_SC_EXIT);
@@ -589,7 +677,9 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
     Temp_Table temp_table;
     temp_table_init(&temp_table);
 
+#ifdef SKE_CODEGEN_INTEL
     sb_append(&sb, ".intel_syntax noprefix\n\n");
+#endif
     
     for (i32 i = 0; i < program_node->function_array.count; i++)
     {
@@ -618,6 +708,10 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
             {
                 IR_Function_Decl* fun = &node->function;
                 sb_appendf(&sb, "%s:\n", fun->name->str);
+
+                x86_emit_push_name(&sb, register_names[REG_RBP]);
+                x86_emit_move_name_to_name(&sb, register_names[REG_RSP], register_names[REG_RBP]);
+                
                 /* x86_emit_push_name(&sb, "%rbp"); */
                 /* x86_emit_move_name_to_name(&sb, "%rsp", "%rbp"); */
             }
@@ -641,6 +735,7 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                         Scratch_Register return_reg = get_or_add_scratch_from_temp(&temp_table, ret->return_register, &table);
                         x86_emit_move_reg_to_name(&sb, return_reg, register_names[REG_RAX]); // calling convention defined return
                     }
+                    x86_emit_pop_name(&sb, register_names[REG_RBP]);
                     x86_emit_ret(&sb);
                 }
                 break;
@@ -789,6 +884,30 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                         x86_emit_div(&sb, left_reg, right_reg);
                     }
                     break;
+                    case OP_BIT_OR:
+                    {}
+                    break;
+                    case OP_BIT_AND:
+                    {}
+                    break;
+                    case OP_ASSIGN:
+                    {}
+                    break;
+                    case OP_EQUAL:
+                    case OP_OR:
+                    case OP_AND:
+                    case OP_LESS:
+                    case OP_GREATER:
+                    case OP_LESS_EQUAL:
+                    case OP_GREATER_EQUAL:
+                    case OP_NOT_EQUAL:
+                    {
+                        // comparison
+                        x86_emit_cmp(&sb, left_reg, right_reg, binop->operator);
+                        x86_emit_setcc(&sb, binop->operator, right_reg);
+                    }
+                    break;
+                    default: compiler_bug("Unsupported operator for binary operation."); break;
                     }
 
                     current_reg = right_reg;

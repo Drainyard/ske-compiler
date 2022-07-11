@@ -13,6 +13,18 @@ typedef enum
     TOKEN_COMMA,
     
     TOKEN_BANG,
+    TOKEN_BANG_EQUAL,
+
+    TOKEN_LESS,
+    TOKEN_GREATER,
+    TOKEN_LESS_EQUAL,
+    TOKEN_GREATER_EQUAL,
+
+    TOKEN_PIPE,
+    TOKEN_PIPE_PIPE,
+
+    TOKEN_AMPERSAND,
+    TOKEN_AMPERSAND_AMPERSAND,
 
     TOKEN_LEFT_PAREN,
     TOKEN_RIGHT_PAREN,
@@ -157,6 +169,8 @@ static void lexer_error_tokenf(Lexer* lexer, Token* token, char* fmt, ...)
     va_list(ap);
     va_start(ap, fmt);
     lexer_verror_at(lexer, token->start, fmt, ap);
+
+    va_end(ap);
 }
 
 static Token lexer_error_token(Lexer* lexer, char* message)
@@ -287,10 +301,36 @@ static Token lexer_scan_token(Lexer* lexer)
     case '-': return lexer_make_token(lexer, TOKEN_MINUS);
     case '*': return lexer_make_token(lexer, TOKEN_STAR);
     case '/': return lexer_make_token(lexer, TOKEN_SLASH);
+    case '|':
+    {
+        if (lexer_match_character(lexer, '|')) return lexer_make_token(lexer, TOKEN_PIPE_PIPE);
+        return lexer_make_token(lexer, TOKEN_PIPE);
+    }
+    case '&':
+    {
+        if (lexer_match_character(lexer, '&')) return lexer_make_token(lexer, TOKEN_AMPERSAND_AMPERSAND);
+        return lexer_make_token(lexer, TOKEN_AMPERSAND);
+    }
+    
+    case '!':
+    {
+        if (lexer_match_character(lexer, '=')) return lexer_make_token(lexer, TOKEN_BANG_EQUAL);
+        return lexer_make_token(lexer, TOKEN_BANG);
+    }
     case '=':
     {
         if (lexer_match_character(lexer, '=')) return lexer_make_token(lexer, TOKEN_EQUAL_EQUAL);
         return lexer_make_token(lexer, TOKEN_EQUAL);
+    }
+    case '<':
+    {
+        if (lexer_match_character(lexer, '=')) return lexer_make_token(lexer, TOKEN_LESS_EQUAL);
+        return lexer_make_token(lexer, TOKEN_LESS);
+    }
+    case '>':
+    {
+        if (lexer_match_character(lexer, '=')) return lexer_make_token(lexer, TOKEN_GREATER_EQUAL);
+        return lexer_make_token(lexer, TOKEN_GREATER_EQUAL);
     }
     
     case '(': return lexer_make_token(lexer, TOKEN_LEFT_PAREN);
@@ -411,6 +451,26 @@ String* lexer_pretty_print(Token_List* list, Allocator* allocator)
             sb_append(&sb, "SLASH('/')\n");
         }
         break;
+        case TOKEN_PIPE:
+        {
+            sb_append(&sb, "PIPE('|')\n");
+        }
+        break;
+        case TOKEN_PIPE_PIPE:
+        {
+            sb_append(&sb, "PIPE_PIPE('||')\n");
+        }
+        break;
+        case TOKEN_AMPERSAND:
+        {
+            sb_append(&sb, "AMPERSAND('&')\n");
+        }
+        break;
+        case TOKEN_AMPERSAND_AMPERSAND:
+        {
+            sb_append(&sb, "AMPERSAND_AMPERSAND('&&')\n");
+        }
+        break;
         case TOKEN_SEMICOLON:
         {
             sb_append(&sb, "SEMICOLON(';')\n");
@@ -424,6 +484,31 @@ String* lexer_pretty_print(Token_List* list, Allocator* allocator)
         case TOKEN_BANG:
         {
             sb_append(&sb, "BANG('!')\n");
+        }
+        break;
+        case TOKEN_BANG_EQUAL:
+        {
+            sb_append(&sb, "BANG_EQUAL('!=')\n");
+        }
+        break;
+        case TOKEN_LESS:
+        {
+            sb_append(&sb, "LESS('<')\n");
+        }
+        break;        
+        case TOKEN_LESS_EQUAL:
+        {
+            sb_append(&sb, "LESS_EQUAL('<=')\n");
+        }
+        break;
+        case TOKEN_GREATER:
+        {
+            sb_append(&sb, "GREATER('>')\n");
+        }
+        break;
+        case TOKEN_GREATER_EQUAL:
+        {
+            sb_append(&sb, "LESS_EQUAL('>=')\n");
         }
         break;
         case TOKEN_LEFT_PAREN:

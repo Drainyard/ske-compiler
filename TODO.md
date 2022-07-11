@@ -14,6 +14,9 @@
 - [ ] Add more failing tests
 - [ ] Add function calls with args
 - [ ] Add variable bindings (:: and :=?)
+- [ ] Add binary comparison operators (==, !=, >, <, <=, >=)
+- [ ] Add unary not
+- [ ] Add short circuiting to || and &&
 - [ ] Add string types
 - [ ] Add a type checker stage
 - [ ] Add support for windows (and MacOS?)

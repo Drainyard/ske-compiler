@@ -225,7 +225,7 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
                         fprintf(stderr, "Unable to open temp file: %s\n", out_path->str);
                         exit(1);
                     }
-
+                    
                     string_write_to_file(assembly, temp_file);
                     fclose(temp_file);
                 }

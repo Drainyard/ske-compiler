@@ -48,6 +48,15 @@ static void compiler_bug(const char* message)
     assert(false);
 }
 
+static void not_implemented(const char* message)
+{
+    fprintf(stderr, "\x1b[1;31m");
+    fprintf(stderr, "Not implemented: %s\n", message);
+    fprintf(stderr, "\x1b[0m\n");
+
+    assert(false);
+}
+
 #include "lex.h"
 #include "ast.h"
 #include "parse.h"
