@@ -4,19 +4,20 @@
 _start:
     xor     %rbp, %rbp
     call    main
-    movq     %rax, %rdi
-    movq     $60, %rax
+    mov     %rax, %rdi
+    mov     $60, %rax
     syscall
 main:
-    pushq     %rbp
-    movq     %rsp, %rbp
-    movq     $2, %rbx
-    movq     $2, %r10
-    movq     %rbx, %rax
-    cmp     %r10, %rax
-    sete    %al
-    movb     %al, -1(%rbp)
-    movq     -1(%rbp), %rbx
-    movq     %rbx, %rax
-    popq     %rbp
+    push     %rbp
+    mov     %rsp, %rbp
+    mov     $2, %rbx
+    mov     $2, %r10
+    cmp     %r10, %rbx
+    mov     $3, %r11
+    mov     $4, %r12
+    cmp     %r12, %r11
+    cmp     %r12, %r10
+    mov     %r12, %r13
+    mov     %r13, %rax
+    pop     %rbp
     ret

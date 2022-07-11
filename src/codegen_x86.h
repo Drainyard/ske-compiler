@@ -424,6 +424,45 @@ void x86_emit_div(String_Builder* sb, Scratch_Register src, Scratch_Register dst
     x86_emit_move_name_to_name(sb, register_names[REG_RAX], dst_name);
 }
 
+static char literal_prefix()
+{
+#ifdef SKE_CODEGEN_INTEL
+    return ' ';
+#elif SKE_CODEGEN_AT_T
+    return '$';
+#endif
+    return ' ';
+}
+
+void x86_emit_cmp_lit_to_loc(String_Builder* sb, i32 lhs, IR_Location rhs, Scratch_Register_Table* table, Temp_Table* temp_table)
+{
+    sb_indent(sb, ASM_OUT_INDENT);
+
+    assert(rhs.type == IR_LOCATION_REGISTER);
+    Scratch_Register right_reg = get_or_add_scratch_from_temp(temp_table, rhs.reg, table);
+
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %c%d\n", instruction_names[INS_CMP], scratch_name(right_reg), literal_prefix(), lhs);
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %c%d, %s\n", instruction_names[INS_CMP], literal_prefix(), lhs, scratch_name(right_reg));
+#endif
+}
+
+void x86_emit_cmp_loc_to_loc(String_Builder* sb, IR_Location lhs, IR_Location rhs, Scratch_Register_Table* table, Temp_Table* temp_table)
+{
+    sb_indent(sb, ASM_OUT_INDENT);
+
+    assert(lhs.type == IR_LOCATION_REGISTER && rhs.type == IR_LOCATION_REGISTER);
+    Scratch_Register left_reg = get_or_add_scratch_from_temp(temp_table, lhs.reg, table);
+    Scratch_Register right_reg = get_or_add_scratch_from_temp(temp_table, rhs.reg, table);
+
+#ifdef SKE_CODEGEN_INTEL
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_CMP], scratch_name(left_reg), scratch_name(right_reg));
+#elif SKE_CODEGEN_AT_T
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_CMP], scratch_name(right_reg), scratch_name(left_reg));
+#endif
+}
+
 void x86_emit_cmp(String_Builder* sb, Scratch_Register lhs, Scratch_Register rhs, IR_Op operator)
 {
     x86_emit_move_reg_to_name(sb, lhs, register_names[REG_RAX]);
@@ -506,16 +545,6 @@ void x86_emit_move_reg_to_reg(String_Builder* sb, Scratch_Register src, Scratch_
 #elif SKE_CODEGEN_AT_T
     sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_MOV], scratch_name(src), scratch_name(dst));
 #endif
-}
-
-static char literal_prefix()
-{
-#ifdef SKE_CODEGEN_INTEL
-    return ' ';
-#elif SKE_CODEGEN_AT_T
-    return '$';
-#endif
-    return ' ';
 }
 
 void x86_emit_move_lit_to_reg(String_Builder* sb, i32 num, Scratch_Register dst)
@@ -893,6 +922,20 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                     case OP_ASSIGN:
                     {}
                     break;
+
+                    default: compiler_bug("Unsupported operator for binary operation."); break;
+                    }
+
+                    current_reg = right_reg;
+                    free_temp_scratch(&temp_table, ir_left_reg, &table);
+                }
+                break;
+                case IR_INS_COMPARE:
+                {                    
+                    IR_Compare* compare = &instruction->compare;
+
+                    switch(compare->operator)
+                    {
                     case OP_EQUAL:
                     case OP_OR:
                     case OP_AND:
@@ -901,17 +944,21 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
                     case OP_LESS_EQUAL:
                     case OP_GREATER_EQUAL:
                     case OP_NOT_EQUAL:
-                    {
-                        // comparison
-                        x86_emit_cmp(&sb, left_reg, right_reg, binop->operator);
-                        x86_emit_setcc(&sb, binop->operator, right_reg);
-                    }
                     break;
-                    default: compiler_bug("Unsupported operator for binary operation."); break;
+                    default: compiler_bug("Unsupported operator for comparison operation."); break;
                     }
 
-                    current_reg = right_reg;
-                    free_temp_scratch(&temp_table, ir_left_reg, &table);
+                    IR_Value left = compare->left;
+                    IR_Location right = compare->right;
+
+                    if(left.type == VALUE_INT)
+                    {
+                        x86_emit_cmp_lit_to_loc(&sb, left.integer, right, &table, &temp_table);
+                    }
+                    else if (left.type == VALUE_LOCATION)
+                    {
+                        x86_emit_cmp_loc_to_loc(&sb, left.loc, right, &table, &temp_table);
+                    }
                 }
                 break;
                 default: compiler_bug("Unhandled IR instruction."); break;

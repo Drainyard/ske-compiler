@@ -165,9 +165,8 @@ static AST_Node* parser_precedence(Parser* parser, Precedence precedence)
     return left;
 }
 
-static AST_Node* parser_number(Parser* parser, AST_Node* _)
+static AST_Node* parser_number(Parser* parser, AST_Node* previous)
 {
-    (void)_;
     i32 value = strtol(parser->previous.start, NULL, 10);
     AST_Node* number_node = parser_add_node(AST_NODE_NUMBER, parser->allocator);
     number_node->number = value;
@@ -354,6 +353,8 @@ static AST_Node* parser_binary(Parser* parser, AST_Node* left)
     case TOKEN_BANG_EQUAL:
     case TOKEN_PIPE:
     case TOKEN_PIPE_PIPE:
+    case TOKEN_AMPERSAND:
+    case TOKEN_AMPERSAND_AMPERSAND:
     case TOKEN_LESS:
     case TOKEN_LESS_EQUAL:
     case TOKEN_GREATER:
@@ -450,9 +451,9 @@ Parse_Rule rules[] = {
   [TOKEN_SEMICOLON]           = {NULL,            NULL,          PREC_NONE},
   [TOKEN_SLASH]               = {NULL,            parser_binary, PREC_FACTOR},
   [TOKEN_STAR]                = {NULL,            parser_binary, PREC_FACTOR},
-  [TOKEN_BANG]                = {parser_unary,    NULL,          PREC_NONE},
-  [TOKEN_BANG_EQUAL]          = {NULL,            parser_binary, PREC_NONE},
-  [TOKEN_EQUAL]               = {NULL,            parser_binary, PREC_NONE},
+  [TOKEN_BANG]                = {parser_unary,    NULL,          PREC_TERM},
+  [TOKEN_BANG_EQUAL]          = {NULL,            parser_binary, PREC_COMPARISON},
+  [TOKEN_EQUAL]               = {NULL,            parser_binary, PREC_COMPARISON},
   [TOKEN_EQUAL_EQUAL]         = {NULL,            parser_binary, PREC_EQUALITY},
   [TOKEN_GREATER]             = {NULL,            parser_binary, PREC_COMPARISON},
   [TOKEN_GREATER_EQUAL]       = {NULL,            parser_binary, PREC_COMPARISON},

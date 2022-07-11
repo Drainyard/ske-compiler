@@ -7,12 +7,12 @@ typedef enum
     IR_INS_MOV,
     IR_INS_PUSH,
     IR_INS_POP,
-    IR_INS_IF,
     IR_INS_JMP,
     IR_INS_BINOP,
     IR_INS_RET,
     IR_INS_CALL,
     IR_INS_UNOP,
+    IR_INS_COMPARE,
     IR_INS_COUNT
 } IR_Instruction_Type;
 
@@ -157,13 +157,6 @@ struct IR_Jump
     IR_Label label;
 };
 
-typedef struct IR_If IR_If;
-struct IR_If
-{
-    IR_Jump jump;
-    
-};
-
 typedef struct IR_Push IR_Push;
 struct IR_Push
 {
@@ -207,6 +200,17 @@ struct IR_BinOp
     IR_Op operator;
 };
 
+typedef struct IR_Compare IR_Compare;
+struct IR_Compare
+{
+    IR_Value left;
+    IR_Location right; // @Note: This is an x86 restriction, should we really conform to that in the IR?
+
+    IR_Register destination;
+
+    IR_Op operator;
+};
+
 typedef struct IR_UnOp IR_UnOp;
 struct IR_UnOp
 {
@@ -225,12 +229,12 @@ struct IR_Instruction
         IR_Move    move;
         IR_Return  ret;
         IR_Call    call;
-        IR_If compare;
         IR_Jump    jump;
         IR_Push    push;
         IR_Pop     pop;
         IR_BinOp   binop;
         IR_UnOp    unop;
+        IR_Compare compare;
     };
 };
 
@@ -313,10 +317,12 @@ struct IR_Program
 
 static void ir_error(char* format, ...)
 {
+    fprintf(stderr, "\x1b[1;31m");
     va_list(ap);
     va_start(ap, format);
     vfprintf(stderr, format, ap);
     va_end(ap);
+    fprintf(stderr, "\x1b[0m\n");
 
     exit(1);
 }
@@ -529,84 +535,57 @@ IR_BinOp* ir_emit_binop(IR_Block* block, IR_Register left, IR_Register right, IR
     return binop;
 }
 
-IR_BinOp* ir_emit_add(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+IR_Op ir_map_operator(Token_Type source)
 {
-    return ir_emit_binop(block, left, right, OP_ADD, table, allocator);
+    switch(source)
+    {
+    case TOKEN_PLUS:
+    return OP_ADD;
+    case TOKEN_MINUS:
+    return OP_SUB;
+    case TOKEN_STAR:
+    return OP_MUL;
+    case TOKEN_SLASH:
+    return OP_DIV;
+    case TOKEN_BANG:
+    return OP_NOT;
+    case TOKEN_EQUAL_EQUAL:
+    return OP_EQUAL;
+    case TOKEN_EQUAL:
+    return OP_ASSIGN;
+    case TOKEN_BANG_EQUAL:
+    return OP_NOT_EQUAL;
+    case TOKEN_PIPE:
+    return OP_BIT_OR;
+    case TOKEN_PIPE_PIPE:
+    return OP_OR;
+    case TOKEN_AMPERSAND:
+    return OP_BIT_AND;
+    case TOKEN_AMPERSAND_AMPERSAND:
+    return OP_AND;
+    case TOKEN_LESS:
+    return OP_LESS;
+    case TOKEN_LESS_EQUAL:
+    return OP_LESS_EQUAL;
+    case TOKEN_GREATER:
+    return OP_GREATER;
+    case TOKEN_GREATER_EQUAL:
+    return OP_GREATER_EQUAL;
+    default: ir_error("Invalid operator."); exit(1);
+    }
 }
 
-IR_BinOp* ir_emit_sub(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
+IR_Compare* ir_emit_comparison(IR_Block* block, IR_Value left, IR_Location right, IR_Op operator, IR_Register_Table* table, Allocator* allocator)
 {
-    return ir_emit_binop(block, left, right, OP_SUB, table, allocator);
-}
+    IR_Node* node = ir_emit_instruction(block, IR_INS_COMPARE, allocator);
+    IR_Compare* compare = &node->instruction.compare;
 
-IR_BinOp* ir_emit_mul(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_MUL, table, allocator);
-}
+    compare->left = left;
+    compare->right = right;
+    compare->operator = operator;
+    compare->destination = compare->right.reg;//ir_register_alloc(table);
 
-IR_BinOp* ir_emit_div(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_DIV, table, allocator);
-}
-
-IR_BinOp* ir_emit_not(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_NOT, table, allocator);
-}
-
-IR_BinOp* ir_emit_equal(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_EQUAL, table, allocator);
-}
-
-IR_BinOp* ir_emit_assign(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_ASSIGN, table, allocator);
-}
-
-IR_BinOp* ir_emit_bit_or(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_BIT_OR, table, allocator);
-}
-
-IR_BinOp* ir_emit_bit_and(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_BIT_AND, table, allocator);
-}
-
-IR_BinOp* ir_emit_or(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_OR, table, allocator);
-}
-
-IR_BinOp* ir_emit_and(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_AND, table, allocator);
-}
-
-IR_BinOp* ir_emit_less(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_LESS, table, allocator);
-}
-
-IR_BinOp* ir_emit_greater(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_GREATER, table, allocator);
-}
-
-IR_BinOp* ir_emit_less_equal(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_LESS_EQUAL, table, allocator);
-}
-
-IR_BinOp* ir_emit_greater_equal(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_GREATER_EQUAL, table, allocator);
-}
-
-IR_BinOp* ir_emit_not_equal(IR_Block* block, IR_Register left, IR_Register right, IR_Register_Table* table, Allocator* allocator)
-{
-    return ir_emit_binop(block, left, right, OP_NOT_EQUAL, table, allocator);
+    return compare;
 }
 
 IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* allocator, IR_Register_Table* table)
@@ -629,84 +608,30 @@ IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* 
         switch(operator)
         {
         case TOKEN_PLUS:
-        {
-            IR_BinOp* binop = ir_emit_add(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
         case TOKEN_MINUS:
-        {
-            IR_BinOp* binop = ir_emit_sub(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
         case TOKEN_STAR:
-        {
-            IR_BinOp* binop = ir_emit_mul(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
         case TOKEN_SLASH:
-        {
-            IR_BinOp* binop = ir_emit_div(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
         case TOKEN_BANG:
+        case TOKEN_EQUAL:
+        case TOKEN_PIPE:
+        case TOKEN_AMPERSAND:
         {
-            IR_BinOp* binop = ir_emit_not(block, left_reg, right_reg, table, allocator);
+            IR_BinOp* binop = ir_emit_binop(block, left_reg, right_reg, ir_map_operator(operator), table, allocator);
             return binop->destination;
         }
         case TOKEN_EQUAL_EQUAL:
-        {
-            IR_BinOp* binop = ir_emit_equal(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
-        case TOKEN_EQUAL:
-        {
-            IR_BinOp* binop = ir_emit_assign(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
-        case TOKEN_PIPE:
-        {
-            IR_BinOp* binop = ir_emit_bit_or(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
-        case TOKEN_AMPERSAND:
-        {
-            IR_BinOp* binop = ir_emit_bit_and(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
         case TOKEN_PIPE_PIPE:
-        {
-            IR_BinOp* binop = ir_emit_or(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
         case TOKEN_AMPERSAND_AMPERSAND:
-        {
-            IR_BinOp* binop = ir_emit_and(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
         case TOKEN_LESS:
-        {
-            IR_BinOp* binop = ir_emit_less(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
         case TOKEN_GREATER:
-        {
-            IR_BinOp* binop = ir_emit_greater(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
         case TOKEN_LESS_EQUAL:
-        {
-            IR_BinOp* binop = ir_emit_less_equal(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
         case TOKEN_GREATER_EQUAL:
-        {
-            IR_BinOp* binop = ir_emit_greater_equal(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
-        }
         case TOKEN_BANG_EQUAL:
         {
-            IR_BinOp* binop = ir_emit_not_equal(block, left_reg, right_reg, table, allocator);
-            return binop->destination;
+            IR_Value left_val = ir_create_value_location(ir_create_location_register(left_reg));
+            IR_Location right_loc = ir_create_location_register(right_reg);
+            IR_Compare* compare = ir_emit_comparison(block, left_val, right_loc, ir_map_operator(operator), table, allocator);
+            return compare->destination;
         }
         default:
         ir_error("Unsupported operator for binary operations\n");
@@ -1029,36 +954,6 @@ String* ir_pretty_print(IR_Program* program, Allocator* allocator)
                         sb_append(&sb, " & ");
                     }
                     break;
-                    case OP_OR:
-                    {
-                        sb_append(&sb, " || ");
-                    }
-                    break;
-                    case OP_AND:
-                    {
-                        sb_append(&sb, " && ");
-                    }
-                    break;
-                    case OP_LESS:
-                    {
-                        sb_append(&sb, " < ");
-                    }
-                    break;
-                    case OP_GREATER:
-                    {
-                        sb_append(&sb, " > ");
-                    }
-                    break;
-                    case OP_LESS_EQUAL:
-                    {
-                        sb_append(&sb, " <= ");
-                    }
-                    break;
-                    case OP_GREATER_EQUAL:
-                    {
-                        sb_append(&sb, " >= ");
-                    }
-                    break;
                     default: ir_error("Unsupported operator for binary operation\n");
                     }
                     ir_pretty_print_value(&sb, &binop->right);
@@ -1096,15 +991,75 @@ String* ir_pretty_print(IR_Program* program, Allocator* allocator)
                         sb_append(&sb, "neg(");
                     }
                     break;
-                    default:
-                    sb_append(&sb, "unop err");
+                    case OP_NOT:
+                    {
+                        sb_append(&sb, "not(");
+                    }
+                    break;
+                    default: ir_error("Unsupported operator for unary operation\n");
                     }
                     ir_pretty_print_value(&sb, &unop->value);
                     sb_append(&sb, ")");
                     sb_newline(&sb);
                 }
                 break;
-                default:
+                case IR_INS_COMPARE:
+                {
+                    IR_Compare* compare = &instruction->compare;
+
+                    ir_pretty_print_register(&sb, &compare->destination);
+                    sb_append(&sb, " := ");
+                    ir_pretty_print_value(&sb, &compare->left);
+                    
+                    switch(compare->operator)
+                    {
+                    case OP_OR:
+                    {
+                        sb_append(&sb, " || ");
+                    }
+                    break;
+                    case OP_AND:
+                    {
+                        sb_append(&sb, " && ");
+                    }
+                    break;
+                    case OP_LESS:
+                    {
+                        sb_append(&sb, " < ");
+                    }
+                    break;
+                    case OP_GREATER:
+                    {
+                        sb_append(&sb, " > ");
+                    }
+                    break;
+                    case OP_LESS_EQUAL:
+                    {
+                        sb_append(&sb, " <= ");
+                    }
+                    break;
+                    case OP_GREATER_EQUAL:
+                    {
+                        sb_append(&sb, " >= ");
+                    }
+                    break;
+                    case OP_EQUAL:
+                    {
+                        sb_append(&sb, " == ");
+                    }
+                    break;
+                    case OP_NOT_EQUAL:
+                    {
+                        sb_append(&sb, " != ");
+                    }
+                    break;
+                    default: ir_error("Unsupported operator for compare operation\n");
+                    }
+                    ir_pretty_print_location(&sb, &compare->right);
+                    sb_newline(&sb);
+                }
+                break;
+                default: ir_error("IR pretty printer: Unhandled instruction\n");
                 break;
                 }
             }
