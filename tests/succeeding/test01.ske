@@ -2,4 +2,6 @@ foo :: () {
 	return (4 * 4) / 2 * 20;
 }
 
-main :: () {}
+main :: () {
+	 return;
+}

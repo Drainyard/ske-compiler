@@ -23,6 +23,9 @@ struct IR_Register_Table
     i32 capacity;
 };
 
+/*
+An IR register is simply a virtual register, so it contains just an index (for now)
+ */
 typedef struct IR_Register IR_Register;
 struct IR_Register
 {
