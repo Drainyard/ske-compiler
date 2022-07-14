@@ -2,3 +2,9 @@ build/*
 .vscode
 a.out
 __out.o
+out.s
+out.asm
+out.ir
+out.tok
+out.ast
+a.o
