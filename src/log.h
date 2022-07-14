@@ -24,15 +24,15 @@
 /*     va_end(arglist); */
 /* } */
 
-static void log_error(const char* format, ...)
-{
-    fprintf(stderr, RED_FOREGROUND);
-    fprintf(stderr, "[error]: ");
-    fprintf(stderr, DISTRO_DEFAULT_FOREGROUND);
-    va_list arglist;
-    va_start(arglist, format);
-    vfprintf(stderr, format, arglist);
-    va_end(arglist);
-}
+/* static void log_error(const char* format, ...) */
+/* { */
+/*     fprintf(stderr, RED_FOREGROUND); */
+/*     fprintf(stderr, "[error]: "); */
+/*     fprintf(stderr, DISTRO_DEFAULT_FOREGROUND); */
+/*     va_list arglist; */
+/*     va_start(arglist, format); */
+/*     vfprintf(stderr, format, arglist); */
+/*     va_end(arglist); */
+/* } */
 
 #endif

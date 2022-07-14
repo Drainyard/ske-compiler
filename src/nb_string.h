@@ -247,7 +247,7 @@ void string_array_push(String_Array* array, String* string)
 {
     if(array->count + 1 >= array->capacity)
     {
-        log_error("String array out of space: %d/%d\n", array->count, array->capacity);
+        generic_error("String array out of space: %d/%d\n", array->count, array->capacity);
         assert(false);
     }
 
@@ -381,7 +381,7 @@ String* sb_get_result(String_Builder* builder, Allocator* allocator)
 {
     if (!builder->string || builder->current_index == 0)
     {
-        log_error("Trying to create the empty string.");
+        generic_error("Trying to create the empty string.");
         return NULL;
     }
 

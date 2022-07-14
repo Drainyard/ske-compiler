@@ -26,11 +26,12 @@ typedef uint32_t   u32;
 typedef uint64_t   u64;
 typedef uintptr_t  umm;
 
+#include "common.h"
+
 #include "log.h"
 #include "nb_memory.h"
 #include "nb_string.h"
 #include "nb_file.h"
-//#include "nb_shell.h"
 #include "os.h"
 
 #ifdef __linux__
@@ -39,24 +40,6 @@ typedef uintptr_t  umm;
 #include "win32_os.h"
 #endif
 
-static void compiler_bug(const char* message)
-{
-    fprintf(stderr, "\x1b[1;31m");
-    fprintf(stderr, "Compiler bug: %s\n", message);
-    fprintf(stderr, "\x1b[0m\n");
-
-    assert(false);
-}
-
-static void not_implemented(const char* message)
-{
-    fprintf(stderr, "\x1b[1;31m");
-    fprintf(stderr, "Not implemented: %s\n", message);
-    fprintf(stderr, "\x1b[0m\n");
-
-    assert(false);
-}
-
 #include "lex.h"
 #include "ast.h"
 #include "parse.h"
@@ -64,6 +47,15 @@ static void not_implemented(const char* message)
 #include "codegen_x86.h"
 #include "compiler.h"
 #include "runtime.h"
+
+#include "common.c"
+#include "lex.c"
+#include "ast.c"
+#include "parse.c"
+#include "ir.c"
+#include "codegen_x86.c"
+#include "compiler.c"
+#include "runtime.c"
 
 #define LINE_BUFFER_SIZE 256
 
