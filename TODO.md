@@ -1,10 +1,13 @@
 # Bugs
+- [ ] Bug in x86 codegen for functions. If return statement is missing (for any function) pop and ret won't be emitted
+
 - [x] Bug in IR virtual registers when reallocating the returned register is not marked as in-use
 
 # Improvements
 - [ ] Use a simpler grammar syntax in the grammar file
 
 # Features
+- [ ] Add the possibility to take intermediate pass output as input and compile from there (tokens->ast->ir)
 - [ ] Make codegen more platform agnostic, and put platform specific things somewhere else
 - [ ] Use NASM on Windows, and possibly change to Intel syntax on Linux for GAS
 - [ ] Fix stack alignment in codegen
@@ -28,16 +31,17 @@
 - [ ] Consider changing AST to be less union craziness
 
 
+- [x] Change headers-only to be a single h and c file per pass
 - [x] Add verbose mode for stage output (tokenizer/lexer, parser, IR-gen, codegen, etc.)
 - [x] Add function calls with zero args
 - [x] Possibly move AST definition to an `ast.h` file
-- [X] Add an OS agnostic layer over platform code
-- [X] Add function declarations
+- [x] Add an OS agnostic layer over platform code
+- [x] Add function declarations
 - [x] Compile to some IR. Could be basic blocks or some other even more basic assembly IR so we can output to multiple platforms more easily
-- [X] Add a few tests (find some way to test code coverage maybe?)
-- [X] Add test system with succeeding and failing files testing output
-- [X] Rebrand language to Ske Lang and buy ske-lang.org domain
-- [X] Change String interface to be more like in https://godbolt.org/z/o7Tn5Kqz3
-- [X] Move assemble.sh and link.sh into the compiler script or embed them somehow
-- [X] Handle arguments for which compilation step to stop at assembly output
-- [X] Handle out file argument
+- [x] Add a few tests (find some way to test code coverage maybe?)
+- [x] Add test system with succeeding and failing files testing output
+- [x] Rebrand language to Ske Lang and buy ske-lang.org domain
+- [x] Change String interface to be more like in https://godbolt.org/z/o7Tn5Kqz3
+- [x] Move assemble.sh and link.sh into the compiler script or embed them somehow
+- [x] Handle arguments for which compilation step to stop at assembly output
+- [x] Handle out file argument
