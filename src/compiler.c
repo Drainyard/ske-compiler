@@ -131,7 +131,7 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
         }
         else
         {
-            fprintf(stderr, tok_out->str);
+            fprintf(stdout, tok_out->str);
         }
 
         return true;
@@ -160,7 +160,7 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
             }
             else
             {
-                fprintf(stderr, ast->str);
+                fprintf(stdout, ast->str);
             }
             return true;
         }
@@ -182,7 +182,7 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
             }
             else
             {
-                fprintf(stderr, ir_out->str);
+                fprintf(stdout, ir_out->str);
             }
             return true;
         }
@@ -206,7 +206,7 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
                 }
                 else
                 {
-                    fprintf(stderr, assembly->str);
+                    fprintf(stdout, assembly->str);
                 }
                 return true;
             }
