@@ -50,23 +50,24 @@ static void pretty_print_operator(Token_Type operator, String_Builder* builder)
     /* sb_append(builder, "Op: "); */
     switch (operator)
     {
-    case TOKEN_PLUS:          sb_append(builder, "+"); break;
-    case TOKEN_MINUS:         sb_append(builder, "-"); break;
-    case TOKEN_STAR:          sb_append(builder, "*"); break;
-    case TOKEN_SLASH:         sb_append(builder, "/"); break;
-    case TOKEN_EQUAL_EQUAL:   sb_append(builder, "=="); break;
-    case TOKEN_EQUAL:         sb_append(builder, "="); break;
-    case TOKEN_BANG_EQUAL:    sb_append(builder, "!="); break;
-    case TOKEN_PIPE:          sb_append(builder, "|"); break;
-    case TOKEN_PIPE_PIPE:     sb_append(builder, "||"); break;
-    case TOKEN_LESS:          sb_append(builder, "<"); break;
-    case TOKEN_LESS_EQUAL:    sb_append(builder, "<="); break;
-    case TOKEN_GREATER:       sb_append(builder, ">"); break;
-    case TOKEN_GREATER_EQUAL: sb_append(builder, ">="); break;
+    case TOKEN_PLUS:                    sb_append(builder, "+"); break;
+    case TOKEN_MINUS:                   sb_append(builder, "-"); break;
+    case TOKEN_STAR:                    sb_append(builder, "*"); break;
+    case TOKEN_SLASH:                   sb_append(builder, "/"); break;
+    case TOKEN_EQUAL_EQUAL:             sb_append(builder, "=="); break;
+    case TOKEN_EQUAL:                   sb_append(builder, "="); break;
+    case TOKEN_BANG_EQUAL:              sb_append(builder, "!="); break;
+    case TOKEN_PIPE:                    sb_append(builder, "|"); break;
+    case TOKEN_PIPE_PIPE:               sb_append(builder, "||"); break;
+    case TOKEN_AMPERSAND:               sb_append(builder, "&"); break;
+    case TOKEN_AMPERSAND_AMPERSAND:     sb_append(builder, "&&"); break;
+    case TOKEN_LESS:                    sb_append(builder, "<"); break;
+    case TOKEN_LESS_EQUAL:              sb_append(builder, "<="); break;
+    case TOKEN_GREATER:                 sb_append(builder, ">"); break;
+    case TOKEN_GREATER_EQUAL:           sb_append(builder, ">="); break;
     case TOKEN_ERROR: sb_append(builder, "ERROR"); break;
-    default: compiler_bug("AST pretty printer: Unknown operator");
+    default: compiler_bug("AST pretty printer: Unknown operator: %s", token_type_to_string(operator));
     }
-    /* sb_append(builder, ")"); */
 }
 
 static void pretty_print_unary(AST_Node* node, i32 indentation, String_Builder* builder)

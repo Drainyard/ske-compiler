@@ -5,7 +5,7 @@ IR_Register ir_register_alloc(IR_Register_Table* table)
         if (!table->inuse_table[i])
         {
             table->inuse_table[i] = true;
-            IR_Register reg = { .index = i};
+            IR_Register reg = { .gpr_index = i};
             return reg;
         }
     }
@@ -17,7 +17,7 @@ IR_Register ir_register_alloc(IR_Register_Table* table)
     {
         table->inuse_table[i] = false;
     }
-    IR_Register reg = { .index = old_capacity };
+    IR_Register reg = { .gpr_index = old_capacity };
     table->inuse_table[old_capacity] = true;
     return reg;
 }
@@ -45,7 +45,8 @@ IR_Block* ir_allocate_block(IR_Program* program)
     }
     
     IR_Block* block = &block_array->blocks[block_array->count++];
-    block->parent_program = program;
+    block->parent_program      = program;
+    block->block_address       = (IR_Block_Address) { .address = block_array->count - 1 };
     block->previous            = NULL;
     block->next                = NULL;
     block->has_label           = false;
@@ -277,7 +278,7 @@ IR_Op ir_map_operator(Token_Type source)
     return OP_GREATER;
     case TOKEN_GREATER_EQUAL:
     return OP_GREATER_EQUAL;
-    default: ir_error("Invalid operator."); exit(1);
+    default: ir_error("Invalid operator %s.", token_type_to_string(source)); exit(1);
     }
 }
 
@@ -336,11 +337,50 @@ IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* 
         {
             IR_Value left_val = ir_create_value_location(ir_create_location_register(left_reg));
             IR_Location right_loc = ir_create_location_register(right_reg);
+
+            bool left_is_zero = left_val.type == VALUE_INT && left_val.integer;
+            
+            IR_Jump_Type jump_type = JMP_ALWAYS;
+            switch(operator)
+            {
+            case TOKEN_EQUAL_EQUAL:
+            {
+                if (left_is_zero)
+                {
+                    jump_type = JMP_ZERO;
+                }
+                else
+                {
+                    jump_type = JMP_EQUAL;
+                }
+            }
+            break;
+            case TOKEN_LESS:
+            case TOKEN_GREATER:
+            case TOKEN_LESS_EQUAL:
+            case TOKEN_GREATER_EQUAL:
+            case TOKEN_BANG_EQUAL:
+            {
+                if (left_is_zero)
+                {
+                    jump_type = JMP_NOT_ZERO;
+                }
+                else
+                {
+                    jump_type = JMP_NOT_EQUAL;
+                }
+            }
+            break;
+            default: ir_error("Invalid comparison operator %s", token_type_to_string(operator));
+            }
+            
             IR_Compare* compare = ir_emit_comparison(block, left_val, right_loc, ir_map_operator(operator), table, allocator);
+            // @Incomplete: Create jumps based on which type of comparison we have here... (short circuiting?)
+            assert(false);
             return compare->destination;
         }
         default:
-        ir_error("Unsupported operator for binary operations\n");
+        ir_error("Unsupported operator for binary operations %s\n", token_type_to_string(operator));
         break;
         }
     }
@@ -360,13 +400,12 @@ IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* 
             ir_emit_unop(block, reg, OP_NOT, allocator);
         }
         break;
-        default: ir_error("Unsupported operator for unary operations\n");
+        default: ir_error("Unsupported operator for unary operations %s\n", token_type_to_string(operator));
         }
         
         return reg;
     }
     default:
-    printf("%d\n", node->type);
     assert("Unsupported AST Node" && false);
     }
 }
@@ -399,6 +438,21 @@ void ir_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
         break;
         case AST_NODE_IF:
         {
+            IR_Node_Array* node_array = &block->node_array;
+            assert(node_array->count > 0);
+
+            IR_Node* prev = &node_array->nodes[node_array->count - 1];
+            if (prev->type != IR_NODE_INSTRUCTION)
+            {
+                ir_error("Node before if has to be an instruction");
+            }
+
+            IR_Instruction* prev_instruction = &prev->instruction;
+            if (prev_instruction->type != IR_INS_COMPARE)
+            {
+                ir_error("Instruction before if has to be a compare.");
+            }
+
             
         }
         break;
@@ -426,6 +480,16 @@ void ir_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
     }
 }
 
+IR_Block* ir_get_current_block(IR_Program* program)
+{
+    if (program->block_array.count == 0)
+    {
+        return NULL;
+    }
+
+    return &program->block_array.blocks[program->block_array.count - 1];
+}
+
 void ir_translate_program(IR_Program* program, AST_Node* ast_program, Allocator* allocator, IR_Register_Table* register_table)
 {
     AST_Node_List declarations = ast_program->program.declarations;
@@ -448,7 +512,8 @@ void ir_translate_program(IR_Program* program, AST_Node* ast_program, Allocator*
         case AST_NODE_BINARY:
         case AST_NODE_UNARY:
         {
-            IR_Block* block = ir_allocate_block(program);
+            IR_Block* block = ir_get_current_block(program);
+            
             String* name = string_allocate("main", allocator);
             ir_emit_function_decl(block, name, true, allocator);
             ir_translate_expression(node, block, allocator, register_table);
@@ -488,7 +553,36 @@ IR_Program ir_translate_ast(AST_Node* root_node, Allocator* allocator)
 
 void ir_pretty_print_register(String_Builder* sb, IR_Register* reg)
 {
-    sb_appendf(sb, "%r%d", reg->index);
+    switch(reg->type)
+    {
+    case IR_GPR:
+    {
+        sb_appendf(sb, "%r%d", reg->gpr_index);
+    }
+    break;
+    case IR_SPECIAL:
+    {
+        switch(reg->special_register)
+        {
+        case SPECIAL_STACK_POINTER:
+        {
+            sb_append(sb, "rsp");
+        }
+        break;
+        case SPECIAL_STACK_BASE:
+        {
+            sb_append(sb, "rsb");
+        }
+        break;
+        case SPECIAL_INSTRUCTION_POINTER:
+        {
+            sb_append(sb, "rip");
+        }
+        break;
+        }
+    }
+    break;
+    }
 }
 
 void ir_pretty_print_location(String_Builder* sb, IR_Location* location)
@@ -690,22 +784,25 @@ String* ir_pretty_print(IR_Program* program, Allocator* allocator)
                 case IR_INS_UNOP:
                 {
                     IR_UnOp* unop = &instruction->unop;
+
+                    ir_pretty_print_value(&sb, &unop->value);
+                    sb_append(&sb, " := ");
                     switch(unop->operator)
                     {
                     case OP_SUB:
                     {
-                        sb_append(&sb, "neg(");
+                        sb_append(&sb, "-");
                     }
                     break;
                     case OP_NOT:
                     {
-                        sb_append(&sb, "not(");
+                        sb_append(&sb, "!");
                     }
                     break;
                     default: ir_error("Unsupported operator for unary operation\n");
                     }
                     ir_pretty_print_value(&sb, &unop->value);
-                    sb_append(&sb, ")");
+                    sb_append(&sb, "");
                     sb_newline(&sb);
                 }
                 break;

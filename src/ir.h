@@ -7,7 +7,7 @@ typedef enum
     IR_INS_MOV,
     IR_INS_PUSH,
     IR_INS_POP,
-    IR_INS_JMP,
+    IR_INS_JUMP,
     IR_INS_BINOP,
     IR_INS_RET,
     IR_INS_CALL,
@@ -23,13 +23,28 @@ struct IR_Register_Table
     i32 capacity;
 };
 
+typedef enum
+{
+    SPECIAL_STACK_POINTER,
+    SPECIAL_STACK_BASE,
+    SPECIAL_INSTRUCTION_POINTER
+} IR_Special_Register;
+
+
 /*
 An IR register is simply a virtual register, so it contains just an index (for now)
  */
 typedef struct IR_Register IR_Register;
 struct IR_Register
 {
-    i32 index;
+    enum IR_Register_Type
+    {
+        IR_GPR,
+        IR_SPECIAL
+    } type;
+    
+    i32 gpr_index;
+    IR_Special_Register special_register;
 };
 
 typedef struct IR_Mem IR_Mem;
@@ -151,10 +166,30 @@ struct IR_Label
     String* label_name;
 };
 
+typedef struct IR_Block_Address IR_Block_Address;
+struct IR_Block_Address
+{
+    i32 address;
+};
+
+typedef enum
+{
+    JMP_ALWAYS,
+    JMP_EQUAL,
+    JMP_ZERO,
+    JMP_NOT_EQUAL,
+    JMP_NOT_ZERO,
+    JMP_LESS,
+    JMP_LESS_EQUAL,
+    JMP_GREATER,
+    JMP_GREATER_EQUAL
+} IR_Jump_Type;
+
 typedef struct IR_Jump IR_Jump;
 struct IR_Jump
 {
-    IR_Label label;
+    IR_Jump_Type type;
+    IR_Block_Address address;
 };
 
 typedef struct IR_Push IR_Push;
@@ -275,6 +310,8 @@ struct IR_Node_Array
 typedef struct IR_Block IR_Block;
 struct IR_Block
 {
+    IR_Block_Address block_address;
+    
     IR_Block* previous;
     IR_Block* next;
 
@@ -316,6 +353,6 @@ struct IR_Program
 };
 
 String* ir_pretty_print(IR_Program* program, Allocator* allocator);
-
+IR_Block* ir_get_current_block(IR_Program* program);
 
 #endif

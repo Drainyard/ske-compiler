@@ -145,7 +145,7 @@ static bool temp_table_delete(Temp_Table* table, i32 key)
 
 static Scratch_Register get_or_add_scratch_from_temp(Temp_Table* table, IR_Register ir_register, Scratch_Register_Table* scratch_table)
 {
-    i32 key = ir_register.index;
+    i32 key = ir_register.gpr_index;
     Scratch_Register scratch_register;
     if (!temp_table_get(table, key, &scratch_register))
     {
@@ -158,7 +158,7 @@ static Scratch_Register get_or_add_scratch_from_temp(Temp_Table* table, IR_Regis
 
 static void free_temp_scratch(Temp_Table* table, IR_Register ir_register, Scratch_Register_Table* scratch_table)
 {
-    i32 key = ir_register.index;
+    i32 key = ir_register.gpr_index;
     Scratch_Register scratch_register = get_or_add_scratch_from_temp(table, ir_register, scratch_table);    
     temp_table_delete(table, key);
     scratch_free(scratch_table, scratch_register);
@@ -943,6 +943,8 @@ String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator)
             }
         }
     }
+
+    (void)current_reg;
 
     /* sb_append(&sb, "\n"); */
     /* x86_emit_comment_line(&sb, "fprintf call to output result temporarily"); */
