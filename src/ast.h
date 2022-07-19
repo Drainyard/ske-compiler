@@ -37,6 +37,7 @@ typedef struct AST_Node AST_Node;
 struct AST_Node
 {
     AST_Node_Type type;
+    AST_Node* parent;
 
     union
     {

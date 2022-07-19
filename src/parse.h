@@ -37,7 +37,7 @@ struct Parser
     AST_Node* root;
 };
 
-typedef AST_Node* (*Parse_Fn)(Parser*, AST_Node* left);
+typedef AST_Node* (*Parse_Fn)(Parser*, AST_Node* left, AST_Node* parent);
 typedef struct
 {
     Parse_Fn prefix;
@@ -46,17 +46,17 @@ typedef struct
 } Parse_Rule;
 
 static Parse_Rule* parser_get_rule(Token_Type type);
-static AST_Node* parser_statement(Parser* parser);
-static AST_Node* parser_expression(Parser* parser);
-static AST_Node* parser_precedence(Parser* parser, Precedence precedence);
-static AST_Node* parser_declaration(Parser* parser);
-static AST_Node* parser_call(Parser* parser, AST_Node* previous);
-static AST_Node* parser_grouping(Parser* parser, AST_Node* previous);
-static AST_Node* parser_unary(Parser* parser, AST_Node* previous);
-static AST_Node* parser_binary(Parser* parser, AST_Node* previous);
-static AST_Node* parser_variable(Parser* parser, AST_Node* previous);
-static AST_Node* parser_string(Parser* parser, AST_Node* previous);
-static AST_Node* parser_number(Parser* parser, AST_Node* previous);
+static AST_Node* parser_statement(Parser* parser, AST_Node* parent);
+static AST_Node* parser_expression(Parser* parser, AST_Node* parent);
+static AST_Node* parser_precedence(Parser* parser, Precedence precedence, AST_Node* parent);
+static AST_Node* parser_declaration(Parser* parser, AST_Node* parent);
+static AST_Node* parser_call(Parser* parser, AST_Node* previous, AST_Node* parent);
+static AST_Node* parser_grouping(Parser* parser, AST_Node* previous, AST_Node* parent);
+static AST_Node* parser_unary(Parser* parser, AST_Node* previous, AST_Node* parent);
+static AST_Node* parser_binary(Parser* parser, AST_Node* previous, AST_Node* parent);
+static AST_Node* parser_variable(Parser* parser, AST_Node* previous, AST_Node* parent);
+static AST_Node* parser_string(Parser* parser, AST_Node* previous, AST_Node* parent);
+static AST_Node* parser_number(Parser* parser, AST_Node* previous, AST_Node* parent);
 
 
 Parse_Rule rules[] = {
