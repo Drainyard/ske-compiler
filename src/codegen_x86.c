@@ -166,12 +166,11 @@ static void free_temp_scratch(Temp_Table* table, IR_Register ir_register, Scratc
 
 static const char* instruction_name(Instruction instruction, Register dst_reg)
 {
-    Reg_Size size = register_sizes[dst_reg];
-
 #ifdef SKE_CODEGEN_INTEL
     not_implemented("Instruction names for Intel not yet implemented.");
     return NULL;
 #elif SKE_CODEGEN_AT_T
+    Reg_Size size = register_sizes[dst_reg];
     switch(instruction)
     {
     case INS_MOV:
@@ -356,7 +355,7 @@ void x86_emit_add(String_Builder* sb, Register src, Register dst)
 {
     sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
-    sb_appendf(sb, "%s     %s, %s\n", instruction_name(INS_ADD, dst), register_names[dst], register_names[src]);
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_ADD], register_names[dst], register_names[src]);
 #elif SKE_CODEGEN_AT_T
     sb_appendf(sb, "%s     %s, %s\n", instruction_name(INS_ADD, dst), register_names[src], register_names[dst]);
 #endif
@@ -366,7 +365,7 @@ void x86_emit_sub(String_Builder* sb, Register src, Register dst)
 {
     sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
-    sb_appendf(sb, "%s     %s, %s\n", instruction_name(INS_SUB, dst), register_names[dst], register_names[src]);
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_SUB], register_names[dst], register_names[src]);
 #elif SKE_CODEGEN_AT_T
     sb_appendf(sb, "%s     %s, %s\n", instruction_name(INS_SUB, dst), register_names[src], register_names[dst]);
 #endif
@@ -377,7 +376,14 @@ void x86_emit_mul(String_Builder* sb, Register src, Register dst)
     x86_emit_move_reg_to_reg(sb, src, REG_RAX);
 
     sb_indent(sb, ASM_OUT_INDENT);
-    sb_appendf(sb, "%s    %s\n", instruction_name(INS_MUL, dst), register_names[dst]);
+    
+#ifdef SKE_CODEGEN_INTEL
+    const char* ins = instruction_names[INS_MUL];
+#elif SKE_CODEGEN_AT_T
+    const char* ins = instruction_name(INS_MUL, dst);
+#endif
+    
+    sb_appendf(sb, "%s    %s\n", ins, register_names[dst]);
 
     x86_emit_move_reg_to_reg(sb, REG_RAX, dst);
 }
@@ -387,10 +393,19 @@ void x86_emit_div(String_Builder* sb, Register src, Register dst)
     x86_emit_move_reg_to_reg(sb, src, REG_RAX);
 
     sb_indent(sb, ASM_OUT_INDENT);
-    sb_appendf(sb, "%s\n", instruction_name(INS_CQO, REG_RAX)); 
+
+#ifdef SKE_CODEGEN_INTEL
+    const char* ins_cqo = instruction_names[INS_CQO];
+    const char* ins_div = instruction_names[INS_DIV];
+#elif SKE_CODEGEN_AT_T
+    const char* ins_cqo = instruction_name(INS_CQO, REG_RAX);
+    const char* ins_div = instruction_name(INS_DIV, dst);
+#endif
+    
+    sb_appendf(sb, "%s\n", ins_cqo); 
 
     sb_indent(sb, ASM_OUT_INDENT);
-    sb_appendf(sb, "%s    %s\n", instruction_name(INS_DIV, dst), register_names[dst]);
+    sb_appendf(sb, "%s    %s\n", ins_div, register_names[dst]);
 
     x86_emit_move_reg_to_reg(sb, REG_RAX, dst);
     /* x86_emit_move_name_to_name(sb, register_names[REG_RAX], dst_name); */
@@ -415,7 +430,7 @@ void x86_emit_cmp_lit_to_loc(String_Builder* sb, i32 lhs, IR_Location rhs, Scrat
     Register right_reg = scratch_to_register(s_right_reg);
 
 #ifdef SKE_CODEGEN_INTEL
-    sb_appendf(sb, "%s     %s, %c%d\n", instruction_name(INS_CMP, right_reg), register_names[right_reg], literal_prefix(), lhs);
+    sb_appendf(sb, "%s     %s, %c%d\n", instruction_names[INS_CMP], register_names[right_reg], literal_prefix(), lhs);
 #elif SKE_CODEGEN_AT_T
     sb_appendf(sb, "%s     %c%d, %s\n", instruction_name(INS_CMP, right_reg), literal_prefix(), lhs, register_names[right_reg]);
 #endif
@@ -433,7 +448,7 @@ void x86_emit_cmp_loc_to_loc(String_Builder* sb, IR_Location lhs, IR_Location rh
     Register right_reg = scratch_to_register(s_right_reg);
 
 #ifdef SKE_CODEGEN_INTEL
-    sb_appendf(sb, "%s     %s, %s\n", instruction_name(INS_CMP, right_reg), register_names[left_reg], register_names[right_reg]);
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_CMP], register_names[left_reg], register_names[right_reg]);
 #elif SKE_CODEGEN_AT_T
     sb_appendf(sb, "%s     %s, %s\n", instruction_name(INS_CMP, right_reg), register_names[right_reg], register_names[left_reg]);
 #endif
@@ -449,7 +464,7 @@ void x86_emit_cmp_reg_to_reg(String_Builder* sb, Register s_lhs, Register s_rhs,
     sb_indent(sb, ASM_OUT_INDENT);
 
 #ifdef SKE_CODEGEN_INTEL
-    sb_appendf(sb, "%s     %s, %s\n", instruction_name(INS_CMP, REG_RAX), register_names[REG_RAX], register_names[rhs]);
+    sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_CMP], register_names[REG_RAX], register_names[rhs]);
 #elif SKE_CODEGEN_AT_T
 sb_appendf(sb, "%s     %s, %s\n", instruction_name(INS_CMP, REG_RAX), register_names[rhs], register_names[REG_RAX]);
 #endif
@@ -584,7 +599,7 @@ void x86_emit_move_lit_to_reg(String_Builder* sb, i32 num, Register dst)
 {
     sb_indent(sb, ASM_OUT_INDENT);
 #ifdef SKE_CODEGEN_INTEL
-    sb_appendf(sb, "%s     %s, %c%d\n", instruction_name(INS_MOV, dst), register_names[dst), literal_prefix(), num);
+    sb_appendf(sb, "%s     %s, %c%d\n", instruction_name(INS_MOV, dst), register_names[dst], literal_prefix(), num);
 #elif SKE_CODEGEN_AT_T
     sb_appendf(sb, "%s     %c%d, %s\n", instruction_name(INS_MOV, dst), literal_prefix(), num, register_names[dst]);
 #endif

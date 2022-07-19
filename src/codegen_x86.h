@@ -5,12 +5,6 @@
 #define SKE_CODEGEN_AT_T 1
 #define ASM_OUT_INDENT 4
 
-/* TODO for specifying argument size (al, ax, eax, rax):
-   - I want to be able to push instructions
-   - These instructions have to take arguments
-   - Depending on the arguments, the instruction will look different
-   - So we need something like:
-*/
 typedef enum
 {
     REG_AL, REG_AH, REG_AX, REG_EAX, REG_RAX,
