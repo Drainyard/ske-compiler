@@ -35,6 +35,20 @@ static void ir_error(char* format, ...)
     exit(1);
 }
 
+static char* ir_type_to_string(IR_Node_Type type)
+{
+    switch(type)
+    {
+    case IR_NODE_INSTRUCTION:
+    return "instruction";
+    case IR_NODE_LABEL:
+    return "label";
+    case IR_NODE_FUNCTION_DECL:
+    return "function declaration";
+    }
+    return NULL;
+}
+
 IR_Block* ir_allocate_block(IR_Program* program)
 {
     IR_Block_Array* block_array = &program->block_array;
@@ -375,6 +389,12 @@ IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* 
             }
             
             IR_Compare* compare = ir_emit_comparison(block, left_val, right_loc, ir_map_operator(operator), table, allocator);
+
+            if (node->parent->type == AST_NODE_IF)
+            {
+                printf("If node\n");
+            }
+
             // @Incomplete: Create jumps based on which type of comparison we have here... (short circuiting?)
             assert(false);
             return compare->destination;
@@ -441,19 +461,17 @@ void ir_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
             IR_Node_Array* node_array = &block->node_array;
             assert(node_array->count > 0);
 
-            IR_Node* prev = &node_array->nodes[node_array->count - 1];
-            if (prev->type != IR_NODE_INSTRUCTION)
-            {
-                ir_error("Node before if has to be an instruction");
-            }
+            /* IR_Node* prev = &node_array->nodes[node_array->count - 1]; */
+            /* if (prev->type != IR_NODE_INSTRUCTION) */
+            /* { */
+            /*     ir_error("Node before if has to be an instruction, was %s.", ir_type_to_string(prev->type)); */
+            /* } */
 
-            IR_Instruction* prev_instruction = &prev->instruction;
-            if (prev_instruction->type != IR_INS_COMPARE)
-            {
-                ir_error("Instruction before if has to be a compare.");
-            }
-
-            
+            /* IR_Instruction* prev_instruction = &prev->instruction; */
+            /* if (prev_instruction->type != IR_INS_COMPARE) */
+            /* { */
+            /*     ir_error("Instruction before if has to be a compare, was %s.", ir_type_to_string(prev->type)); */
+            /* }             */
         }
         break;
         case AST_NODE_CALL:
