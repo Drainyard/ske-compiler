@@ -196,6 +196,15 @@ static void lexer_skip_whitespace(Lexer* lexer)
             lexer->position_on_line = 0;
         }
         break;
+        case '/':
+        {
+            char next = lexer_peek_next_char(lexer);
+            if (next == '/')
+            {
+                while (lexer_peek_char(lexer) != '\n' && !lexer_is_at_end(lexer)) lexer_advance(lexer);
+            }
+        }
+        break;
         default:
         {
             return;

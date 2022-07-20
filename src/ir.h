@@ -350,9 +350,14 @@ struct IR_Program
     IR_Data_Array data_array;
     IR_Block_Array block_array;
     IR_Function_Array function_array;
+
+    i32 label_counter;
 };
 
 String* ir_pretty_print(IR_Program* program, Allocator* allocator);
+void ir_pretty_print_register(String_Builder* sb, IR_Register* reg);
+void ir_pretty_print_location(String_Builder* sb, IR_Location* location);
+void ir_pretty_print_value(String_Builder* sb, IR_Value* value);
 IR_Block* ir_get_current_block(IR_Program* program);
 
 #endif

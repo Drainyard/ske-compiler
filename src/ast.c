@@ -13,33 +13,33 @@ static char* ast_type_string(AST_Node_Type type)
     switch(type)
     {
     case AST_NODE_STATEMENT:
-    return "AST_NODE_STATEMENT";
+    return "AST statement";
     case AST_NODE_PROGRAM:
-    return "AST_NODE_PROGRAM";
+    return "AST program";
     case AST_NODE_FUN_DECL:
-    return "AST_NODE_FUN_DECL";
+    return "AST function declaration";
     case AST_NODE_ARGUMENT_LIST:
-    return "AST_NODE_ARGUMENT_LIST";
+    return "AST argument list";
     case AST_NODE_CALL:
-    return "AST_NODE_CALL";
+    return "AST call";
     case AST_NODE_RETURN:
-    return "AST_NODE_RETURN";
+    return "AST return";
     case AST_NODE_IF:
-    return "AST_NODE_IF";
+    return "AST if";
     case AST_NODE_BLOCK:
-    return "AST_NODE_BLOCK";
+    return "AST block";
     case AST_NODE_NUMBER:
-    return "AST_NODE_NUMBER";
+    return "AST number";
     case AST_NODE_STRING:
-    return "AST_NODE_STRING";
+    return "AST string";
     case AST_NODE_BINARY:
-    return "AST_NODE_BINARY";
+    return "AST binary";
     case AST_NODE_UNARY:
-    return "AST_NODE_UNARY";
+    return "AST unary";
     case AST_NODE_TYPE_SPECIFIER:
-    return "AST_NODE_TYPE_SPECIFIER";
+    return "AST type specifier";
     case AST_NODE_ERROR:
-    return "AST_NODE_ERROR";
+    return "AST error";
     }
     return "";
 }

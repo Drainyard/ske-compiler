@@ -11,7 +11,7 @@ IR_Register ir_register_alloc(IR_Register_Table* table)
     }
 
     i32 old_capacity = table->capacity;
-    table->capacity = table->capacity == 0 ? 2 : table->capacity * 2;
+    table->capacity = table->capacity == 0 ? 256 : table->capacity * 2;
     table->inuse_table = realloc(table->inuse_table, sizeof(bool) * table->capacity);
     for (i32 i = old_capacity; i < table->capacity; i++)
     {
@@ -49,15 +49,70 @@ static char* ir_type_to_string(IR_Node_Type type)
     return NULL;
 }
 
+static char* ir_instruction_type_to_string(IR_Instruction* instruction)
+{
+    switch(instruction->type)
+    {
+    case IR_INS_MOV:
+    return "mov";
+    case IR_INS_PUSH:
+    return "push";
+    case IR_INS_POP:
+    return "pop";
+    case IR_INS_JUMP:
+    return "jump";
+    case IR_INS_BINOP:
+    return "binop";
+    case IR_INS_RET:
+    return "return";
+    case IR_INS_CALL:
+    return "call";
+    case IR_INS_UNOP:
+    return "unop";
+    case IR_INS_COMPARE:
+    return "compare";
+    default: ir_error("Unknown instruction type.");
+    }
+    return NULL;
+}
+
+static char* ir_node_to_string(IR_Node* node)
+{
+    switch(node->type)
+    {
+    case IR_NODE_INSTRUCTION:
+    {
+        return ir_instruction_type_to_string(&node->instruction);
+    }
+    break;
+    case IR_NODE_LABEL:
+    {
+        return node->label.label_name->str;
+    }
+    break;
+    case IR_NODE_FUNCTION_DECL:
+    {
+        return node->function.name->str;
+    }
+    break;
+    }
+    return NULL;
+}
+
+String* ir_generate_label_name(IR_Program* program, Allocator* allocator)
+{
+    return string_createf(allocator, ".Label_%d", program->label_counter++);
+}
+
 IR_Block* ir_allocate_block(IR_Program* program)
 {
     IR_Block_Array* block_array = &program->block_array;
     if (block_array->count + 1 > block_array->capacity)
     {
-        block_array->capacity = block_array->capacity == 0 ? 2 : block_array->capacity * 2;
+        block_array->capacity = block_array->capacity == 0 ? 256 : block_array->capacity * 2;
         block_array->blocks = realloc(block_array->blocks, sizeof(IR_Block) * block_array->capacity);
     }
-    
+
     IR_Block* block = &block_array->blocks[block_array->count++];
     block->parent_program      = program;
     block->block_address       = (IR_Block_Address) { .address = block_array->count - 1 };
@@ -71,12 +126,12 @@ IR_Block* ir_allocate_block(IR_Program* program)
     return block;
 }
 
-IR_Node* ir_emit_node(IR_Block* block, IR_Node_Type node_type, Allocator* allocator)
+IR_Node* ir_emit_node(IR_Block* block, IR_Node_Type node_type)
 {
     IR_Node_Array* node_array = &block->node_array;
     if (node_array->count + 1 > node_array->capacity)
     {
-        node_array->capacity = node_array->capacity == 0 ? 2 : node_array->capacity * 2;
+        node_array->capacity = node_array->capacity == 0 ? 256 : node_array->capacity * 2;
         node_array->nodes = realloc(node_array->nodes, sizeof(IR_Node) * node_array->capacity);
     }
 
@@ -90,7 +145,7 @@ void ir_add_function(IR_Program* program, String* name, bool exported)
     IR_Function_Array* array = &program->function_array;
     if (array->count + 1 > array->capacity)
     {
-        array->capacity = array->capacity == 0 ? 2 : array->capacity * 2;
+        array->capacity = array->capacity == 0 ? 256 : array->capacity * 2;
         array->functions = realloc(array->functions, sizeof(IR_Function) * array->capacity);
     }
 
@@ -120,9 +175,9 @@ String_View* ir_get_function_name(IR_Program* program, i32 index)
     return &program->function_array.functions[index].name;
 }
 
-IR_Node* ir_emit_function_decl(IR_Block* block, String* name, bool export, Allocator* allocator)
+IR_Node* ir_emit_function_decl(IR_Block* block, String* name, bool export)
 {
-    IR_Node* function_decl = ir_emit_node(block, IR_NODE_FUNCTION_DECL, allocator);
+    IR_Node* function_decl = ir_emit_node(block, IR_NODE_FUNCTION_DECL);
     function_decl->function.export = export;
     function_decl->function.name   = name;
     ir_add_function(block->parent_program, name, export);
@@ -130,7 +185,7 @@ IR_Node* ir_emit_function_decl(IR_Block* block, String* name, bool export, Alloc
     return function_decl;
 }
 
-IR_Node* ir_emit_label(IR_Block* block, String* label_name, Allocator* allocator)
+IR_Label* ir_emit_label(IR_Block* block, String* label_name, Allocator* allocator)
 {
     if(block->has_label)
     {
@@ -138,21 +193,21 @@ IR_Node* ir_emit_label(IR_Block* block, String* label_name, Allocator* allocator
         return NULL;
     }
 
-    IR_Node* label = ir_emit_node(block, IR_NODE_LABEL, allocator);
+    IR_Node* label = ir_emit_node(block, IR_NODE_LABEL);
     label->label.label_name = label_name; // @Study: Should the label have a string view, or should it be owning?
-    return label;
+    return &label->label;
 }
 
-IR_Node* ir_emit_instruction(IR_Block* block, IR_Instruction_Type instruction_type, Allocator* allocator)
+IR_Node* ir_emit_instruction(IR_Block* block, IR_Instruction_Type instruction_type)
 {
-    IR_Node* node = ir_emit_node(block, IR_NODE_INSTRUCTION, allocator);
+    IR_Node* node = ir_emit_node(block, IR_NODE_INSTRUCTION);
     node->instruction.type = instruction_type;
     return node;
 }
 
 IR_Node* ir_emit_return(IR_Block* block, IR_Register* reg, Allocator* allocator)
 {
-    IR_Node* node = ir_emit_instruction(block, IR_INS_RET, allocator);
+    IR_Node* node = ir_emit_instruction(block, IR_INS_RET);
     IR_Return* ret = &node->instruction.ret;
 
     if (reg)
@@ -170,7 +225,7 @@ IR_Node* ir_emit_return(IR_Block* block, IR_Register* reg, Allocator* allocator)
 
 IR_UnOp* ir_emit_unop(IR_Block* block, IR_Register reg, IR_Op operator, Allocator* allocator)
 {
-    IR_Node* node = ir_emit_instruction(block, IR_INS_UNOP, allocator);
+    IR_Node* node = ir_emit_instruction(block, IR_INS_UNOP);
     IR_UnOp* unop = &node->instruction.unop;
 
     IR_Value* value = &unop->value;
@@ -187,7 +242,7 @@ IR_UnOp* ir_emit_unop(IR_Block* block, IR_Register reg, IR_Op operator, Allocato
 
 IR_Push* ir_emit_push_int(IR_Block* block, i32 value, Allocator* allocator)
 {
-    IR_Node* node = ir_emit_instruction(block, IR_INS_PUSH, allocator);
+    IR_Node* node = ir_emit_instruction(block, IR_INS_PUSH);
     IR_Push* push = &node->instruction.push;
 
     IR_Value* ir_value = &push->value;
@@ -199,7 +254,7 @@ IR_Push* ir_emit_push_int(IR_Block* block, i32 value, Allocator* allocator)
 
 IR_Move* ir_emit_move_reg_to_reg(IR_Block* block, IR_Register src_reg, IR_Register dst_reg, Allocator* allocator)
 {
-    IR_Node* node = ir_emit_instruction(block, IR_INS_MOV, allocator);
+    IR_Node* node = ir_emit_instruction(block, IR_INS_MOV);
     IR_Move* move = &node->instruction.move;
 
     IR_Value* src = &move->src;
@@ -215,7 +270,7 @@ IR_Move* ir_emit_move_reg_to_reg(IR_Block* block, IR_Register src_reg, IR_Regist
 
 IR_Move* ir_emit_move_lit_to_reg(IR_Block* block, i32 value, IR_Register reg, Allocator* allocator)
 {
-    IR_Node* node = ir_emit_instruction(block, IR_INS_MOV, allocator);
+    IR_Node* node = ir_emit_instruction(block, IR_INS_MOV);
     IR_Move* move = &node->instruction.move;
 
     IR_Value* ir_src = &move->src;
@@ -245,7 +300,7 @@ IR_Value ir_create_value_location(IR_Location location)
 
 IR_BinOp* ir_emit_binop(IR_Block* block, IR_Register left, IR_Register right, IR_Op operator, IR_Register_Table* table, Allocator* allocator)
 {
-    IR_Node* node = ir_emit_instruction(block, IR_INS_BINOP, allocator);
+    IR_Node* node = ir_emit_instruction(block, IR_INS_BINOP);
     IR_BinOp* binop = &node->instruction.binop;
 
     binop->left = ir_create_value_location(ir_create_location_register(left));
@@ -296,9 +351,20 @@ IR_Op ir_map_operator(Token_Type source)
     }
 }
 
+IR_Jump* ir_emit_jump(IR_Block* block, IR_Label label, IR_Jump_Type jump_type, IR_Block_Address block_address, Allocator* allocator)
+{
+    IR_Node* node = ir_emit_instruction(block, IR_INS_JUMP);
+    IR_Jump* jump = &node->instruction.jump;
+
+    jump->type = jump_type;
+    jump->address = block_address;
+
+    return jump;
+}
+
 IR_Compare* ir_emit_comparison(IR_Block* block, IR_Value left, IR_Location right, IR_Op operator, IR_Register_Table* table, Allocator* allocator)
 {
-    IR_Node* node = ir_emit_instruction(block, IR_INS_COMPARE, allocator);
+    IR_Node* node = ir_emit_instruction(block, IR_INS_COMPARE);
     IR_Compare* compare = &node->instruction.compare;
 
     compare->left = left;
@@ -387,16 +453,18 @@ IR_Register ir_translate_expression(AST_Node* node, IR_Block* block, Allocator* 
             break;
             default: ir_error("Invalid comparison operator %s", token_type_to_string(operator));
             }
+
+            (void)jump_type;
             
             IR_Compare* compare = ir_emit_comparison(block, left_val, right_loc, ir_map_operator(operator), table, allocator);
 
             if (node->parent->type == AST_NODE_IF)
             {
-                printf("If node\n");
+             
             }
 
             // @Incomplete: Create jumps based on which type of comparison we have here... (short circuiting?)
-            assert(false);
+            /* assert(false); */
             return compare->destination;
         }
         default:
@@ -458,8 +526,42 @@ void ir_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
         break;
         case AST_NODE_IF:
         {
-            IR_Node_Array* node_array = &block->node_array;
-            assert(node_array->count > 0);
+            AST_Node* ast_condition = node->if_statement.condition;
+
+            IR_Register cond_register = ir_translate_expression(ast_condition, block, allocator, register_table);
+            
+            AST_Node* ast_then_arm = node->if_statement.then_arm;
+            if (ast_then_arm->type != AST_NODE_BLOCK)
+            {
+                ir_error("Then arm for if statement has to be a block, was %s", ast_type_string(ast_then_arm->type));
+            }
+
+            if (ast_condition->type == AST_NODE_NUMBER)
+            {
+                i32 number = ast_condition->number;
+                /* @Incomplete:
+                   - Generate a compare instruction with 0
+                   - Generate a jump_equals (patch label later)
+                */
+
+                IR_Block* then_block = ir_allocate_block(block->parent_program);
+                IR_Block* end_block = ir_allocate_block(block->parent_program);
+                IR_Label* end_label = ir_emit_label(end_block, ir_generate_label_name(block->parent_program, allocator), allocator);
+
+                ir_emit_jump(block, *end_label, JMP_EQUAL, end_block->block_address, allocator);
+            }
+            else if (ast_condition->type == AST_NODE_BINARY)
+            {
+                /* @Incomplete:
+                   - Generate a jump that matches the compare (patch label later)
+                */
+            }
+            
+            AST_Node* ast_else_arm = node->if_statement.else_arm;
+            if (ast_else_arm)
+            {
+                
+            }
 
             /* IR_Node* prev = &node_array->nodes[node_array->count - 1]; */
             /* if (prev->type != IR_NODE_INSTRUCTION) */
@@ -481,7 +583,7 @@ void ir_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
             assert(index != -1 && "Unknown function.");
             if (index != -1)
             {
-                IR_Node* call = ir_emit_instruction(block, IR_INS_CALL, allocator);
+                IR_Node* call = ir_emit_instruction(block, IR_INS_CALL);
                 call->instruction.call.function_index = index;
             }
         }
@@ -521,7 +623,7 @@ void ir_translate_program(IR_Program* program, AST_Node* ast_program, Allocator*
         case AST_NODE_FUN_DECL:
         {
             IR_Block* block = ir_allocate_block(program);
-            ir_emit_function_decl(block, node->fun_decl.name, true, allocator);
+            ir_emit_function_decl(block, node->fun_decl.name, true);
 
             ir_translate_block(block, node->fun_decl.body, allocator, register_table);
         }
@@ -533,9 +635,9 @@ void ir_translate_program(IR_Program* program, AST_Node* ast_program, Allocator*
             IR_Block* block = ir_get_current_block(program);
             
             String* name = string_allocate("main", allocator);
-            ir_emit_function_decl(block, name, true, allocator);
+            ir_emit_function_decl(block, name, true);
             ir_translate_expression(node, block, allocator, register_table);
-            ir_emit_instruction(block, IR_INS_RET, allocator);
+            ir_emit_instruction(block, IR_INS_RET);
         }
         break;
         default: assert(false && "Invalid AST node type");
@@ -549,7 +651,8 @@ IR_Program ir_translate_ast(AST_Node* root_node, Allocator* allocator)
         {
             .data_array  = {0},
             .block_array = {0},
-            .function_array = {0}
+            .function_array = {0},
+            .label_counter = 0
         };
 
     IR_Register_Table* register_table = malloc(sizeof(IR_Register_Table));
@@ -717,6 +820,67 @@ String* ir_pretty_print(IR_Program* program, Allocator* allocator)
                     sb_newline(&sb);
                 }
                 break;
+                case IR_INS_JUMP:
+                {
+                    IR_Jump* jump = &instruction->jump;
+                    switch(jump->type)
+                    {
+                    case JMP_ALWAYS:
+                    {
+                        sb_append(&sb, "jmp(");
+                    }
+                    break;
+                    case JMP_EQUAL:
+                    {
+                        sb_append(&sb, "je(");
+                    }
+                    break;
+                    case JMP_ZERO:
+                    {
+                        sb_append(&sb, "jz(");
+                    }
+                    break;
+                    case JMP_NOT_EQUAL:
+                    {
+                        sb_append(&sb, "jne(");
+                    }
+                    break;
+                    case JMP_NOT_ZERO:
+                    {
+                        sb_append(&sb, "jnz(");
+                    }
+                    break;
+                    case JMP_LESS:
+                    {
+                        sb_append(&sb, "jl(");
+                    }
+                    break;
+                    case JMP_LESS_EQUAL:
+                    {
+                        sb_append(&sb, "jle(");
+                    }
+                    break;
+                    case JMP_GREATER:
+                    {
+                        sb_append(&sb, "jg(");
+                    }
+                    break;
+                    case JMP_GREATER_EQUAL:
+                    {
+                        sb_append(&sb, "jge(");
+                    }
+                    break;
+                    }
+
+                    IR_Block_Address address = jump->address;
+                    IR_Block* block = &program->block_array.blocks[address.address];
+                    IR_Node* first_node = &block->node_array.nodes[0];
+                    IR_Label* label = &first_node->label;
+                    sb_append(&sb, label->label_name->str);
+                    sb_append(&sb, ")");
+                    sb_newline(&sb);
+                }
+                break;
                 case IR_INS_BINOP:
                 {
                     IR_BinOp* binop = &instruction->binop;
@@ -880,7 +1044,7 @@ String* ir_pretty_print(IR_Program* program, Allocator* allocator)
                     sb_newline(&sb);
                 }
                 break;
-                default: ir_error("IR pretty printer: Unhandled instruction\n");
+                default: ir_error("IR pretty printer: Unhandled instruction %s", ir_instruction_type_to_string(instruction));
                 break;
                 }
             }
