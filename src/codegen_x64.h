@@ -1,5 +1,5 @@
-#ifndef SKE_X86_CODEGEN_H
-#define SKE_X86_CODEGEN_H
+#ifndef SKE_X64_CODEGEN_H
+#define SKE_X64_CODEGEN_H
 
 /* #define SKE_CODEGEN_INTEL 1 */
 #define SKE_CODEGEN_AT_T 1
@@ -320,10 +320,10 @@ typedef enum
     LINUX_SC_EXIT = 60
 } Linux_Syscall;
 
-typedef struct X86_Memory X86_Memory;
-struct X86_Memory
+typedef struct X64_Memory X64_Memory;
+struct X64_Memory
 {
-    enum X86_Memory_Type
+    enum X64_Memory_Type
     {
         MEM_TYPE_IMMEDIATE,
         MEM_TYPE_REGISTER,
@@ -350,10 +350,10 @@ struct X86_Memory
     };
 };
 
-typedef struct X86_Location X86_Location;
-struct X86_Location
+typedef struct X64_Location X64_Location;
+struct X64_Location
 {
-    enum X86_Location_Type
+    enum X64_Location_Type
     {
         LOC_REGISTER,
         LOC_MEMORY
@@ -362,7 +362,7 @@ struct X86_Location
     union
     {
         Register reg;
-        X86_Memory memory;
+        X64_Memory memory;
     };
 };
 
@@ -461,66 +461,66 @@ const char* instruction_names[INS_COUNT] =
 #define REG_SUFFIX_LONG "l"
 #define REG_SUFFIX_QUAD "q"
 
-void x86_emit_label(String_Builder* sb, const char* label);
-void x86_emit_ret(String_Builder* sb);
-void x86_emit_call(String_Builder* sb, const char* function);
-void x86_emit_comment_line(String_Builder* sb, const char* comment);
-void x86_emit_syscall(String_Builder* sb, Linux_Syscall syscall);
-void x86_emit_exit_syscall(String_Builder* sb);
-void x86_emit_start(String_Builder* sb);
+void X64_emit_label(String_Builder* sb, const char* label);
+void X64_emit_ret(String_Builder* sb);
+void X64_emit_call(String_Builder* sb, const char* function);
+void X64_emit_comment_line(String_Builder* sb, const char* comment);
+void X64_emit_syscall(String_Builder* sb, Linux_Syscall syscall);
+void X64_emit_exit_syscall(String_Builder* sb);
+void X64_emit_start(String_Builder* sb);
 
 /* ======================
    Values
    ====================== */
-void x86_emit_asciz(String_Builder* sb, const char* name, const char* value);
+void X64_emit_asciz(String_Builder* sb, const char* name, const char* value);
 
 /* ======================
    Stack related instructions
    ====================== */
-void x86_emit_pop_reg(String_Builder* sb, Register reg);
-void x86_emit_push_reg(String_Builder* sb, Register reg);
+void X64_emit_pop_reg(String_Builder* sb, Register reg);
+void X64_emit_push_reg(String_Builder* sb, Register reg);
 
 /* ======================
    Moves
    ====================== */
-void x86_emit_move_reg_to_reg(String_Builder* sb, Register src, Register dst);
-void x86_emit_move_lit_to_reg(String_Builder* sb, i32 num, Register dst);
-void x86_emit_move_loc_to_loc(String_Builder* sb, IR_Location src, IR_Location dst, 
+void X64_emit_move_reg_to_reg(String_Builder* sb, Register src, Register dst);
+void X64_emit_move_lit_to_reg(String_Builder* sb, i32 num, Register dst);
+void X64_emit_move_loc_to_loc(String_Builder* sb, IR_Location src, IR_Location dst, 
                               Scratch_Register_Table* table, Temp_Table* temp_table);
-void x86_emit_move_reg_to_mem(String_Builder* sb, Register src, IR_Mem dst, 
+void X64_emit_move_reg_to_mem(String_Builder* sb, Register src, IR_Mem dst, 
                               Scratch_Register_Table* table, Temp_Table* temp_table);
-void x86_emit_move_mem_to_mem(String_Builder* sb, IR_Mem src, IR_Mem dst, 
+void X64_emit_move_mem_to_mem(String_Builder* sb, IR_Mem src, IR_Mem dst, 
                               Scratch_Register_Table* table, Temp_Table* temp_table);
-void x86_emit_move_mem_to_reg(String_Builder* sb, IR_Mem src, Register dst, 
+void X64_emit_move_mem_to_reg(String_Builder* sb, IR_Mem src, Register dst, 
                               Scratch_Register_Table* table, Temp_Table* temp_table);
 
 /* ======================
    Comparisons
    ====================== */
-void x86_emit_cmp_lit_to_loc(String_Builder* sb, i32 lhs, IR_Location rhs,
+void X64_emit_cmp_lit_to_loc(String_Builder* sb, i32 lhs, IR_Location rhs,
                              Scratch_Register_Table* table, Temp_Table* temp_table);
 
-void x86_emit_cmp_loc_to_loc(String_Builder* sb, IR_Location lhs, IR_Location rhs,
+void X64_emit_cmp_loc_to_loc(String_Builder* sb, IR_Location lhs, IR_Location rhs,
                              Scratch_Register_Table* table, Temp_Table* temp_table);
 
-void x86_emit_cmp_reg_to_reg(String_Builder* sb, Register s_lhs, Register s_rhs, IR_Op operator);
+void X64_emit_cmp_reg_to_reg(String_Builder* sb, Register s_lhs, Register s_rhs, IR_Op operator);
 
-void x86_emit_setcc(String_Builder* sb, IR_Op operator, Register result_reg);
+void X64_emit_setcc(String_Builder* sb, IR_Op operator, Register result_reg);
 
 /* ======================
    Arithmetic instructions
    ====================== */
-void x86_emit_unary(String_Builder* sb, Register reg);
-void x86_emit_div(String_Builder* sb, Register src, Register dst);
-void x86_emit_mul(String_Builder* sb, Register src, Register dst);
-void x86_emit_sub(String_Builder* sb, Register src, Register dst);
-void x86_emit_add(String_Builder* sb, Register src, Register dst);
+void X64_emit_unary(String_Builder* sb, Register reg);
+void X64_emit_div(String_Builder* sb, Register src, Register dst);
+void X64_emit_mul(String_Builder* sb, Register src, Register dst);
+void X64_emit_sub(String_Builder* sb, Register src, Register dst);
+void X64_emit_add(String_Builder* sb, Register src, Register dst);
 
-void x86_emit_xor_reg_to_reg(String_Builder* sb, Register lhs, Register rhs);
+void X64_emit_xor_reg_to_reg(String_Builder* sb, Register lhs, Register rhs);
 
 /* ======================
    Interface
    ====================== */
-String* x86_codegen_ir(IR_Program* program_node, Allocator* allocator);
+String* X64_codegen_ir(IR_Program* program_node, Allocator* allocator);
 
 #endif

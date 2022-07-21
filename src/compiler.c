@@ -92,19 +92,19 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
     return arguments;
 }
 
-bool compiler_assemble_x86_with_input_file(String* file_path, String* output_path, Allocator* allocator)
+bool Compiler_assemble_x86_with_input_file(String* file_path, String* output_path, Allocator* allocator)
 {
     char *cmd[] = {"as", "-g", "-c", file_path->str, "-o", output_path->str, NULL};
     return run_subprocess(cmd);
 }
 
-bool compiler_link(String* input_file_path, String* output_file_path, Allocator* allocator)
+bool Compiler_link(String* input_file_path, String* output_file_path, Allocator* allocator)
 {
     char *cmd[] = {"ld", "-o", output_file_path->str, "-dynamic-linker", "/lib64/ld-linux-x86-64.so.2", "-lc", input_file_path->str, "-lm", "-no-pie", NULL};
     return run_subprocess(cmd); 
 }
 
-bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
+bool Compiler_compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
 {
     if(source->length == 0)
     {
@@ -112,11 +112,11 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
         return false;
     }
     String* out_path = arguments.out_path;
-    Token_List* tokens = lexer_tokenize(source, arguments.input_file, arguments.absolute_path);
+    Token_List* tokens = Lex_tokenize(source, arguments.input_file, arguments.absolute_path);
 
     if (has_flag(arguments.options, OPT_TOK_OUTPUT))
     {
-        String* tok_out = lexer_pretty_print(tokens, allocator);
+        String* tok_out = Lex_pretty_print(tokens, allocator);
         if (out_path)
         {
             FILE* temp_file = fopen(out_path->str, "w");
@@ -138,10 +138,10 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
     }
     
     Parser parser;
-    parser_init(&parser, arguments.absolute_path, tokens, allocator);
+    Parser_init(&parser, arguments.absolute_path, tokens, allocator);
 
     bool result = false;
-    if (parse(&parser, false, allocator))
+    if (Parser_parse(&parser, false, allocator))
     {
         if (has_flag(arguments.options, OPT_AST_OUTPUT))
         {
@@ -164,10 +164,10 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
             }
             return true;
         }
-        IR_Program program = ir_translate_ast(parser.root, allocator);
+        IR_Program program = IR_translate_ast(parser.root, allocator);
         if (has_flag(arguments.options, OPT_IR_OUTPUT))
         {
-            String* ir_out = ir_pretty_print(&program, allocator);
+            String* IR_out = IR_pretty_print(&program, allocator);
             if (out_path)
             {
                 FILE* temp_file = fopen(out_path->str, "w");
@@ -177,17 +177,17 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
                     exit(1);
                 }
 
-                string_write_to_file(ir_out, temp_file);
+                string_write_to_file(IR_out, temp_file);
                 fclose(temp_file);
             }
             else
             {
-                fprintf(stdout, ir_out->str);
+                fprintf(stdout, IR_out->str);
             }
             return true;
         }
         
-        String* assembly = x86_codegen_ir(&program, allocator);
+        String* assembly = X64_codegen_ir(&program, allocator);
         if (assembly)
         {           
             if (has_flag(arguments.options, OPT_ASSEMBLY_OUTPUT))
@@ -228,7 +228,7 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
                 fclose(temp_file);
 
                 String* assembly_out = create_temp_file(allocator);
-                result = compiler_assemble_x86_with_input_file(out_path, assembly_out, allocator);
+                result = Compiler_assemble_x86_with_input_file(out_path, assembly_out, allocator);
 
                 if (!result)
                 {
@@ -243,7 +243,7 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
                 
                 String* executable_out = arguments.out_path ? arguments.out_path : DEFAULT_EXECUTABLE_OUT_PATH;
 
-                result = compiler_link(assembly_out, executable_out, allocator);
+                result = Compiler_link(assembly_out, executable_out, allocator);
 
                 if (!result)
                 {
@@ -258,13 +258,13 @@ bool compile(String* source, Compiler_Arguments arguments, Allocator* allocator)
         exit(1);
     }
     
-    parser_free(&parser);
+    Parser_free(&parser);
     token_list_free(tokens);
 
     return result;
 }
 
-bool compile_file(Compiler_Arguments arguments, Allocator* allocator)
+bool Compiler_compile_file(Compiler_Arguments arguments, Allocator* allocator)
 {
     if (!arguments.input_file)
     {
@@ -276,7 +276,7 @@ bool compile_file(Compiler_Arguments arguments, Allocator* allocator)
     if (file)
     {
         String* source = string_create_from_file_with_allocator(file, allocator);
-        result = compile(source, arguments, allocator);
+        result = Compiler_compile(source, arguments, allocator);
         fclose(file);
         /* cleanup_temp_files(); */
     }

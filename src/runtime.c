@@ -20,7 +20,7 @@ void repl(Allocator* allocator)
                 .out_path   = NULL
             };
 
-        bool result = compile(&buffer, args, allocator);
+        bool result = Compiler_compile(&buffer, args, allocator);
         if (!result)
         {
             // TODO: Output errors?

@@ -1,4 +1,4 @@
-
+// Returns a number too high for an exit code so it wraps around a few times (max is 255?)
 main :: () {
 	 return 12358;
 }

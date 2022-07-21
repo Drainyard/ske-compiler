@@ -84,15 +84,15 @@ typedef struct
     i32 count;
 } Token_Stream;
 
-void lexer_init(Lexer* lexer, String* source, String_View file_name, String_View absolute_path);
-Token lexer_scan_token(Lexer* lexer);
+void Lex_init(Lexer* lexer, String* source, String_View file_name, String_View absolute_path);
+Token Lex_scan_token(Lexer* lexer);
 
 void token_list_init(Token_List* list, i32 initial_capacity);
 void token_list_free(Token_List* list);
 void token_list_maybe_expand(Token_List* list);
 void token_list_add(Token_List* list, Token token);
 
-Token_List* lexer_tokenize(String* input, String* file_name, String* absolute_path);
-String* lexer_pretty_print(Token_List* list, Allocator* allocator);
+Token_List* Lex_tokenize(String* input, String* file_name, String* absolute_path);
+String* Lex_pretty_print(Token_List* list, Allocator* allocator);
 
 #endif

@@ -44,7 +44,7 @@ typedef uintptr_t  umm;
 #include "ast.h"
 #include "parse.h"
 #include "ir.h"
-#include "codegen_x86.h"
+#include "codegen_x64.h"
 #include "compiler.h"
 #include "runtime.h"
 
@@ -53,7 +53,7 @@ typedef uintptr_t  umm;
 #include "ast.c"
 #include "parse.c"
 #include "ir.c"
-#include "codegen_x86.c"
+#include "codegen_x64.c"
 #include "compiler.c"
 #include "runtime.c"
 
@@ -81,7 +81,7 @@ int main(int argc, char** argv)
 
         if (arguments.input_file)
         {
-            compile_file(arguments, ALLOCATOR(&string_arena));
+            Compiler_compile_file(arguments, ALLOCATOR(&string_arena));
         }
     }
 
