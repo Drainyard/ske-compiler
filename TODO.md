@@ -6,7 +6,7 @@
 
 # Improvements
 - [ ] Use a simpler grammar syntax in the grammar file
-- [ ] Possibly change prefixes to uppercase (i.e. Parser_, IR_, X86_, Lex_)
+- [x] Possibly change prefixes to uppercase (i.e. Parser_, IR_, X86_, Lex_)
 
 # Features
 - [ ] Add the possibility to take intermediate pass output as input and compile from there (tokens->ast->ir)

@@ -1,0 +1,6 @@
+main :: () {
+	 if 4 < 3 {
+	 	return 0;
+	 }
+	 return 1;
+}

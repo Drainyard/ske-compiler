@@ -548,6 +548,9 @@ void IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
                 IR_error("Then arm for if statement has to be a block, was %s", ast_type_string(ast_then_arm->type));
             }
 
+            IR_Block* then_block = IR_allocate_block(block->parent_program);
+            IR_Block* end_block = IR_allocate_block(block->parent_program);
+
             if (ast_condition->type == AST_NODE_NUMBER)
             {
                 /* @Incomplete:
@@ -555,21 +558,21 @@ void IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
                    - Generate a jump_equals (patch label later)
                 */
 
-                IR_Block* then_block = IR_allocate_block(block->parent_program);
-                IR_Block* end_block = IR_allocate_block(block->parent_program);
                 IR_Label* end_label = IR_emit_label(end_block, IR_generate_label_name(block->parent_program, allocator), allocator);
 
                 IR_emit_comparison(block, IR_create_value_number(0), IR_create_location_register(cond_register), OP_EQUAL, register_table, allocator);
                 IR_emit_jump(block, *end_label, JMP_EQUAL, end_block->block_address, allocator);
 
                 IR_translate_block(then_block, ast_then_arm, allocator, register_table);
-                block = end_block;
+                block = end_block; // Secret block change, is this good?
             }
             else if (ast_condition->type == AST_NODE_BINARY)
             {
                 /* @Incomplete:
                    - Generate a jump that matches the compare (patch label later)
                 */
+
+                
             }
             
             AST_Node* ast_else_arm = node->if_statement.else_arm;
