@@ -1,4 +1,4 @@
-void ast_node_list_add(AST_Node_List* list, AST_Node* node)
+void AST_node_list_add(AST_Node_List* list, AST_Node* node)
 {
     if (list->count + 1 > list->capacity)
     {
@@ -8,7 +8,7 @@ void ast_node_list_add(AST_Node_List* list, AST_Node* node)
     list->nodes[list->count++] = node;
 }
 
-static char* ast_type_string(AST_Node_Type type)
+static char* AST_type_string(AST_Node_Type type)
 {
     switch(type)
     {
@@ -28,8 +28,8 @@ static char* ast_type_string(AST_Node_Type type)
     return "AST if";
     case AST_NODE_BLOCK:
     return "AST block";
-    case AST_NODE_NUMBER:
-    return "AST number";
+    case AST_NODE_LITERAL:
+    return "AST literal";
     case AST_NODE_STRING:
     return "AST string";
     case AST_NODE_BINARY:
@@ -101,9 +101,26 @@ static void pretty_print_binary(AST_Node* binary, i32 indentation, String_Builde
     sb_append(builder, ")");
 }
 
-static void pretty_print_number(AST_Node* number, i32 indentation, String_Builder* builder)
+static void pretty_print_literal(AST_Node* node, i32 indentation, String_Builder* builder)
 {
-    sb_appendf(builder, "%d", number->number);
+    switch(node->literal.type)
+    {
+    case LIT_INT:
+    {
+        sb_appendf(builder, "%d", node->literal.i);
+    }
+    break;
+    case LIT_FLOAT:
+    {
+        sb_appendf(builder, "%f", node->literal.f);
+    }
+    break;
+    case LIT_STRING:
+    {
+        sb_appendf(builder, "%s", node->literal.s);
+    }
+    break;
+    }
 }
 
 static void pretty_print_string(AST_Node* string, i32 indentation, String_Builder* builder)
@@ -125,9 +142,9 @@ static void pretty_print_expression(AST_Node* node, i32 indentation, String_Buil
         pretty_print_binary(node, 0, builder);
     }
     break;
-    case AST_NODE_NUMBER:
+    case AST_NODE_LITERAL:
     {
-        pretty_print_number(node, 0, builder);
+        pretty_print_literal(node, 0, builder);
     }
     break;
     case AST_NODE_STRING:
@@ -137,7 +154,7 @@ static void pretty_print_expression(AST_Node* node, i32 indentation, String_Buil
     break;
     default:
     {
-        compiler_bug("Unsupported node type %s\n", ast_type_string(node->type));
+        compiler_bug("Unsupported node type %s\n", AST_type_string(node->type));
         assert(false);
     }
     break;

@@ -11,7 +11,7 @@ typedef enum
     AST_NODE_IF,
     AST_NODE_RETURN,
     AST_NODE_BLOCK,
-    AST_NODE_NUMBER,
+    AST_NODE_LITERAL,
     AST_NODE_STRING,
     AST_NODE_BINARY,
     AST_NODE_UNARY,
@@ -33,6 +33,24 @@ struct AST_Node_List
     i32 count;
 };
 
+typedef struct AST_Literal AST_Literal;
+struct AST_Literal
+{
+    enum AST_Literal_Type
+    {
+        LIT_INT,
+        LIT_FLOAT,
+        LIT_STRING
+    } type;
+
+    union
+    {
+        i32 i; // @Incomplete: Should be different int sizes at some point
+        f32 f;
+        String* s;
+    };
+};
+
 typedef struct AST_Node AST_Node;
 struct AST_Node
 {
@@ -41,7 +59,7 @@ struct AST_Node
 
     union
     {
-        i32 number; // @Incomplete: Should be expanded to other constant types (float, string, etc.)
+        AST_Literal literal; // @Incomplete: Should be expanded to other constant types (float, string, etc.)
         String* string;
         struct
         {
