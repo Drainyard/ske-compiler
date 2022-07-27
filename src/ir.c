@@ -382,25 +382,70 @@ IR_Compare* IR_emit_comparison(IR_Block* block, IR_Value left, IR_Location right
     compare->left = left;
     compare->right = right;
     compare->operator = operator;
-    compare->destination = compare->right.reg;//IR_register_alloc(table);
+    compare->destination = compare->right.reg;
 
     return compare;
 }
 
-IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, Allocator* allocator, IR_Register_Table* table)
+IR_Block* IR_get_block(IR_Program* program, IR_Block_Address address)
+{
+    IR_Block_Array* blocks = &program->block_array;
+    if (address.address >= 0 && address.address < blocks->count)
+    {
+        return &blocks->blocks[address.address];
+    }
+    return NULL;
+}
+
+IR_Node* IR_get_node(IR_Block* block, i32 index)
+{
+    if (index >= 0 && index < block->node_array.count)
+    {
+        return &block->node_array.nodes[index];
+    }
+    return NULL;
+}
+
+IR_Block* IR_get_current_block(IR_Program* program)
+{
+    if (program->block_array.count == 0)
+    {
+        return NULL;
+    }
+
+    return &program->block_array.blocks[program->block_array.count - 1];
+}
+
+
+IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* end_block, Allocator* allocator, IR_Register_Table* table)
 {
     switch(node->type)
     {
-    case  AST_NODE_NUMBER:
+    case  AST_NODE_LITERAL:
     {
         IR_Register reg = IR_register_alloc(table);
-        IR_emit_move_lit_to_reg(block, node->number, reg, allocator);
+        AST_Literal* literal = &node->literal;
+        switch(node->literal.type)
+        {
+        case LIT_INT:
+        {
+            IR_emit_move_lit_to_reg(block, literal->i, reg, allocator);            
+        }
+        break;
+        case LIT_FLOAT:
+        {}
+        break;
+        case LIT_STRING:
+        {}
+        break;
+        }
+
         return reg;
     }
     case AST_NODE_BINARY:
     {
-        IR_Register left_reg = IR_translate_expression(node->binary.left, block, allocator, table);
-        IR_Register right_reg = IR_translate_expression(node->binary.right, block, allocator, table);
+        IR_Register left_reg = IR_translate_expression(node->binary.left, block, NULL, allocator, table);
+        IR_Register right_reg = IR_translate_expression(node->binary.right, block, NULL, allocator, table);
 
         Token_Type operator = node->binary.operator;
 
@@ -448,9 +493,25 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, Allocator* 
             }
             break;
             case TOKEN_LESS:
+            {
+                jump_type = JMP_LESS;
+            }
+            break;
             case TOKEN_GREATER:
+            {
+                jump_type = JMP_GREATER;
+            }
+            break;
             case TOKEN_LESS_EQUAL:
+            {
+                jump_type = JMP_LESS_EQUAL;
+            }
+            break;
             case TOKEN_GREATER_EQUAL:
+            {
+                jump_type = JMP_GREATER_EQUAL;
+            }
+            break;
             case TOKEN_BANG_EQUAL:
             {
                 if (left_is_zero)
@@ -472,7 +533,9 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, Allocator* 
 
             if (node->parent->type == AST_NODE_IF)
             {
-             
+                IR_Node* node = IR_get_node(end_block, 0);
+                IR_Label* end_label = &node->label;
+                IR_emit_jump(block, *end_label, jump_type, end_block->block_address, allocator);
             }
 
             // @Incomplete: Create jumps based on which type of comparison we have here... (short circuiting?)
@@ -486,7 +549,7 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, Allocator* 
     }
     case AST_NODE_UNARY:
     {
-        IR_Register reg = IR_translate_expression(node->unary.expression, block, allocator, table);
+        IR_Register reg = IR_translate_expression(node->unary.expression, block, NULL, allocator, table);
         Token_Type operator = node->unary.operator;
         switch(operator)
         {
@@ -524,7 +587,7 @@ void IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
         {
             if (node->return_statement.expression)
             {
-                IR_Register reg = IR_translate_expression(node->return_statement.expression, block, allocator, register_table);
+                IR_Register reg = IR_translate_expression(node->return_statement.expression, block, NULL, allocator, register_table);
                 IR_Register dst = IR_register_alloc(register_table);
                 
                 IR_emit_move_reg_to_reg(block, reg, dst, allocator);
@@ -540,31 +603,30 @@ void IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
         {
             AST_Node* ast_condition = node->if_statement.condition;
 
-            IR_Register cond_register = IR_translate_expression(ast_condition, block, allocator, register_table);
-            
             AST_Node* ast_then_arm = node->if_statement.then_arm;
             if (ast_then_arm->type != AST_NODE_BLOCK)
             {
-                IR_error("Then arm for if statement has to be a block, was %s", ast_type_string(ast_then_arm->type));
+                IR_error("Then arm for if statement has to be a block, was %s", AST_type_string(ast_then_arm->type));
             }
 
             IR_Block* then_block = IR_allocate_block(block->parent_program);
             IR_Block* end_block = IR_allocate_block(block->parent_program);
 
-            if (ast_condition->type == AST_NODE_NUMBER)
+            IR_Label* end_label = IR_emit_label(end_block, IR_generate_label_name(block->parent_program, allocator), allocator);
+
+            IR_Register cond_register = IR_translate_expression(ast_condition, block, end_block, allocator, register_table);
+
+            if (ast_condition->type == AST_NODE_LITERAL)
             {
                 /* @Incomplete:
                    - Generate a compare instruction with 0
                    - Generate a jump_equals (patch label later)
                 */
 
-                IR_Label* end_label = IR_emit_label(end_block, IR_generate_label_name(block->parent_program, allocator), allocator);
-
                 IR_emit_comparison(block, IR_create_value_number(0), IR_create_location_register(cond_register), OP_EQUAL, register_table, allocator);
                 IR_emit_jump(block, *end_label, JMP_EQUAL, end_block->block_address, allocator);
 
-                IR_translate_block(then_block, ast_then_arm, allocator, register_table);
-                block = end_block; // Secret block change, is this good?
+                IR_translate_block(then_block, ast_then_arm, allocator, register_table);     
             }
             else if (ast_condition->type == AST_NODE_BINARY)
             {
@@ -572,8 +634,10 @@ void IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
                    - Generate a jump that matches the compare (patch label later)
                 */
 
-                
+                IR_translate_block(then_block, ast_then_arm, allocator, register_table);     
             }
+            
+            block = end_block; // Secret block change, is this good?
             
             AST_Node* ast_else_arm = node->if_statement.else_arm;
             if (ast_else_arm)
@@ -586,53 +650,28 @@ void IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
         {
             String* fun_name = node->fun_call.name;
             i32 index = IR_find_function(block->parent_program, fun_name);
-            assert(index != -1 && "Unknown function.");
+            
             if (index != -1)
             {
                 IR_Node* call = IR_emit_instruction(block, IR_INS_CALL);
                 call->instruction.call.function_index = index;
             }
+            else
+            {
+                compiler_bug("Unknown function %s.", fun_name->str);
+            }
         }
         break;
-        case AST_NODE_NUMBER:
+        case AST_NODE_LITERAL:
         case AST_NODE_BINARY:
         case AST_NODE_UNARY:
         {
-            IR_translate_expression(node, block, allocator, register_table);
+            IR_translate_expression(node, block, NULL, allocator, register_table);
         }
         break;
-        default: assert(false && "Invalid AST node type.");
+        default: compiler_bug("Invalid AST node type %s.", AST_type_string(node->type));
         }
     }
-}
-
-IR_Block* IR_get_block(IR_Program* program, IR_Block_Address address)
-{
-    IR_Block_Array* blocks = &program->block_array;
-    if (address.address >= 0 && address.address < blocks->count)
-    {
-        return &blocks->blocks[address.address];
-    }
-    return NULL;
-}
-
-IR_Node* IR_get_node(IR_Block* block, i32 index)
-{
-    if (index >= 0 && index < block->node_array.count)
-    {
-        return &block->node_array.nodes[index];
-    }
-    return NULL;
-}
-
-IR_Block* IR_get_current_block(IR_Program* program)
-{
-    if (program->block_array.count == 0)
-    {
-        return NULL;
-    }
-
-    return &program->block_array.blocks[program->block_array.count - 1];
 }
 
 void IR_translate_program(IR_Program* program, AST_Node* ast_program, Allocator* allocator, IR_Register_Table* register_table)
@@ -653,7 +692,7 @@ void IR_translate_program(IR_Program* program, AST_Node* ast_program, Allocator*
             IR_translate_block(block, node->fun_decl.body, allocator, register_table);
         }
         break;
-        case AST_NODE_NUMBER:
+        case AST_NODE_LITERAL:
         case AST_NODE_BINARY:
         case AST_NODE_UNARY:
         {
@@ -661,11 +700,11 @@ void IR_translate_program(IR_Program* program, AST_Node* ast_program, Allocator*
             
             String* name = string_allocate("main", allocator);
             IR_emit_function_decl(block, name, true);
-            IR_translate_expression(node, block, allocator, register_table);
+            IR_translate_expression(node, block, NULL, allocator, register_table);
             IR_emit_instruction(block, IR_INS_RET);
         }
         break;
-        default: assert(false && "Invalid AST node type");
+        default: compiler_bug("Invalid AST node type %s.", AST_type_string(node->type));
         }
     }
 }
@@ -852,47 +891,47 @@ String* IR_pretty_print(IR_Program* program, Allocator* allocator)
                     {
                     case JMP_ALWAYS:
                     {
-                        sb_append(&sb, "jmp(");
+                        sb_append(&sb, "jmp ");
                     }
                     break;
                     case JMP_EQUAL:
                     {
-                        sb_append(&sb, "je(");
+                        sb_append(&sb, "je ");
                     }
                     break;
                     case JMP_ZERO:
                     {
-                        sb_append(&sb, "jz(");
+                        sb_append(&sb, "jz ");
                     }
                     break;
                     case JMP_NOT_EQUAL:
                     {
-                        sb_append(&sb, "jne(");
+                        sb_append(&sb, "jne ");
                     }
                     break;
                     case JMP_NOT_ZERO:
                     {
-                        sb_append(&sb, "jnz(");
+                        sb_append(&sb, "jnz ");
                     }
                     break;
                     case JMP_LESS:
                     {
-                        sb_append(&sb, "jl(");
+                        sb_append(&sb, "jl ");
                     }
                     break;
                     case JMP_LESS_EQUAL:
                     {
-                        sb_append(&sb, "jle(");
+                        sb_append(&sb, "jle ");
                     }
                     break;
                     case JMP_GREATER:
                     {
-                        sb_append(&sb, "jg(");
+                        sb_append(&sb, "jg ");
                     }
                     break;
                     case JMP_GREATER_EQUAL:
                     {
-                        sb_append(&sb, "jge(");
+                        sb_append(&sb, "jge ");
                     }
                     break;
                     }
@@ -902,7 +941,6 @@ String* IR_pretty_print(IR_Program* program, Allocator* allocator)
                     IR_Node* first_node = &block->node_array.nodes[0];
                     IR_Label* label = &first_node->label;
                     sb_append(&sb, label->label_name->str);
-                    sb_append(&sb, ")");
                     sb_newline(&sb);
                 }
                 break;

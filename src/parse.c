@@ -116,8 +116,10 @@ static AST_Node* Parser_precedence(Parser* parser, Precedence precedence, AST_No
 static AST_Node* Parser_number(Parser* parser, AST_Node* previous, AST_Node* parent)
 {
     i32 value = strtol(parser->previous.start, NULL, 10);
-    AST_Node* number_node = Parser_add_node(AST_NODE_NUMBER, parent, parser->allocator);
-    number_node->number = value;
+    AST_Node* number_node = Parser_add_node(AST_NODE_LITERAL, parent, parser->allocator);
+    AST_Literal* lit = &number_node->literal;
+    lit->i = value;
+    lit->type = LIT_INT;
 
     return number_node;
 }
@@ -152,7 +154,7 @@ static AST_Node* Parser_block(Parser* parser, AST_Node* parent)
     
     while (!Parser_check(parser, TOKEN_RIGHT_BRACE) && !Parser_check(parser, TOKEN_EOF))
     {
-        ast_node_list_add(&block->block.declarations, Parser_declaration(parser, parent));
+        AST_node_list_add(&block->block.declarations, Parser_declaration(parser, parent));
     }
 
     Parser_consume(parser, TOKEN_RIGHT_BRACE, "Expect '}' after block.");
@@ -405,7 +407,7 @@ bool Parser_parse(Parser* parser, bool print_ast, Allocator* allocator)
 
         while (!Parser_match(parser, TOKEN_EOF))
         {
-            ast_node_list_add(&parser->root->program.declarations, Parser_declaration(parser, parser->root));
+            AST_node_list_add(&parser->root->program.declarations, Parser_declaration(parser, parser->root));
         }
         /* parser->root->program.expression = Parser_expression(parser); */
     }

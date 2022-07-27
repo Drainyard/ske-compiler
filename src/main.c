@@ -26,6 +26,9 @@ typedef uint32_t   u32;
 typedef uint64_t   u64;
 typedef uintptr_t  umm;
 
+typedef float      f32;
+typedef double     f64;
+
 #include "common.h"
 
 #include "log.h"
