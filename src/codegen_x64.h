@@ -53,7 +53,7 @@ const char* register_names[REG_COUNT] =
   [REG_BH]   = "bh",
   [REG_BX]   = "bx",
   [REG_EBX]  = "ebx",
-  [REG_RBX]  = "rax",
+  [REG_RBX]  = "rbx",
                
   [REG_CL]   = "cl",
   [REG_CH]   = "ch",
@@ -140,7 +140,7 @@ const char* register_names[REG_COUNT] =
   [REG_BH]   = "%bh",
   [REG_BX]   = "%bx",
   [REG_EBX]  = "%ebx",
-  [REG_RBX]  = "%rax",
+  [REG_RBX]  = "%rbx",
                
   [REG_CL]   = "%cl",
   [REG_CH]   = "%ch",
