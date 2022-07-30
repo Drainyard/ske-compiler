@@ -189,7 +189,7 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
 
         if (statement->if_statement.else_arm)
         {
-            pretty_print_block(statement->if_statement.else_arm, indentation, builder);
+            pretty_print_statement(statement->if_statement.else_arm, indentation, builder);
         }
         
         sb_append(builder, ")");

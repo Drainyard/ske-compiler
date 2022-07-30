@@ -624,11 +624,6 @@ void IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
 
             if (ast_condition->type == AST_NODE_LITERAL)
             {
-                /* @Incomplete:
-                   - Generate a compare instruction with 0
-                   - Generate a jump_equals (patch label later)
-                */
-
                 IR_emit_comparison(block, IR_create_value_number(0), IR_create_location_register(cond_register), OP_EQUAL, register_table, allocator);
                 IR_emit_jump(block, *end_label, JMP_EQUAL, end_block->block_address, allocator);
 
@@ -636,10 +631,6 @@ void IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
             }
             else if (ast_condition->type == AST_NODE_BINARY)
             {
-                /* @Incomplete:
-                   - Generate a jump that matches the compare (patch label later)
-                */
-
                 IR_translate_block(then_block, ast_then_arm, allocator, register_table);     
             }
             
@@ -648,7 +639,10 @@ void IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, I
             AST_Node* ast_else_arm = node->if_statement.else_arm;
             if (ast_else_arm)
             {
-                
+                // @Incomplete: This will not be enough if the else arm is an if-statement, in that case, we need to re-translate some other way.
+                // In this case, we probably just need a IR_translate_statement function, that does whatever this function does instead,
+                // and then explicitly call IR_translate_block on blocks instead of what we are currently doing.
+                IR_translate_block(end_block, ast_else_arm, allocator, register_table);
             }
         }
         break;
