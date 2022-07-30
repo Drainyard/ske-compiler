@@ -466,7 +466,7 @@ void X64_emit_cmp_reg_to_reg(String_Builder* sb, Register s_lhs, Register s_rhs,
 #ifdef SKE_CODEGEN_INTEL
     sb_appendf(sb, "%s     %s, %s\n", instruction_names[INS_CMP], register_names[REG_RAX], register_names[rhs]);
 #elif SKE_CODEGEN_AT_T
-sb_appendf(sb, "%s     %s, %s\n", instruction_name(INS_CMP, REG_RAX), register_names[rhs], register_names[REG_RAX]);
+    sb_appendf(sb, "%s     %s, %s\n", instruction_name(INS_CMP, REG_RAX), register_names[rhs], register_names[REG_RAX]);
 #endif
 }
 

@@ -488,28 +488,32 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
                 }
                 else
                 {
-                    jump_type = JMP_EQUAL;
+                    jump_type = JMP_NOT_EQUAL;
                 }
             }
             break;
             case TOKEN_LESS:
             {
-                jump_type = JMP_LESS;
+                jump_type = JMP_GREATER_EQUAL;
+                /* jump_type = JMP_LESS; */
             }
             break;
             case TOKEN_GREATER:
             {
-                jump_type = JMP_GREATER;
+                jump_type = JMP_LESS_EQUAL;
+                /* jump_type = JMP_GREATER; */
             }
             break;
             case TOKEN_LESS_EQUAL:
             {
-                jump_type = JMP_LESS_EQUAL;
+                jump_type = JMP_GREATER;
+                /* jump_type = JMP_LESS_EQUAL; */
             }
             break;
             case TOKEN_GREATER_EQUAL:
             {
-                jump_type = JMP_GREATER_EQUAL;
+                jump_type = JMP_LESS;
+                /* jump_type = JMP_GREATER_EQUAL; */
             }
             break;
             case TOKEN_BANG_EQUAL:
@@ -520,22 +524,24 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
                 }
                 else
                 {
-                    jump_type = JMP_NOT_EQUAL;
+                    jump_type = JMP_EQUAL;
                 }
             }
             break;
             default: IR_error("Invalid comparison operator %s", token_type_to_string(operator));
             }
 
-            (void)jump_type;
-            
             IR_Compare* compare = IR_emit_comparison(block, left_val, right_loc, IR_map_operator(operator), table, allocator);
 
-            if (node->parent->type == AST_NODE_IF)
+            if (end_block)
             {
                 IR_Node* node = IR_get_node(end_block, 0);
                 IR_Label* end_label = &node->label;
                 IR_emit_jump(block, *end_label, jump_type, end_block->block_address, allocator);
+            }
+            else
+            {
+                
             }
 
             // @Incomplete: Create jumps based on which type of comparison we have here... (short circuiting?)

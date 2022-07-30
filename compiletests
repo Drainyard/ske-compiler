@@ -8,6 +8,8 @@ EXPECT_DIR=$TESTDIR/expect
 EXPECT_SUCCEEDING=$TESTDIR/expect/succeeding
 EXPECT_FAILING=$TESTDIR/expect/failing
 
+FILE=$1
+
 mkdir -p $OUT_DIR
 mkdir -p $EXPECT_DIR
 mkdir -p $EXPECT_SUCCEEDING
@@ -57,31 +59,48 @@ function test_expect()
 
 TOTAL_TESTS=0
 
-for n in $SUCCEEDING_TESTS; do
-	ske $n
-	((TOTAL_TESTS=TOTAL_TESTS+1))
+if [ -z "$1" ]; then
+   	for n in $SUCCEEDING_TESTS; do
+		ske $n
+		((TOTAL_TESTS=TOTAL_TESTS+1))
 
-	NO_EXT="${n%.*}"
+		NO_EXT="${n%.*}"
+		NO_EXT=${NO_EXT##*/}
+
+		if [ -e a.out ]; then
+			OUTPUT=$(./a.out 2>&1 >/dev/null)
+			test_expect $NO_EXT $EXPECT_SUCCEEDING
+
+			rm a.out
+		else
+			echo "Not assembling $n"
+		fi
+	done
+
+	for n in $FAILING_TESTS; do
+		OUTPUT=$(ske $n 2>&1 >/dev/null)
+		((TOTAL_TESTS=TOTAL_TESTS+1))
+		
+		NO_EXT="${n%.*}"
+		NO_EXT=${NO_EXT##*/}
+
+		test_expect $NO_EXT $EXPECT_FAILING
+	done
+
+	echo "${SKE} ${BOLD}${GREEN}passed: ${SUCCEEDING_TEST_COUNT} ${RED}failed: ${FAILING_TEST_COUNT} ${YELLOW}skipped: 0${RESET}"
+else
+	ske $FILE
+
+	NO_EXT="${FILE%.*}"
 	NO_EXT=${NO_EXT##*/}
 
 	if [ -e a.out ]; then
 		OUTPUT=$(./a.out 2>&1 >/dev/null)
+		echo $OUTPUT
 		test_expect $NO_EXT $EXPECT_SUCCEEDING
 
 		rm a.out
 	else
-		echo "Not assembling $n"
+		echo "Not assembling $FILE"
 	fi
-done
-
-for n in $FAILING_TESTS; do
-	OUTPUT=$(ske $n 2>&1 >/dev/null)
-	((TOTAL_TESTS=TOTAL_TESTS+1))
-	
-	NO_EXT="${n%.*}"
-	NO_EXT=${NO_EXT##*/}
-
-	test_expect $NO_EXT $EXPECT_FAILING
-done
-
-echo "${SKE} ${BOLD}${GREEN}passed: ${SUCCEEDING_TEST_COUNT} ${RED}failed: ${FAILING_TEST_COUNT} ${YELLOW}skipped: 0${RESET}"
+fi
