@@ -533,6 +533,8 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
 
             IR_Compare* compare = IR_emit_comparison(block, left_val, right_loc, IR_map_operator(operator), table, allocator);
 
+            // @Incomplete: Do some kind of short circuiting? Right now this won't work with &&, ||
+
             if (end_block)
             {
                 IR_Node* node = IR_get_node(end_block, 0);
@@ -541,11 +543,9 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
             }
             else
             {
-                
+                // @Incomplete: Emit set instruction (setcc in x86_64)
             }
 
-            // @Incomplete: Create jumps based on which type of comparison we have here... (short circuiting?)
-            /* assert(false); */
             return compare->destination;
         }
         default:
@@ -579,99 +579,124 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
     }
 }
 
-void IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, IR_Register_Table* register_table)
+IR_Block* IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, IR_Register_Table* register_table);
+
+IR_Block* IR_translate_statement(IR_Block* block, AST_Node* statement, Allocator* allocator, IR_Register_Table* register_table)
+{
+    switch(statement->type)
+    {
+    case AST_NODE_RETURN:
+    {
+        if (statement->return_statement.expression)
+        {
+            IR_Register reg = IR_translate_expression(statement->return_statement.expression, block, NULL, allocator, register_table);
+            IR_Register dst = IR_register_alloc(register_table);
+                
+            IR_emit_move_reg_to_reg(block, reg, dst, allocator);
+            IR_emit_return(block, &dst, allocator);
+        }
+        else
+        {
+            IR_emit_return(block, NULL, allocator);
+        }
+        return block;
+    }
+    break;
+    case AST_NODE_IF:
+    {
+        AST_Node* ast_condition = statement->if_statement.condition;
+
+        AST_Node* ast_then_arm = statement->if_statement.then_arm;
+        if (ast_then_arm->type != AST_NODE_BLOCK)
+        {
+            IR_error("Then arm for if statement has to be a block, was %s", AST_type_string(ast_then_arm->type));
+        }
+
+        IR_Block* then_block = IR_allocate_block(block->parent_program);
+        IR_Block* end_block = IR_allocate_block(block->parent_program);
+
+        IR_Label* end_label = IR_emit_label(end_block, IR_generate_label_name(block->parent_program, allocator), allocator);
+
+        IR_Register cond_register = IR_translate_expression(ast_condition, block, end_block, allocator, register_table);
+        IR_Block* new_block = end_block;
+
+        if (ast_condition->type == AST_NODE_LITERAL)
+        {
+            IR_emit_comparison(block, IR_create_value_number(0), IR_create_location_register(cond_register), OP_EQUAL, register_table, allocator);
+            IR_emit_jump(block, *end_label, JMP_EQUAL, end_block->block_address, allocator);
+
+            IR_translate_block(then_block, ast_then_arm, allocator, register_table);     
+        }
+        else if (ast_condition->type == AST_NODE_BINARY)
+        {
+            IR_translate_block(then_block, ast_then_arm, allocator, register_table);
+        }
+
+        AST_Node* ast_else_arm = statement->if_statement.else_arm;
+        if (ast_else_arm)
+        {
+            // @Incomplete: This will not be enough if the else arm is an if-statement, in that case, we need to re-translate some other way.
+            // In this case, we probably just need a IR_translate_statement function, that does whatever this function does instead,
+            // and then explicitly call IR_translate_block on blocks instead of what we are currently doing.
+            switch(ast_else_arm->type)
+            {
+            case AST_NODE_BLOCK:
+            {
+                new_block = IR_translate_block(end_block, ast_else_arm, allocator, register_table);                
+            }
+            break;
+            case AST_NODE_IF:
+            {
+                new_block = IR_translate_statement(end_block, ast_else_arm, allocator, register_table);
+            }
+            break;
+            default: compiler_bug("Invalid statement type for else statement %s.", AST_type_string(ast_else_arm->type));
+            }
+        }
+        return new_block;                    
+    }
+    break;
+    case AST_NODE_CALL:
+    {
+        String* fun_name = statement->fun_call.name;
+        i32 index = IR_find_function(block->parent_program, fun_name);
+            
+        if (index != -1)
+        {
+            IR_Node* call = IR_emit_instruction(block, IR_INS_CALL);
+            call->instruction.call.function_index = index;
+        }
+        else
+        {
+            compiler_bug("Unknown function %s.", fun_name->str);
+        }
+    }
+    break;
+    case AST_NODE_LITERAL:
+    case AST_NODE_BINARY:
+    case AST_NODE_UNARY:
+    {
+        IR_translate_expression(statement, block, NULL, allocator, register_table);
+    }
+    break;
+    default: compiler_bug("Invalid AST node type %s.", AST_type_string(statement->type));
+    }
+
+    return block;
+}
+
+IR_Block* IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, IR_Register_Table* register_table)
 {
     AST_Node_List list = body->block.declarations;
+
+    IR_Block* used_block = block;
 
     for (i32 i = 0; i < list.count; i++)
     {
         AST_Node* node = list.nodes[i];
-
-        switch(node->type)
-        {
-        case AST_NODE_RETURN:
-        {
-            if (node->return_statement.expression)
-            {
-                IR_Register reg = IR_translate_expression(node->return_statement.expression, block, NULL, allocator, register_table);
-                IR_Register dst = IR_register_alloc(register_table);
-                
-                IR_emit_move_reg_to_reg(block, reg, dst, allocator);
-                IR_emit_return(block, &dst, allocator);
-            }
-            else
-            {
-                IR_emit_return(block, NULL, allocator);
-            }
-        }
-        break;
-        case AST_NODE_IF:
-        {
-            AST_Node* ast_condition = node->if_statement.condition;
-
-            AST_Node* ast_then_arm = node->if_statement.then_arm;
-            if (ast_then_arm->type != AST_NODE_BLOCK)
-            {
-                IR_error("Then arm for if statement has to be a block, was %s", AST_type_string(ast_then_arm->type));
-            }
-
-            IR_Block* then_block = IR_allocate_block(block->parent_program);
-            IR_Block* end_block = IR_allocate_block(block->parent_program);
-
-            IR_Label* end_label = IR_emit_label(end_block, IR_generate_label_name(block->parent_program, allocator), allocator);
-
-            IR_Register cond_register = IR_translate_expression(ast_condition, block, end_block, allocator, register_table);
-
-            if (ast_condition->type == AST_NODE_LITERAL)
-            {
-                IR_emit_comparison(block, IR_create_value_number(0), IR_create_location_register(cond_register), OP_EQUAL, register_table, allocator);
-                IR_emit_jump(block, *end_label, JMP_EQUAL, end_block->block_address, allocator);
-
-                IR_translate_block(then_block, ast_then_arm, allocator, register_table);     
-            }
-            else if (ast_condition->type == AST_NODE_BINARY)
-            {
-                IR_translate_block(then_block, ast_then_arm, allocator, register_table);     
-            }
-            
-            block = end_block; // Secret block change, is this good?
-            
-            AST_Node* ast_else_arm = node->if_statement.else_arm;
-            if (ast_else_arm)
-            {
-                // @Incomplete: This will not be enough if the else arm is an if-statement, in that case, we need to re-translate some other way.
-                // In this case, we probably just need a IR_translate_statement function, that does whatever this function does instead,
-                // and then explicitly call IR_translate_block on blocks instead of what we are currently doing.
-                IR_translate_block(end_block, ast_else_arm, allocator, register_table);
-            }
-        }
-        break;
-        case AST_NODE_CALL:
-        {
-            String* fun_name = node->fun_call.name;
-            i32 index = IR_find_function(block->parent_program, fun_name);
-            
-            if (index != -1)
-            {
-                IR_Node* call = IR_emit_instruction(block, IR_INS_CALL);
-                call->instruction.call.function_index = index;
-            }
-            else
-            {
-                compiler_bug("Unknown function %s.", fun_name->str);
-            }
-        }
-        break;
-        case AST_NODE_LITERAL:
-        case AST_NODE_BINARY:
-        case AST_NODE_UNARY:
-        {
-            IR_translate_expression(node, block, NULL, allocator, register_table);
-        }
-        break;
-        default: compiler_bug("Invalid AST node type %s.", AST_type_string(node->type));
-        }
+        used_block = IR_translate_statement(used_block, node, allocator, register_table);
     }
+    return used_block;
 }
 
 void IR_translate_program(IR_Program* program, AST_Node* ast_program, Allocator* allocator, IR_Register_Table* register_table)
@@ -722,16 +747,8 @@ IR_Program IR_translate_ast(AST_Node* root_node, Allocator* allocator)
     IR_Register_Table* register_table = malloc(sizeof(IR_Register_Table));
     register_table->capacity = 0;
     register_table->inuse_table = NULL;
-    /* IR_Block* block = IR_allocate_block(&program); */
-    
-    /* String* name = string_allocate("main", allocator); */
-    /* IR_emit_function_decl(block, name, true, allocator); */
 
     IR_translate_program(&program, root_node, allocator, register_table);
-    
-    /* IR_translate_expression(root_node->program.expression, block, allocator, register_table); */
-
-    /* IR_pretty_print(&program, true, allocator); */
 
     return program;
 }

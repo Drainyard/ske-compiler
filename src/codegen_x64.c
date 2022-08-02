@@ -712,8 +712,6 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
     
     X64_emit_start(&sb);
 
-    Scratch_Register current_reg;
-
     for (i32 i = 0; i < program->block_array.count; i++)
     {
         IR_Block* block = &program->block_array.blocks[i];
@@ -778,7 +776,6 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
                             Scratch_Register src_reg = get_or_add_scratch_from_temp(&temp_table, src->loc.reg, &table);
                             Scratch_Register dst_reg = get_or_add_scratch_from_temp(&temp_table, dst->reg, &table);
                             X64_emit_move_reg_to_reg(&sb, scratch_to_register(src_reg), scratch_to_register(dst_reg));
-                            current_reg = dst_reg;
                         }
                     }
                     break;
@@ -787,7 +784,6 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
                         if(dst->type == IR_LOCATION_REGISTER)
                         {
                             Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, dst->reg, &table);
-                            current_reg = reg;
                             X64_emit_move_lit_to_reg(&sb, src->integer, scratch_to_register(reg));
                         }
                     }
@@ -810,7 +806,6 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
                     case VALUE_LOCATION:
                     {
                         Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, value->loc.reg, &table);
-                        current_reg = reg;
                         X64_emit_push_reg(&sb, scratch_to_register(reg));
                     }
                     break;
@@ -833,7 +828,6 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
                     case VALUE_LOCATION:
                     {
                         Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, value->loc.reg, &table);
-                        current_reg = reg;
                         X64_emit_push_reg(&sb, scratch_to_register(reg));
                     }
                     break;
@@ -916,7 +910,6 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
                     Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, ir_reg, &table);
 
                     X64_emit_unary(&sb, reg);
-                    current_reg = reg;
                 }
                 break;
                 case IR_INS_BINOP:
@@ -975,7 +968,6 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
                     default: compiler_bug("Unsupported operator for binary operation."); break;
                     }
 
-                    current_reg = right_reg;
                     free_temp_scratch(&temp_table, ir_left_reg, &table);
                 }
                 break;
@@ -1007,7 +999,10 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
                     else if (left.type == VALUE_LOCATION)
                     {
                         X64_emit_cmp_loc_to_loc(&sb, left.loc, right, &table, &temp_table);
+                        free_temp_scratch(&temp_table, left.loc.reg, &table);
                     }
+
+                    free_temp_scratch(&temp_table, right.reg, &table);
                 }
                 break;
                 default: compiler_bug("Unhandled IR instruction, was %s", IR_instruction_type_to_string(instruction)); break;
@@ -1019,92 +1014,6 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
         }
     }
 
-    (void)current_reg;
-
-    /* sb_append(&sb, "\n"); */
-    /* X64_emit_comment_line(&sb, "fprintf call to output result temporarily"); */
-    /* X64_emit_move_name_to_name(&sb, "stderr", "%rax"); */
-    /* X64_emit_move_reg_to_name(&sb, current_reg, "%rdx"); */
-    /* X64_emit_move_name_to_name(&sb, "$format", "%rsi"); */
-    /* X64_emit_move_name_to_name(&sb, "%rax", "%rdi"); */
-    /* X64_emit_move_lit_to_name(&sb, 0, "%rax"); */
-    /* X64_emit_call(&sb, "fprintf"); */
-    /* X64_emit_move_lit_to_name(&sb, 0, "%rax"); */
-
-    /* X64_emit_pop_name(&sb, "%rbp"); */
-
-    /* X64_emit_ret(&sb); */
-
-    /* X64_emit_asciz(&sb, "format", "%d\\n"); */
-
     String* assembly = sb_get_result(&sb, allocator);
     return assembly;
-}
-
-void X64_codegen_program(AST_Node* program_node, String_Builder* sb, Scratch_Register_Table* table)
-{
-    sb_append(sb, ".data\n");
-    sb_append(sb, ".text\n");
-    sb_append(sb, ".global _start\n");
-    sb_append(sb, "_start:\n");
-
-    X64_emit_push_reg(sb, REG_RBP);
-    X64_emit_move_reg_to_reg(sb, REG_RSP, REG_RBP);
-
-    /* Scratch_Register final_reg = X64_codegen_expression(program_node->program.expression, sb, table); */
-
-    /* X64_emit_move_reg_to_name(sb, final_reg, "%rax"); */
-    /* scratch_free(table, final_reg); */
-
-    // @Note: Emit instructions for fprintf call (used for now)
-    /* sb_append(sb, "\n"); */
-    /* X64_emit_comment_line(sb, "fprintf call to output result temporarily"); */
-    /* X64_emit_move_name_to_name(sb, "stderr", "%rax"); */
-    /* X64_emit_move_reg_to_name(sb, final_reg, "%rdx"); */
-    /* X64_emit_move_name_to_name(sb, "$format", "%rsi"); */
-    /* X64_emit_move_name_to_name(sb, "%rax", "%rdi"); */
-    /* X64_emit_move_lit_to_name(sb, 0, "%rax"); */
-    /* X64_emit_call(sb, "fprintf"); */
-    /* X64_emit_move_lit_to_name(sb, 0, "%rax"); */
-
-    /* X64_emit_pop_name(sb, "%rbp"); */
-
-    /* X64_emit_ret(sb); */
-
-    /* X64_emit_asciz(sb, "format", "%d\\n"); */
-}
-
-String* X64_codegen_ast(AST_Node* root_node, Allocator* allocator)
-{
-    String_Builder sb;
-    sb_init(&sb, 256);
-
-    Scratch_Register_Table register_table;
-    scratch_table_init(&register_table);
-    X64_codegen_program(root_node, &sb, &register_table);
-
-    String* assembly = sb_get_result(&sb, allocator);
-
-    return assembly;
-}
-
-void X64_codegen_ast_to_file(AST_Node* root_node, String* out_file, Allocator* allocator)
-{
-    String* assembly = X64_codegen_ast(root_node, allocator);
-
-    FILE* file = NULL;
-    if (out_file)
-    {
-        file = fopen(out_file->str, "w");
-    }
-    else
-    {
-        file = fopen("out.s", "w"); 
-    }
-
-    if (file)
-    {
-        string_fprintf(assembly, file);
-        fclose(file);
-    }
 }

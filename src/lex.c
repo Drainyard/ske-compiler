@@ -203,6 +203,7 @@ static void Lex_skip_whitespace(Lexer* lexer)
             {
                 while (Lex_peek_char(lexer) != '\n' && !Lex_is_at_end(lexer)) Lex_advance(lexer);
             }
+            return;
         }
         break;
         default:

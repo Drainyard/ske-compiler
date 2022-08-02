@@ -70,7 +70,6 @@ if [ -z "$1" ]; then
 		if [ -e a.out ]; then
 			OUTPUT=$(./a.out 2>&1 >/dev/null)
 			test_expect $NO_EXT $EXPECT_SUCCEEDING
-
 			rm a.out
 		else
 			echo "Not assembling $n"
@@ -96,9 +95,7 @@ else
 
 	if [ -e a.out ]; then
 		OUTPUT=$(./a.out 2>&1 >/dev/null)
-		echo $OUTPUT
 		test_expect $NO_EXT $EXPECT_SUCCEEDING
-
 		rm a.out
 	else
 		echo "Not assembling $FILE"

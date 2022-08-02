@@ -189,7 +189,10 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
 
         if (statement->if_statement.else_arm)
         {
-            pretty_print_statement(statement->if_statement.else_arm, indentation, builder);
+            sb_indent(builder, indentation);
+            sb_append(builder, "(else \n");
+            pretty_print_statement(statement->if_statement.else_arm, indentation + 1, builder);
+            sb_append(builder, ")");
         }
         
         sb_append(builder, ")");
@@ -210,7 +213,12 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
         sb_append(builder, ")");
     }
     break;
-    default: assert(false && "Not a valid statement type"); break;
+    case AST_NODE_BLOCK:
+    {
+        pretty_print_block(statement, indentation, builder);
+    }
+    break;
+    default: compiler_bug("Not a valid statement type %s.", AST_type_string(statement->type)); break;
     }
 }
 
