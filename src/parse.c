@@ -106,6 +106,12 @@ static AST_Node* Parser_precedence(Parser* parser, Precedence precedence, AST_No
     while (precedence <= Parser_get_rule(parser->current.type)->precedence)
     {
         Parser_advance(parser);
+        if (parser->current.type == TOKEN_EOF)
+        {
+            Parser_error(parser, "reached end of file. Expected an expression.");
+            AST_Node* error_node = Parser_add_node(AST_NODE_ERROR, parent, parser->allocator);
+            return error_node;
+        }
         Parse_Fn infix_rule = Parser_get_rule(parser->previous.type)->infix;
         left = infix_rule(parser, left, parent);
     }

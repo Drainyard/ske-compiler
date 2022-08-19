@@ -22,7 +22,6 @@ IR_Register IR_register_alloc(IR_Register_Table* table)
     return reg;
 }
 
-
 static void IR_error(char* format, ...)
 {
     fprintf(stderr, "\x1b[1;31m");
@@ -317,7 +316,21 @@ IR_BinOp* IR_emit_binop(IR_Block* block, IR_Register left, IR_Register right, IR
 
     binop->left = IR_create_value_location(IR_create_location_register(left));
     binop->right = IR_create_value_location(IR_create_location_register(right));
-    binop->destination = binop->right.loc.reg;//IR_register_alloc(table);
+
+    switch(operator)
+    {
+    case OP_SUB:
+    {
+        binop->destination = binop->left.loc.reg;
+    }
+    break;
+    default:
+    {
+        binop->destination = binop->right.loc.reg;
+    }
+    break;
+    }
+
     binop->operator = operator;
 
     return binop;
@@ -826,6 +839,276 @@ void IR_pretty_print_value(String_Builder* sb, IR_Value* value)
     }
 }
 
+void IR_pretty_print_instruction(String_Builder* sb, IR_Instruction* instruction, IR_Program* program)
+{
+    sb_indent(sb, 8);
+                
+    switch(instruction->type)
+    {
+    case IR_INS_MOV:
+    {
+        IR_Move* move = &instruction->move;
+
+        IR_Value* src = &move->src;
+        IR_Location* dst = &move->dst;
+
+        IR_pretty_print_location(sb, dst);
+        sb_append(sb, " := ");
+        IR_pretty_print_value(sb, src);
+
+        sb_newline(sb);
+    }
+    break;
+    case IR_INS_PUSH:
+    {
+        IR_Push* push = &instruction->push;
+        sb_append(sb, "push(");
+        IR_pretty_print_value(sb, &push->value);
+        sb_append(sb, ")");
+        sb_newline(sb);
+    }
+    break;
+    case IR_INS_POP:
+    {
+        IR_Pop* pop = &instruction->pop;
+        sb_append(sb, "pop(");
+        IR_pretty_print_value(sb, &pop->value);
+        sb_append(sb, ")");
+        sb_newline(sb);
+    }
+    break;
+    case IR_INS_JUMP:
+    {
+        IR_Jump* jump = &instruction->jump;
+        switch(jump->type)
+        {
+        case JMP_ALWAYS:
+        {
+            sb_append(sb, "jmp ");
+        }
+        break;
+        case JMP_EQUAL:
+        {
+            sb_append(sb, "je ");
+        }
+        break;
+        case JMP_ZERO:
+        {
+            sb_append(sb, "jz ");
+        }
+        break;
+        case JMP_NOT_EQUAL:
+        {
+            sb_append(sb, "jne ");
+        }
+        break;
+        case JMP_NOT_ZERO:
+        {
+            sb_append(sb, "jnz ");
+        }
+        break;
+        case JMP_LESS:
+        {
+            sb_append(sb, "jl ");
+        }
+        break;
+        case JMP_LESS_EQUAL:
+        {
+            sb_append(sb, "jle ");
+        }
+        break;
+        case JMP_GREATER:
+        {
+            sb_append(sb, "jg ");
+        }
+        break;
+        case JMP_GREATER_EQUAL:
+        {
+            sb_append(sb, "jge ");
+        }
+        break;
+        }
+
+        IR_Block_Address address = jump->address;
+        if (program)
+        {
+            IR_Block* block = &program->block_array.blocks[address.address];
+            IR_Node* first_node = &block->node_array.nodes[0];
+            IR_Label* label = &first_node->label;
+            sb_append(sb, label->label_name->str);
+        }
+        
+        sb_newline(sb);
+    }
+    break;
+    case IR_INS_BINOP:
+    {
+        IR_BinOp* binop = &instruction->binop;
+
+        IR_pretty_print_register(sb, &binop->destination);
+        sb_append(sb, " := ");
+        IR_pretty_print_value(sb, &binop->left);
+
+        switch(binop->operator)
+        {
+        case OP_ADD:
+        {
+            sb_append(sb, " + ");
+        }
+        break;
+        case OP_SUB:
+        {
+            sb_append(sb, " - ");
+        }
+        break;
+        case OP_MUL:
+        {
+            sb_append(sb, " * ");
+        }
+        break;
+        case OP_DIV:
+        {
+            sb_append(sb, " / ");
+        }
+        break;
+        case OP_NOT_EQUAL:
+        {
+            sb_append(sb, " != ");
+        }
+        break;
+        case OP_EQUAL:
+        {
+            sb_append(sb, " == ");
+        }
+        break;
+        case OP_ASSIGN:
+        {
+            sb_append(sb, " = ");
+        }
+        break;
+        case OP_BIT_OR:
+        {
+            sb_append(sb, " | ");
+        }
+        break;
+        case OP_BIT_AND:
+        {
+            sb_append(sb, " & ");
+        }
+        break;
+        default: IR_error("Unsupported operator for binary operation\n");
+        }
+        IR_pretty_print_value(sb, &binop->right);
+
+        sb_newline(sb);
+    }
+    break;
+    case IR_INS_RET:
+    {
+        IR_Return* ret = &instruction->ret;
+        sb_append(sb, "ret");
+        if (ret->has_return_value)
+        {
+            sb_append(sb, " ");
+            IR_pretty_print_register(sb, &ret->return_register);
+        }
+                    
+        sb_newline(sb);
+    }
+    break;
+    case IR_INS_CALL:
+    {
+        IR_Call* call = &instruction->call;
+        String_View name = program->function_array.functions[call->function_index].name;
+        sb_appendf(sb, "call %s\n", name.string->str);
+    }
+    break;
+    case IR_INS_UNOP:
+    {
+        IR_UnOp* unop = &instruction->unop;
+
+        IR_pretty_print_value(sb, &unop->value);
+        sb_append(sb, " := ");
+        switch(unop->operator)
+        {
+        case OP_SUB:
+        {
+            sb_append(sb, "-");
+        }
+        break;
+        case OP_NOT:
+        {
+            sb_append(sb, "!");
+        }
+        break;
+        default: IR_error("Unsupported operator for unary operation\n");
+        }
+        IR_pretty_print_value(sb, &unop->value);
+        sb_append(sb, "");
+        sb_newline(sb);
+    }
+    break;
+    case IR_INS_COMPARE:
+    {
+        IR_Compare* compare = &instruction->compare;
+
+        IR_pretty_print_register(sb, &compare->destination);
+        sb_append(sb, " := ");
+        IR_pretty_print_value(sb, &compare->left);
+                    
+        switch(compare->operator)
+        {
+        case OP_OR:
+        {
+            sb_append(sb, " || ");
+        }
+        break;
+        case OP_AND:
+        {
+            sb_append(sb, " && ");
+        }
+        break;
+        case OP_LESS:
+        {
+            sb_append(sb, " < ");
+        }
+        break;
+        case OP_GREATER:
+        {
+            sb_append(sb, " > ");
+        }
+        break;
+        case OP_LESS_EQUAL:
+        {
+            sb_append(sb, " <= ");
+        }
+        break;
+        case OP_GREATER_EQUAL:
+        {
+            sb_append(sb, " >= ");
+        }
+        break;
+        case OP_EQUAL:
+        {
+            sb_append(sb, " == ");
+        }
+        break;
+        case OP_NOT_EQUAL:
+        {
+            sb_append(sb, " != ");
+        }
+        break;
+        default: IR_error("Unsupported operator for compare operation\n");
+        }
+        IR_pretty_print_location(sb, &compare->right);
+        sb_newline(sb);
+    }
+    break;
+    default: IR_error("IR pretty printer: Unhandled instruction %s", IR_instruction_type_to_string(instruction));
+    break;
+    }
+}
+
 String* IR_pretty_print(IR_Program* program, Allocator* allocator)
 {
     String_Builder sb;
@@ -865,268 +1148,7 @@ String* IR_pretty_print(IR_Program* program, Allocator* allocator)
             case IR_NODE_INSTRUCTION:
             {
                 IR_Instruction* instruction = &node->instruction;
-                sb_indent(&sb, 8);
-                
-                switch(instruction->type)
-                {
-                case IR_INS_MOV:
-                {
-                    IR_Move* move = &instruction->move;
-
-                    IR_Value* src = &move->src;
-                    IR_Location* dst = &move->dst;
-
-                    IR_pretty_print_location(&sb, dst);
-                    sb_append(&sb, " := ");
-                    IR_pretty_print_value(&sb, src);
-
-                    sb_newline(&sb);
-                }
-                break;
-                case IR_INS_PUSH:
-                {
-                    IR_Push* push = &instruction->push;
-                    sb_append(&sb, "push(");
-                    IR_pretty_print_value(&sb, &push->value);
-                    sb_append(&sb, ")");
-                    sb_newline(&sb);
-                }
-                break;
-                case IR_INS_POP:
-                {
-                    IR_Pop* pop = &instruction->pop;
-                    sb_append(&sb, "pop(");
-                    IR_pretty_print_value(&sb, &pop->value);
-                    sb_append(&sb, ")");
-                    sb_newline(&sb);
-                }
-                break;
-                case IR_INS_JUMP:
-                {
-                    IR_Jump* jump = &instruction->jump;
-                    switch(jump->type)
-                    {
-                    case JMP_ALWAYS:
-                    {
-                        sb_append(&sb, "jmp ");
-                    }
-                    break;
-                    case JMP_EQUAL:
-                    {
-                        sb_append(&sb, "je ");
-                    }
-                    break;
-                    case JMP_ZERO:
-                    {
-                        sb_append(&sb, "jz ");
-                    }
-                    break;
-                    case JMP_NOT_EQUAL:
-                    {
-                        sb_append(&sb, "jne ");
-                    }
-                    break;
-                    case JMP_NOT_ZERO:
-                    {
-                        sb_append(&sb, "jnz ");
-                    }
-                    break;
-                    case JMP_LESS:
-                    {
-                        sb_append(&sb, "jl ");
-                    }
-                    break;
-                    case JMP_LESS_EQUAL:
-                    {
-                        sb_append(&sb, "jle ");
-                    }
-                    break;
-                    case JMP_GREATER:
-                    {
-                        sb_append(&sb, "jg ");
-                    }
-                    break;
-                    case JMP_GREATER_EQUAL:
-                    {
-                        sb_append(&sb, "jge ");
-                    }
-                    break;
-                    }
-
-                    IR_Block_Address address = jump->address;
-                    IR_Block* block = &program->block_array.blocks[address.address];
-                    IR_Node* first_node = &block->node_array.nodes[0];
-                    IR_Label* label = &first_node->label;
-                    sb_append(&sb, label->label_name->str);
-                    sb_newline(&sb);
-                }
-                break;
-                case IR_INS_BINOP:
-                {
-                    IR_BinOp* binop = &instruction->binop;
-
-                    IR_pretty_print_register(&sb, &binop->destination);
-                    sb_append(&sb, " := ");
-                    IR_pretty_print_value(&sb, &binop->left);
-
-                    switch(binop->operator)
-                    {
-                    case OP_ADD:
-                    {
-                        sb_append(&sb, " + ");
-                    }
-                    break;
-                    case OP_SUB:
-                    {
-                        sb_append(&sb, " - ");
-                    }
-                    break;
-                    case OP_MUL:
-                    {
-                        sb_append(&sb, " * ");
-                    }
-                    break;
-                    case OP_DIV:
-                    {
-                        sb_append(&sb, " / ");
-                    }
-                    break;
-                    case OP_NOT_EQUAL:
-                    {
-                        sb_append(&sb, " != ");
-                    }
-                    break;
-                    case OP_EQUAL:
-                    {
-                        sb_append(&sb, " == ");
-                    }
-                    break;
-                    case OP_ASSIGN:
-                    {
-                        sb_append(&sb, " = ");
-                    }
-                    break;
-                    case OP_BIT_OR:
-                    {
-                        sb_append(&sb, " | ");
-                    }
-                    break;
-                    case OP_BIT_AND:
-                    {
-                        sb_append(&sb, " & ");
-                    }
-                    break;
-                    default: IR_error("Unsupported operator for binary operation\n");
-                    }
-                    IR_pretty_print_value(&sb, &binop->right);
-
-                    sb_newline(&sb);
-                }
-                break;
-                case IR_INS_RET:
-                {
-                    IR_Return* ret = &instruction->ret;
-                    sb_append(&sb, "ret");
-                    if (ret->has_return_value)
-                    {
-                        sb_append(&sb, " ");
-                        IR_pretty_print_register(&sb, &ret->return_register);
-                    }
-                    
-                    sb_newline(&sb);
-                }
-                break;
-                case IR_INS_CALL:
-                {
-                    IR_Call* call = &instruction->call;
-                    String_View name = program->function_array.functions[call->function_index].name;
-                    sb_appendf(&sb, "call %s\n", name.string->str);
-                }
-                break;
-                case IR_INS_UNOP:
-                {
-                    IR_UnOp* unop = &instruction->unop;
-
-                    IR_pretty_print_value(&sb, &unop->value);
-                    sb_append(&sb, " := ");
-                    switch(unop->operator)
-                    {
-                    case OP_SUB:
-                    {
-                        sb_append(&sb, "-");
-                    }
-                    break;
-                    case OP_NOT:
-                    {
-                        sb_append(&sb, "!");
-                    }
-                    break;
-                    default: IR_error("Unsupported operator for unary operation\n");
-                    }
-                    IR_pretty_print_value(&sb, &unop->value);
-                    sb_append(&sb, "");
-                    sb_newline(&sb);
-                }
-                break;
-                case IR_INS_COMPARE:
-                {
-                    IR_Compare* compare = &instruction->compare;
-
-                    IR_pretty_print_register(&sb, &compare->destination);
-                    sb_append(&sb, " := ");
-                    IR_pretty_print_value(&sb, &compare->left);
-                    
-                    switch(compare->operator)
-                    {
-                    case OP_OR:
-                    {
-                        sb_append(&sb, " || ");
-                    }
-                    break;
-                    case OP_AND:
-                    {
-                        sb_append(&sb, " && ");
-                    }
-                    break;
-                    case OP_LESS:
-                    {
-                        sb_append(&sb, " < ");
-                    }
-                    break;
-                    case OP_GREATER:
-                    {
-                        sb_append(&sb, " > ");
-                    }
-                    break;
-                    case OP_LESS_EQUAL:
-                    {
-                        sb_append(&sb, " <= ");
-                    }
-                    break;
-                    case OP_GREATER_EQUAL:
-                    {
-                        sb_append(&sb, " >= ");
-                    }
-                    break;
-                    case OP_EQUAL:
-                    {
-                        sb_append(&sb, " == ");
-                    }
-                    break;
-                    case OP_NOT_EQUAL:
-                    {
-                        sb_append(&sb, " != ");
-                    }
-                    break;
-                    default: IR_error("Unsupported operator for compare operation\n");
-                    }
-                    IR_pretty_print_location(&sb, &compare->right);
-                    sb_newline(&sb);
-                }
-                break;
-                default: IR_error("IR pretty printer: Unhandled instruction %s", IR_instruction_type_to_string(instruction));
-                break;
-                }
+                IR_pretty_print_instruction(&sb, instruction, program);
             }
             break;
             }

@@ -46,8 +46,7 @@ function test_expect()
 			((FAILING_TEST_COUNT=FAILING_TEST_COUNT+1))
 		fi
 	else
-		echo "${SKE} $1.ske returned result"p
-		echo "$OUTPUT"
+		echo "${SKE} $1.ske returned result ${OUTPUT}"
 		read -p "${SKE} ${YELLOW}${BOLD}${EXPECT_LOC}${RESET} does not yet exist. Create it now with result ${BOLD}(y/n)? " choice
 		case "$choice" in 
 			y|Y ) touch $EXPECT_LOC && echo "$OUTPUT" > $EXPECT_LOC ;;
@@ -68,7 +67,8 @@ if [ -z "$1" ]; then
 		NO_EXT=${NO_EXT##*/}
 
 		if [ -e a.out ]; then
-			OUTPUT=$(./a.out 2>&1 >/dev/null)
+			./a.out
+			OUTPUT=$(echo $PIPESTATUS)
 			test_expect $NO_EXT $EXPECT_SUCCEEDING
 			rm a.out
 		else
@@ -77,7 +77,8 @@ if [ -z "$1" ]; then
 	done
 
 	for n in $FAILING_TESTS; do
-		OUTPUT=$(ske $n 2>&1 >/dev/null)
+		ske $n
+		OUTPUT=$(echo $PIPESTATUS)
 		((TOTAL_TESTS=TOTAL_TESTS+1))
 		
 		NO_EXT="${n%.*}"
@@ -94,10 +95,15 @@ else
 	NO_EXT=${NO_EXT##*/}
 
 	if [ -e a.out ]; then
-		OUTPUT=$(./a.out 2>&1 >/dev/null)
+		./a.out
+		
+		OUTPUT=$(echo $PIPESTATUS)
 		test_expect $NO_EXT $EXPECT_SUCCEEDING
 		rm a.out
 	else
-		echo "Not assembling $FILE"
+		OUTPUT=$(echo $PIPESTATUS)
+		echo $OUTPUT
+		
+		test_expect $NO_EXT $EXPECT_FAILING
 	fi
 fi

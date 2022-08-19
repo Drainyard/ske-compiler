@@ -3,5 +3,5 @@ foo :: () {
 }
 
 main :: () {
-	 return;
+	 return 0;
 }

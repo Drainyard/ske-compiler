@@ -8,6 +8,20 @@ bool is_source_file(String* string)
     return string_ends_with_cstr(string, FILE_EXTENSION);
 }
 
+static void print_help()
+{
+    printf("Usage: ske [options] file...\n\n");
+    printf("Options\n");
+
+    printf("  --h or -help            Display this information\n");
+    printf("  -outfile <file>         Place the output into <file>\n");
+    printf("  -assembly               Output assembly.\n");
+    printf("  -compile                Compile and assemble, but do not link\n");
+    printf("  -tokenizer              Tokenize and output tokens\n");
+    printf("  -parser                 Parse and output AST\n");
+    printf("  -ir                     Generate IR and output\n");
+}
+
 Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
 {
     Compiler_Arguments arguments;
@@ -56,16 +70,7 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             }
             else if (string_equal_cstr(&string, "--h") || string_equal_cstr(&string, "-help"))
             {
-                printf("Usage: ske [options] file...\n\n");
-                printf("Options\n");
-
-                printf("  --h or -help            Display this information\n");
-                printf("  -outfile <file>         Place the output into <file>\n");
-                printf("  -assembly               Output assembly.\n");
-                printf("  -compile                Compile and assemble, but do not link\n");
-                printf("  -tokenizer              Tokenize and output tokens\n");
-                printf("  -parser                 Parse and output AST\n");
-                printf("  -ir                     Generate IR and output\n");
+                print_help();
             }
             else if (is_source_file(&string))
             {
@@ -84,6 +89,7 @@ Compiler_Arguments parse_args(int argc, char** argv, Allocator* allocator)
             else
             {
                 printf("Unknown argument '%s'. Try --h or -help to see available options.\n", arg);
+                print_help();
                 break;
             }
         }
@@ -206,7 +212,8 @@ bool Compiler_compile(String* source, Compiler_Arguments arguments, Allocator* a
                 }
                 else
                 {
-                    fprintf(stdout, assembly->str);
+                    // @Note: Write out directly to prevent formatting bugs with register names in AT&T.
+                    fwrite(assembly->str, 1, assembly->length, stdout);
                 }
                 return true;
             }

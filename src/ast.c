@@ -72,14 +72,12 @@ static void pretty_print_operator(Token_Type operator, String_Builder* builder)
 
 static void pretty_print_unary(AST_Node* node, i32 indentation, String_Builder* builder)
 {
-    sb_append(builder, "Unary\t\n ");
-    
-    indentation++;
+    /* indentation++; */
     sb_indent(builder, indentation);
 
+    sb_append(builder, "(");
     pretty_print_operator(node->unary.operator, builder);
 
-    sb_append(builder, ",\n ");
     pretty_print_expression(node->unary.expression, indentation, builder);
     sb_append(builder, ")");
 }
@@ -250,7 +248,7 @@ static void pretty_print_declaration(AST_Node* declaration, i32 indentation, Str
 
         pretty_print_block(declaration->fun_decl.body, indentation, builder);
 
-        sb_append(builder, ")\n");
+        sb_append(builder, ")");
     }
     break;
     default: assert(false && "Not a declaration."); break;

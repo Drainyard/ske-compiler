@@ -1,6 +1,7 @@
 # Bugs
 - [ ] Bug in x86 codegen for functions. If return statement is missing (for any function) pop and ret won't be emitted
 - [ ] Handle dynamic arrays better in IR. Currently can't reallocate because I (stupidly) use pointers everywhere...
+- [ ] Returning nothing from 'main' will return a garbage exit code.
 
 - [x] Bug in IR virtual registers when reallocating the returned register is not marked as in-use
 - [x] Fix bug where 'rbx' register was accidentally output as 'rax' (both Intel and AT&T)

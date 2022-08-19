@@ -75,31 +75,31 @@ static i32 temp_table_find_entry(i32* keys, Scratch_Register* entries, i32 capac
 static void temp_table_adjust_capacity(Temp_Table* table, i32 capacity)
 {
     i32 *new_keys = malloc(sizeof(i32) * capacity);
-        Scratch_Register* new_entries = malloc(sizeof(Scratch_Register) * capacity);
+    Scratch_Register* new_entries = malloc(sizeof(Scratch_Register) * capacity);
 
-        for (i32 i = 0; i < capacity; i++)
-        {
-            new_keys[i] = -1;
-            new_entries[i] = SCRATCH_COUNT;
-        }
+    for (i32 i = 0; i < capacity; i++)
+    {
+        new_keys[i] = -1;
+        new_entries[i] = SCRATCH_COUNT;
+    }
         
-        table->count = 0;
-        for (i32 i = 0; i < table->capacity; i++)
-        {
-            i32 old_key = table->keys[i];
-            Scratch_Register old_reg = table->entries[i];
+    table->count = 0;
+    for (i32 i = 0; i < table->capacity; i++)
+    {
+        i32 old_key = table->keys[i];
+        Scratch_Register old_reg = table->entries[i];
 
-            if (old_reg == SCRATCH_COUNT) continue;
+        if (old_reg == SCRATCH_COUNT) continue;
 
-            i32 index = temp_table_find_entry(new_keys, new_entries, capacity, old_key);
-            new_keys[index] = table->keys[i];
-            new_entries[index] = table->entries[i];
-            table->count++;
-        }
+        i32 index = temp_table_find_entry(new_keys, new_entries, capacity, old_key);
+        new_keys[index] = table->keys[i];
+        new_entries[index] = table->entries[i];
+        table->count++;
+    }
 
-        table->capacity = capacity;
-        table->entries  = new_entries;
-        table->keys     = new_keys;
+    table->capacity = capacity;
+    table->entries  = new_entries;
+    table->keys     = new_keys;
 }
 
 static bool temp_table_set(Temp_Table *table, i32 key, Scratch_Register reg)
@@ -605,6 +605,283 @@ void X64_emit_move_lit_to_reg(String_Builder* sb, i32 num, Register dst)
 #endif
 }
 
+void X64_emit_move(String_Builder* sb, IR_Move* move, IR_Program* program, Temp_Table* temp_table, Scratch_Register_Table* table)
+{
+    IR_Value* src = &move->src;
+    IR_Location* dst = &move->dst;
+
+    switch(src->type)
+    {
+    case VALUE_LOCATION:
+    {
+        if(dst->type == IR_LOCATION_REGISTER && src->loc.type == IR_LOCATION_REGISTER)
+        {
+            Scratch_Register src_reg = get_or_add_scratch_from_temp(temp_table, src->loc.reg, table);
+            Scratch_Register dst_reg = get_or_add_scratch_from_temp(temp_table, dst->reg, table);                           
+            X64_emit_move_reg_to_reg(sb, scratch_to_register(src_reg), scratch_to_register(dst_reg));
+        }
+    }
+    break;
+    case VALUE_INT:
+    {
+        if(dst->type == IR_LOCATION_REGISTER)
+        {
+            Scratch_Register reg = get_or_add_scratch_from_temp(temp_table, dst->reg, table);
+            X64_emit_move_lit_to_reg(sb, src->integer, scratch_to_register(reg));
+        }
+    }
+    break;
+    case VALUE_VARIABLE:
+    {
+                        
+    }
+    break;
+    }
+}
+
+void X64_emit_instruction(String_Builder* sb, IR_Instruction* instruction, IR_Program* program, Temp_Table* temp_table, Scratch_Register_Table* table)
+{
+    switch(instruction->type)
+    {
+    case IR_INS_RET:
+    {
+        IR_Return* ret = &instruction->ret;
+        if (ret->has_return_value)
+        {
+            Scratch_Register return_reg = get_or_add_scratch_from_temp(temp_table, ret->return_register, table);
+            X64_emit_move_reg_to_reg(sb, scratch_to_register(return_reg), REG_RAX); // calling convention defined return
+        }
+        X64_emit_pop_reg(sb, REG_RBP);
+        X64_emit_ret(sb);
+    }
+    break;
+    case IR_INS_CALL:
+    {
+        IR_Call* call = &instruction->call;
+        String_View* name = IR_get_function_name(program, call->function_index);
+        X64_emit_call(sb, name->string->str);
+    }
+    break;
+    case IR_INS_MOV:
+    {
+        IR_Move* move = &instruction->move;
+        X64_emit_move(sb, move, program, temp_table, table);        
+    }
+    break;
+    case IR_INS_PUSH:
+    {
+        IR_Push* push = &instruction->push;
+        IR_Value* value = &push->value;
+
+        switch(value->type)
+        {
+        case VALUE_LOCATION:
+        {
+            Scratch_Register reg = get_or_add_scratch_from_temp(temp_table, value->loc.reg, table);
+            X64_emit_push_reg(sb, scratch_to_register(reg));
+        }
+        break;
+        case VALUE_VARIABLE:
+        {
+                        
+        }
+        break;
+        default: break;
+        }
+    }
+    break;
+    case IR_INS_POP:
+    {
+        IR_Pop* pop = &instruction->pop;
+        IR_Value* value = &pop->value;
+
+        switch(value->type)
+        {
+        case VALUE_LOCATION:
+        {
+            Scratch_Register reg = get_or_add_scratch_from_temp(temp_table, value->loc.reg, table);
+            X64_emit_push_reg(sb, scratch_to_register(reg));
+        }
+        break;
+        case VALUE_VARIABLE:
+        {
+                        
+        }
+        break;
+        default: break;
+        }
+    }
+    break;
+    case IR_INS_JUMP:
+    {
+        IR_Jump* jump = &instruction->jump;
+        sb_indent(sb, ASM_OUT_INDENT);
+        switch(jump->type)
+        {
+        case JMP_ALWAYS:
+        {
+            sb_append(sb, "jmp      ");
+        }
+        break;
+        case JMP_EQUAL:
+        {
+            sb_append(sb, "je       ");
+        }
+        break;
+        case JMP_ZERO:
+        {
+            sb_append(sb, "jz       ");
+        }
+        break;
+        case JMP_NOT_EQUAL:
+        {
+            sb_append(sb, "jne      ");
+        }
+        break;
+        case JMP_NOT_ZERO:
+        {
+            sb_append(sb, "jnz      ");
+        }
+        break;
+        case JMP_LESS:
+        {
+            sb_append(sb, "jl       ");
+        }
+        break;
+        case JMP_LESS_EQUAL:
+        {
+            sb_append(sb, "jle      ");
+        }
+        break;
+        case JMP_GREATER:
+        {
+            sb_append(sb, "jg       ");
+        }
+        break;
+        case JMP_GREATER_EQUAL:
+        {
+            sb_append(sb, "jge      ");
+        }
+        break;
+        }
+
+        IR_Block* block = IR_get_block(program, jump->address);
+        IR_Node* node = IR_get_node(block, 0);
+        IR_Label* label = &node->label;
+                    
+        sb_appendf(sb, "%s\n", label->label_name->str);
+    }
+    break;
+    case IR_INS_UNOP:
+    {
+        IR_UnOp* unop = &instruction->unop;
+        IR_Value* value = &unop->value;
+
+        IR_Register ir_reg = value->loc.reg;
+
+        Scratch_Register s_reg = get_or_add_scratch_from_temp(temp_table, ir_reg, table);
+        Register reg = scratch_to_register(s_reg);
+
+        X64_emit_unary(sb, reg);
+    }
+    break;
+    case IR_INS_BINOP:
+    {
+        IR_BinOp* binop = &instruction->binop;
+        IR_Value* left = &binop->left;
+        IR_Value* right = &binop->right;
+
+        IR_Register ir_left_reg = left->loc.reg;
+        IR_Register ir_right_reg = right->loc.reg;
+
+        Scratch_Register s_left_reg = get_or_add_scratch_from_temp(temp_table, ir_left_reg, table);
+        Scratch_Register s_right_reg = get_or_add_scratch_from_temp(temp_table, ir_right_reg, table);
+        Register left_reg = scratch_to_register(s_left_reg);
+        Register right_reg = scratch_to_register(s_right_reg);
+
+        switch(binop->operator)
+        {
+        case OP_ADD:
+        {
+            X64_emit_add(sb, left_reg, right_reg);
+        }
+        break;
+        case OP_SUB:
+        {
+            X64_emit_sub(sb, right_reg, left_reg);
+            Register temp = right_reg;
+            right_reg = left_reg;
+            left_reg = temp;
+
+            IR_Register temp_ir = ir_right_reg;
+            ir_right_reg = ir_left_reg;
+            ir_left_reg = temp_ir;
+        }
+        break;
+        case OP_MUL:
+        {
+            X64_emit_mul(sb, left_reg, right_reg);
+        }
+        break;
+        case OP_DIV:
+        {
+            X64_emit_div(sb, left_reg, right_reg);
+        }
+        break;
+        case OP_BIT_OR:
+        {}
+        break;
+        case OP_BIT_AND:
+        {}
+        break;
+        case OP_ASSIGN:
+        {}
+        break;
+
+        default: compiler_bug("Unsupported operator for binary operation."); break;
+        }
+
+        /* free_temp_scratch(temp_table, ir_left_reg, table); */
+    }
+    break;
+    case IR_INS_COMPARE:
+    {                    
+        IR_Compare* compare = &instruction->compare;
+
+        switch(compare->operator)
+        {
+        case OP_EQUAL:
+        case OP_OR:
+        case OP_AND:
+        case OP_LESS:
+        case OP_GREATER:
+        case OP_LESS_EQUAL:
+        case OP_GREATER_EQUAL:
+        case OP_NOT_EQUAL:
+        break;
+        default: compiler_bug("Unsupported operator for comparison operation."); break;
+        }
+
+        IR_Value left = compare->left;
+        IR_Location right = compare->right;
+
+        if(left.type == VALUE_INT)
+        {
+            X64_emit_cmp_lit_to_loc(sb, left.integer, right, table, temp_table);
+        }
+        else if (left.type == VALUE_LOCATION)
+        {
+            X64_emit_cmp_loc_to_loc(sb, left.loc, right, table, temp_table);
+            free_temp_scratch(temp_table, left.loc.reg, table);
+        }
+
+        free_temp_scratch(temp_table, right.reg, table);
+    }
+    break;
+    default: compiler_bug("Unhandled IR instruction, was %s", IR_instruction_type_to_string(instruction)); break;
+    }
+}
+
 void X64_emit_ret(String_Builder* sb)
 {
     sb_indent(sb, ASM_OUT_INDENT);
@@ -719,6 +996,7 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
         for (i32 j = 0; j < block->node_array.count; j++)
         {
             IR_Node* node = &block->node_array.nodes[j];
+
             switch(node->type)
             {
             case IR_NODE_FUNCTION_DECL:
@@ -738,278 +1016,9 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
             case IR_NODE_INSTRUCTION:
             {
                 IR_Instruction* instruction = &node->instruction;
-
-                switch(instruction->type)
-                {
-                case IR_INS_RET:
-                {
-                    IR_Return* ret = &instruction->ret;
-                    if (ret->has_return_value)
-                    {
-                        Scratch_Register return_reg = get_or_add_scratch_from_temp(&temp_table, ret->return_register, &table);
-                        X64_emit_move_reg_to_reg(&sb, scratch_to_register(return_reg), REG_RAX); // calling convention defined return
-                    }
-                    X64_emit_pop_reg(&sb, REG_RBP);
-                    X64_emit_ret(&sb);
-                }
-                break;
-                case IR_INS_CALL:
-                {
-                    IR_Call* call = &instruction->call;
-                    String_View* name = IR_get_function_name(program, call->function_index);
-                    X64_emit_call(&sb, name->string->str);
-                }
-                break;
-                case IR_INS_MOV:
-                {
-                    IR_Move* move = &instruction->move;
-
-                    IR_Value* src = &move->src;
-                    IR_Location* dst = &move->dst;
-
-                    switch(src->type)
-                    {
-                    case VALUE_LOCATION:
-                    {
-                        if(dst->type == IR_LOCATION_REGISTER && src->loc.type == IR_LOCATION_REGISTER)
-                        {
-                            Scratch_Register src_reg = get_or_add_scratch_from_temp(&temp_table, src->loc.reg, &table);
-                            Scratch_Register dst_reg = get_or_add_scratch_from_temp(&temp_table, dst->reg, &table);
-                            X64_emit_move_reg_to_reg(&sb, scratch_to_register(src_reg), scratch_to_register(dst_reg));
-                        }
-                    }
-                    break;
-                    case VALUE_INT:
-                    {
-                        if(dst->type == IR_LOCATION_REGISTER)
-                        {
-                            Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, dst->reg, &table);
-                            X64_emit_move_lit_to_reg(&sb, src->integer, scratch_to_register(reg));
-                        }
-                    }
-                    break;
-                    case VALUE_VARIABLE:
-                    {
-                        
-                    }
-                    break;
-                    }
-                }
-                break;
-                case IR_INS_PUSH:
-                {
-                    IR_Push* push = &instruction->push;
-                    IR_Value* value = &push->value;
-
-                    switch(value->type)
-                    {
-                    case VALUE_LOCATION:
-                    {
-                        Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, value->loc.reg, &table);
-                        X64_emit_push_reg(&sb, scratch_to_register(reg));
-                    }
-                    break;
-                    case VALUE_VARIABLE:
-                    {
-                        
-                    }
-                    break;
-                    default: break;
-                    }
-                }
-                break;
-                case IR_INS_POP:
-                {
-                    IR_Pop* pop = &instruction->pop;
-                    IR_Value* value = &pop->value;
-
-                    switch(value->type)
-                    {
-                    case VALUE_LOCATION:
-                    {
-                        Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, value->loc.reg, &table);
-                        X64_emit_push_reg(&sb, scratch_to_register(reg));
-                    }
-                    break;
-                    case VALUE_VARIABLE:
-                    {
-                        
-                    }
-                    break;
-                    default: break;
-                    }
-                }
-                break;
-                case IR_INS_JUMP:
-                {
-                    IR_Jump* jump = &instruction->jump;
-                    sb_indent(&sb, ASM_OUT_INDENT);
-                    switch(jump->type)
-                    {
-                    case JMP_ALWAYS:
-                    {
-                        sb_append(&sb, "jmp      ");
-                    }
-                    break;
-                    case JMP_EQUAL:
-                    {
-                        sb_append(&sb, "je       ");
-                    }
-                    break;
-                    case JMP_ZERO:
-                    {
-                        sb_append(&sb, "jz       ");
-                    }
-                    break;
-                    case JMP_NOT_EQUAL:
-                    {
-                        sb_append(&sb, "jne      ");
-                    }
-                    break;
-                    case JMP_NOT_ZERO:
-                    {
-                        sb_append(&sb, "jnz      ");
-                    }
-                    break;
-                    case JMP_LESS:
-                    {
-                        sb_append(&sb, "jl       ");
-                    }
-                    break;
-                    case JMP_LESS_EQUAL:
-                    {
-                        sb_append(&sb, "jle      ");
-                    }
-                    break;
-                    case JMP_GREATER:
-                    {
-                        sb_append(&sb, "jg       ");
-                    }
-                    break;
-                    case JMP_GREATER_EQUAL:
-                    {
-                        sb_append(&sb, "jge      ");
-                    }
-                    break;
-                    }
-
-                    IR_Block* block = IR_get_block(program, jump->address);
-                    IR_Node* node = IR_get_node(block, 0);
-                    IR_Label* label = &node->label;
-                    
-                    sb_appendf(&sb, "%s\n", label->label_name->str);
-                }
-                break;
-                case IR_INS_UNOP:
-                {
-                    IR_UnOp* unop = &instruction->unop;
-                    IR_Value* value = &unop->value;
-
-                    IR_Register ir_reg = value->loc.reg;
-
-                    Scratch_Register reg = get_or_add_scratch_from_temp(&temp_table, ir_reg, &table);
-
-                    X64_emit_unary(&sb, reg);
-                }
-                break;
-                case IR_INS_BINOP:
-                {
-                    IR_BinOp* binop = &instruction->binop;
-                    IR_Value* left = &binop->left;
-                    IR_Value* right = &binop->right;
-
-                    IR_Register ir_left_reg = left->loc.reg;
-                    IR_Register ir_right_reg = right->loc.reg;
-
-                    Scratch_Register s_left_reg = get_or_add_scratch_from_temp(&temp_table, ir_left_reg, &table);
-                    Scratch_Register s_right_reg = get_or_add_scratch_from_temp(&temp_table, ir_right_reg, &table);
-                    Register left_reg = scratch_to_register(s_left_reg);
-                    Register right_reg = scratch_to_register(s_right_reg);
-
-                    switch(binop->operator)
-                    {
-                    case OP_ADD:
-                    {
-                        X64_emit_add(&sb, left_reg, right_reg);
-                    }
-                    break;
-                    case OP_SUB:
-                    {
-                        X64_emit_sub(&sb, left_reg, right_reg);
-                        i32 temp = right_reg;
-                        right_reg = left_reg;
-                        left_reg = temp;
-
-                        IR_Register temp_ir = ir_right_reg;
-                        ir_right_reg = ir_left_reg;
-                        ir_left_reg = temp_ir;
-                    }
-                    break;
-                    case OP_MUL:
-                    {
-                        X64_emit_mul(&sb, left_reg, right_reg);
-                    }
-                    break;
-                    case OP_DIV:
-                    {
-                        X64_emit_div(&sb, left_reg, right_reg);
-                    }
-                    break;
-                    case OP_BIT_OR:
-                    {}
-                    break;
-                    case OP_BIT_AND:
-                    {}
-                    break;
-                    case OP_ASSIGN:
-                    {}
-                    break;
-
-                    default: compiler_bug("Unsupported operator for binary operation."); break;
-                    }
-
-                    free_temp_scratch(&temp_table, ir_left_reg, &table);
-                }
-                break;
-                case IR_INS_COMPARE:
-                {                    
-                    IR_Compare* compare = &instruction->compare;
-
-                    switch(compare->operator)
-                    {
-                    case OP_EQUAL:
-                    case OP_OR:
-                    case OP_AND:
-                    case OP_LESS:
-                    case OP_GREATER:
-                    case OP_LESS_EQUAL:
-                    case OP_GREATER_EQUAL:
-                    case OP_NOT_EQUAL:
-                    break;
-                    default: compiler_bug("Unsupported operator for comparison operation."); break;
-                    }
-
-                    IR_Value left = compare->left;
-                    IR_Location right = compare->right;
-
-                    if(left.type == VALUE_INT)
-                    {
-                        X64_emit_cmp_lit_to_loc(&sb, left.integer, right, &table, &temp_table);
-                    }
-                    else if (left.type == VALUE_LOCATION)
-                    {
-                        X64_emit_cmp_loc_to_loc(&sb, left.loc, right, &table, &temp_table);
-                        free_temp_scratch(&temp_table, left.loc.reg, &table);
-                    }
-
-                    free_temp_scratch(&temp_table, right.reg, &table);
-                }
-                break;
-                default: compiler_bug("Unhandled IR instruction, was %s", IR_instruction_type_to_string(instruction)); break;
+                X64_emit_instruction(&sb, instruction, program, &temp_table, &table);
             }
             break;
-            }
-            default: break;
             }
         }
     }
