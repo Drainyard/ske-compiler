@@ -43,14 +43,19 @@ String string_create(char* nt_str)
     return string;
 }
 
-void string_set(String* string, char* value)
+void string_set_length(String* string, char* value, size_t length)
 {
-    size_t length = strlen(value);
     for(int i = 0; i < length; i++)
     {
         string->str[i] = value[i];
     }
     string->str[length] = '\0';
+}
+
+void string_set(String* string, char* value)
+{
+    size_t length = strlen(value);
+    string_set_length(string, value, length);
 }
 
 #define STRING_SIZE(length) (sizeof(String) + length + 1)

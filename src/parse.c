@@ -121,7 +121,7 @@ static AST_Node* Parser_precedence(Parser* parser, Precedence precedence, AST_No
 
 static AST_Node* Parser_number(Parser* parser, AST_Node* previous, AST_Node* parent)
 {
-    i32 value = strtol(parser->previous.start, NULL, 10);
+    i64 value = strtol(parser->previous.start, NULL, 10);
     AST_Node* number_node = Parser_add_node(AST_NODE_LITERAL, parent, parser->allocator);
     AST_Literal* lit = &number_node->literal;
     lit->i = value;
@@ -130,11 +130,58 @@ static AST_Node* Parser_number(Parser* parser, AST_Node* previous, AST_Node* par
     return number_node;
 }
 
-static AST_Node* Parser_variable(Parser* parser, AST_Node* previous, AST_Node* parent)
+static Type_Specifier Parser_check_type_specifier(Token type_token)
 {
-    //Token identifier = parser->current;
-    /* Parser_advance(parser); */
-    return NULL;
+    if (type_token.length == 0) compiler_bug("Zero length type spec");
+    
+    if (type_token.start[0] == 'i')
+    {
+        if (type_token.length != 3)
+        {
+            compiler_bug("Type specifier token is invalid: %.*s", type_token.length, type_token.start);
+        }
+        
+        if (type_token.start[1] == 'n' && type_token.start[2] == 't')
+        {
+            return TYPE_SPEC_INT;
+        }
+    }
+    return TYPE_SPEC_INVALID;
+}
+
+static AST_Node* Parser_variable(Parser* parser, AST_Node* previous, AST_Node* parent, const char* error_message)
+{
+    Parser_consume(parser, TOKEN_IDENTIFIER, error_message);
+    AST_Node* variable = NULL;
+    Token* identifier = &parser->previous;
+
+    if (parent->type == AST_NODE_FUN_DECL)
+    {
+        if (!Parser_check(parser, TOKEN_COLON))
+        {
+            compiler_bug("Function argument missing type %.*s", identifier->length, identifier->start);
+        }
+        Parser_advance(parser);
+        // @Note: Function parameter
+        variable = Parser_add_node(AST_NODE_FUNCTION_ARGUMENT, parent, parser->allocator);
+        variable->fun_argument.name = string_allocate_empty(identifier->length, parser->allocator);
+        string_set_length(variable->fun_argument.name, identifier->start, identifier->length);
+
+        if (!Parser_check(parser, TOKEN_IDENTIFIER))
+        {
+            compiler_bug("Expected identifier, found: %s", token_type_to_string(parser->current.type));
+        }
+        Parser_advance(parser);
+        Token* type = &parser->previous;
+        variable->fun_argument.type = Parser_add_node(AST_NODE_TYPE_SPECIFIER, variable, parser->allocator);
+        variable->fun_argument.type->type_specifier.type = Parser_check_type_specifier(*type);
+        
+    }
+    else
+    {
+    }
+    
+    return variable;
 }
 
 static AST_Node* Parser_string(Parser* parser, AST_Node* previous, AST_Node* parent)
@@ -168,6 +215,14 @@ static AST_Node* Parser_block(Parser* parser, AST_Node* parent)
     return block;
 }
 
+static AST_Node* Parser_named_variable(Parser* parser, AST_Node* previous, AST_Node* parent)
+{
+    AST_Node* variable = Parser_add_node(AST_NODE_VARIABLE, parent, parser->allocator);
+    variable->variable.variable_name = string_allocate_empty(parser->previous.length, parser->allocator);
+    string_set_length(variable->variable.variable_name, parser->previous.start, parser->previous.length);
+    return variable;
+}
+
 static AST_Node* Parser_fun_declaration(Parser* parser, Token* identifier, AST_Node* parent)
 {
     AST_Node* fun_node = Parser_add_node(AST_NODE_FUN_DECL, parent, parser->allocator);
@@ -179,8 +234,13 @@ static AST_Node* Parser_fun_declaration(Parser* parser, Token* identifier, AST_N
 
     if (!Parser_check(parser, TOKEN_RIGHT_PAREN))
     {
-        // @Incomplete: Handle arguments here
-        assert(false);
+        AST_Node_List* argument_list = &fun_node->fun_decl.arguments;
+        do
+        {
+            AST_node_list_add(argument_list, Parser_variable(parser, NULL, fun_node, "Expect parameter name in function argument list."));
+        } while (Parser_match(parser, TOKEN_COMMA));
+        
+        /* not_implemented("Function declarations with arguments"); */
     }
 
     Parser_consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
@@ -360,28 +420,20 @@ static AST_Node* Parser_grouping(Parser* parser, AST_Node* previous, AST_Node* p
     return grouping;
 }
 
-static AST_Node* Parser_argument_list(Parser* parser, AST_Node* previous, AST_Node* parent)
+static void Parser_argument_list(Parser* parser, AST_Node* previous, AST_Node* parent)
 {
-    u8 arg_count = 0;
-    AST_Node* argument_list = Parser_add_node(AST_NODE_ARGUMENT_LIST, parent, parser->allocator);
-    argument_list->argument_list.arguments = parser->allocator->allocate(parser->allocator, sizeof(AST_Node) * 16);
-    
     if (!Parser_check(parser, TOKEN_RIGHT_PAREN))
     {
         do
         {
-            argument_list->argument_list.arguments[arg_count] = Parser_expression(parser, parent);
-            if (arg_count == 255)
+            AST_node_list_add(&parent->fun_call.arguments, Parser_expression(parser, parent));
+            if (parent->fun_call.arguments.count == 255)
             {
                 Parser_error(parser, "Can't have more than 255 arguments.");
             }
-            arg_count++;
         } while (Parser_match(parser, TOKEN_COMMA));
     }
-    argument_list->argument_list.count = arg_count;
     Parser_consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after arguments.");
-
-    return argument_list;
 }
 
 static AST_Node* Parser_call(Parser* parser, AST_Node* previous, AST_Node* parent)
@@ -391,7 +443,7 @@ static AST_Node* Parser_call(Parser* parser, AST_Node* previous, AST_Node* paren
     call->fun_call.name = string_allocate_empty(prev.length, parser->allocator);
     sprintf(call->fun_call.name->str, "%.*s", prev.length, prev.start);
     Parser_advance(parser);
-    call->fun_call.arguments = Parser_argument_list(parser, NULL, call);
+    Parser_argument_list(parser, NULL, call);
     return call;
 }
 

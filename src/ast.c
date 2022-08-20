@@ -20,6 +20,10 @@ static char* AST_type_string(AST_Node_Type type)
     return "AST function declaration";
     case AST_NODE_ARGUMENT_LIST:
     return "AST argument list";
+    case AST_NODE_FUNCTION_ARGUMENT:
+    return "AST function argument";
+    case AST_NODE_VARIABLE:
+    return "AST variable";
     case AST_NODE_CALL:
     return "AST call";
     case AST_NODE_RETURN:
@@ -126,6 +130,21 @@ static void pretty_print_string(AST_Node* string, i32 indentation, String_Builde
     sb_appendf(builder, "%.*s", string->string->length, string->string->str);
 }
 
+static void pretty_print_call(AST_Node* call, i32 indentation, String_Builder* builder)
+{
+    sb_indent(builder, indentation);
+    sb_appendf(builder, "(call %s", call->fun_call.name->str);
+
+    AST_Node_List* arguments = &call->fun_call.arguments;
+    for (i32 i = 0; i < arguments->count; i++)
+    {
+        AST_Node* argument = arguments->nodes[i];
+        pretty_print_expression(argument, 0, builder);
+        sb_append(builder, " ");
+    }
+    sb_append(builder, ")");
+}
+
 static void pretty_print_expression(AST_Node* node, i32 indentation, String_Builder* builder)
 {
     switch(node->type)
@@ -150,9 +169,19 @@ static void pretty_print_expression(AST_Node* node, i32 indentation, String_Buil
         pretty_print_string(node, 0, builder);
     }
     break;
+    case AST_NODE_VARIABLE:
+    {
+        sb_appendf(builder, "%s", node->variable.variable_name->str);
+    }
+    break;
+    case AST_NODE_CALL:
+    {
+        pretty_print_call(node, 0, builder);
+    }
+    break;
     default:
     {
-        compiler_bug("Unsupported node type %s\n", AST_type_string(node->type));
+        compiler_bug("AST pretty printer: Unsupported node type %s\n", AST_type_string(node->type));
         assert(false);
     }
     break;
@@ -198,17 +227,18 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
     break;
     case AST_NODE_CALL:
     {
-        sb_indent(builder, indentation);
-        sb_appendf(builder, "(call %s", statement->fun_call.name->str);
+        pretty_print_call(statement, indentation, builder);
+        /* sb_indent(builder, indentation); */
+        /* sb_appendf(builder, "(call %s", statement->fun_call.name->str); */
 
-        AST_Node* arguments = statement->fun_call.arguments;
-        for (i32 i = 0; i < arguments->argument_list.count; i++)
-        {
-            AST_Node* argument = arguments->argument_list.arguments[i];
-            pretty_print_expression(argument, 0, builder);
-            sb_append(builder, " ");
-        }
-        sb_append(builder, ")");
+        /* AST_Node_List* arguments = &statement->fun_call.arguments; */
+        /* for (i32 i = 0; i < arguments->count; i++) */
+        /* { */
+        /*     AST_Node* argument = arguments->nodes[i]; */
+        /*     pretty_print_expression(argument, 0, builder); */
+        /*     sb_append(builder, " "); */
+        /* } */
+        /* sb_append(builder, ")"); */
     }
     break;
     case AST_NODE_BLOCK:
@@ -237,7 +267,16 @@ static void pretty_print_declaration(AST_Node* declaration, i32 indentation, Str
     case AST_NODE_FUN_DECL:
     {
         sb_indent(builder, indentation);
-        sb_appendf(builder, "(fun %s ()", declaration->fun_decl.name->str);
+        sb_appendf(builder, "(fun %s (", declaration->fun_decl.name->str);
+
+        AST_Node_List* argument_list = &declaration->fun_decl.arguments;
+        for (i32 i = 0; i < argument_list->count; i++)
+        {
+            /* AST_Node* argument = argument_list->nodes[i]; */
+            
+        }
+
+        sb_append(builder, ")");
 
         AST_Node_List block = declaration->fun_decl.body->block.declarations;
 

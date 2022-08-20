@@ -8,6 +8,8 @@ typedef enum
     AST_NODE_FUN_DECL,
     AST_NODE_CALL,
     AST_NODE_ARGUMENT_LIST,
+    AST_NODE_FUNCTION_ARGUMENT,
+    AST_NODE_VARIABLE,
     AST_NODE_IF,
     AST_NODE_RETURN,
     AST_NODE_BLOCK,
@@ -22,13 +24,16 @@ typedef enum
 typedef enum
 {
     TYPE_SPEC_INT,
-    TYPE_SPEC_UNIT
+    TYPE_SPEC_UNIT,
+    TYPE_SPEC_INVALID
 } Type_Specifier;
+
+typedef struct AST_Node AST_Node;
 
 typedef struct  AST_Node_List AST_Node_List;
 struct AST_Node_List
 {
-    struct AST_Node** nodes;
+    AST_Node** nodes;
     i32 capacity;
     i32 count;
 };
@@ -45,8 +50,8 @@ struct AST_Literal
 
     union
     {
-        i32 i; // @Incomplete: Should be different int sizes at some point
-        f32 f;
+        i64 i; // @Incomplete: Should be different int sizes at some point
+        f64 f;
         String* s;
     };
 };
@@ -97,20 +102,24 @@ struct AST_Node
         } if_statement;
         struct
         {
+            String* variable_name;
+        } variable;
+        struct
+        {
             String* name;
             AST_Node* type_specifier;
-            AST_Node* arguments;
+            AST_Node_List arguments;
             AST_Node* body;
         } fun_decl;
         struct
         {
-            AST_Node** arguments;
-            i32 count;
-        } argument_list;
+            String* name;
+            AST_Node* type; // @Incomplete: Should this be something typesafe?
+        } fun_argument;
         struct
         {
             String* name;
-            AST_Node* arguments;
+            AST_Node_List arguments;
         } fun_call;
         struct
         {
