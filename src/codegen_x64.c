@@ -181,7 +181,7 @@ static const char* instruction_name(Instruction instruction, Register dst_reg)
         case REG_SIZE_WORD: return INS_NAME_MOV REG_SUFFIX_WORD;
         case REG_SIZE_LONG: return INS_NAME_MOV REG_SUFFIX_LONG;
         case REG_SIZE_QUAD: return INS_NAME_MOV REG_SUFFIX_QUAD;
-        default: compiler_bug("Should not happen.");
+        default: COMPILER_BUG("Should not happen.");
         }
     }
     case INS_PUSH:
@@ -192,7 +192,7 @@ static const char* instruction_name(Instruction instruction, Register dst_reg)
         case REG_SIZE_WORD: return INS_NAME_PUSH REG_SUFFIX_WORD;
         case REG_SIZE_LONG: return INS_NAME_PUSH REG_SUFFIX_LONG;
         case REG_SIZE_QUAD: return INS_NAME_PUSH REG_SUFFIX_QUAD;
-        default: compiler_bug("Should not happen.");
+        default: COMPILER_BUG("Should not happen.");
         }
     }
     case INS_POP:
@@ -203,7 +203,7 @@ static const char* instruction_name(Instruction instruction, Register dst_reg)
         case REG_SIZE_WORD: return INS_NAME_POP REG_SUFFIX_WORD;
         case REG_SIZE_LONG: return INS_NAME_POP REG_SUFFIX_LONG;
         case REG_SIZE_QUAD: return INS_NAME_POP REG_SUFFIX_QUAD;
-        default: compiler_bug("Should not happen.");
+        default: COMPILER_BUG("Should not happen.");
         }
     }
     case INS_ADD:
@@ -214,7 +214,7 @@ static const char* instruction_name(Instruction instruction, Register dst_reg)
         case REG_SIZE_WORD: return INS_NAME_ADD REG_SUFFIX_WORD;
         case REG_SIZE_LONG: return INS_NAME_ADD REG_SUFFIX_LONG;
         case REG_SIZE_QUAD: return INS_NAME_ADD REG_SUFFIX_QUAD;
-        default: compiler_bug("Should not happen.");
+        default: COMPILER_BUG("Should not happen.");
         }
     }
     case INS_SUB:
@@ -225,7 +225,7 @@ static const char* instruction_name(Instruction instruction, Register dst_reg)
         case REG_SIZE_WORD: return INS_NAME_SUB REG_SUFFIX_WORD;
         case REG_SIZE_LONG: return INS_NAME_SUB REG_SUFFIX_LONG;
         case REG_SIZE_QUAD: return INS_NAME_SUB REG_SUFFIX_QUAD;
-        default: compiler_bug("Should not happen.");
+        default: COMPILER_BUG("Should not happen.");
         }
     }
     case INS_MUL:
@@ -236,7 +236,7 @@ static const char* instruction_name(Instruction instruction, Register dst_reg)
         case REG_SIZE_WORD: return INS_NAME_MUL REG_SUFFIX_WORD;
         case REG_SIZE_LONG: return INS_NAME_MUL REG_SUFFIX_LONG;
         case REG_SIZE_QUAD: return INS_NAME_MUL REG_SUFFIX_QUAD;
-        default: compiler_bug("Should not happen.");
+        default: COMPILER_BUG("Should not happen.");
         }
     }
     case INS_DIV:
@@ -247,7 +247,7 @@ static const char* instruction_name(Instruction instruction, Register dst_reg)
         case REG_SIZE_WORD: return INS_NAME_DIV REG_SUFFIX_WORD;
         case REG_SIZE_LONG: return INS_NAME_DIV REG_SUFFIX_LONG;
         case REG_SIZE_QUAD: return INS_NAME_DIV REG_SUFFIX_QUAD;
-        default: compiler_bug("Should not happen.");
+        default: COMPILER_BUG("Should not happen.");
         }
     }
     case INS_CMP:
@@ -258,7 +258,7 @@ static const char* instruction_name(Instruction instruction, Register dst_reg)
         case REG_SIZE_WORD: return INS_NAME_CMP REG_SUFFIX_WORD;
         case REG_SIZE_LONG: return INS_NAME_CMP REG_SUFFIX_LONG;
         case REG_SIZE_QUAD: return INS_NAME_CMP REG_SUFFIX_QUAD;
-        default: compiler_bug("Should not happen.");
+        default: COMPILER_BUG("Should not happen.");
         }
     }
     case INS_RET:
@@ -273,7 +273,7 @@ static const char* instruction_name(Instruction instruction, Register dst_reg)
         case REG_SIZE_WORD: return INS_NAME_NEG REG_SUFFIX_WORD;
         case REG_SIZE_LONG: return INS_NAME_NEG REG_SUFFIX_LONG;
         case REG_SIZE_QUAD: return INS_NAME_NEG REG_SUFFIX_QUAD;
-        default: compiler_bug("Should not happen.");
+        default: COMPILER_BUG("Should not happen.");
         }
     }
     case INS_CQO:
@@ -288,14 +288,14 @@ static const char* instruction_name(Instruction instruction, Register dst_reg)
         case REG_SIZE_WORD: return INS_NAME_XOR REG_SUFFIX_WORD;
         case REG_SIZE_LONG: return INS_NAME_XOR REG_SUFFIX_LONG;
         case REG_SIZE_QUAD: return INS_NAME_XOR REG_SUFFIX_QUAD;
-        default: compiler_bug("Should not happen.");
+        default: COMPILER_BUG("Should not happen.");
         }
     }
     case INS_CALL:
     {
         return INS_NAME_CALL;
     }
-    default: compiler_bug("Invalid instruction.");
+    default: COMPILER_BUG("Invalid instruction.");
     
     }
 #endif
@@ -329,7 +329,7 @@ static Register scratch_to_register(Scratch_Register reg)
     return REG_R14;
     case SCRATCH_R15:
     return REG_R15;
-    default: compiler_bug("Invalid scratch register.");
+    default: COMPILER_BUG("Invalid scratch register.");
     }
 
     assert(false && "Should not happend.");
@@ -489,12 +489,12 @@ void X64_emit_setcc(String_Builder* sb, IR_Op operator, Register result_reg)
     break;
     case OP_OR:
     {
-        not_implemented("Binary or (||)");
+        NOT_IMPLEMENTED("Binary or (||)");
     }
     break;
     case OP_AND:
     {
-        not_implemented("Binary and (&&)");
+        NOT_IMPLEMENTED("Binary and (&&)");
     }
     break;
     case OP_LESS:
@@ -517,7 +517,7 @@ void X64_emit_setcc(String_Builder* sb, IR_Op operator, Register result_reg)
         instruction = "setge";
     }
     break;
-    default: compiler_bug("Comparison: Invalid operator.");
+    default: COMPILER_BUG("Comparison: Invalid operator.");
     }
 
     sb_appendf(sb, "%s   %s\n", instruction, register_names[REG_AL]);
@@ -544,19 +544,19 @@ void X64_emit_move_reg_to_reg(String_Builder* sb, Register src, Register dst)
 void X64_emit_move_reg_to_mem(String_Builder* sb, Register src, IR_Mem dst, 
                               Scratch_Register_Table* table, Temp_Table* temp_table)
 {
-    not_implemented("x86: Move reg to mem");
+    NOT_IMPLEMENTED("x86: Move reg to mem");
 }
 
 void X64_emit_move_mem_to_reg(String_Builder* sb, IR_Mem src, Register dst, 
                               Scratch_Register_Table* table, Temp_Table* temp_table)
 {
-    not_implemented("x86: Move mem to reg");
+    NOT_IMPLEMENTED("x86: Move mem to reg");
 }
 
 void X64_emit_move_mem_to_mem(String_Builder* sb, IR_Mem src, IR_Mem dst, 
                               Scratch_Register_Table* table, Temp_Table* temp_table)
 {
-    not_implemented("x86: Move mem to mem");
+    NOT_IMPLEMENTED("x86: Move mem to mem");
 }
 
 void X64_emit_move_loc_to_loc(String_Builder* sb, IR_Location src, IR_Location dst, 
@@ -838,7 +838,7 @@ void X64_emit_instruction(String_Builder* sb, IR_Instruction* instruction, IR_Pr
         {}
         break;
 
-        default: compiler_bug("Unsupported operator for binary operation."); break;
+        default: COMPILER_BUG("Unsupported operator for binary operation."); break;
         }
 
         /* free_temp_scratch(temp_table, ir_left_reg, table); */
@@ -859,7 +859,7 @@ void X64_emit_instruction(String_Builder* sb, IR_Instruction* instruction, IR_Pr
         case OP_GREATER_EQUAL:
         case OP_NOT_EQUAL:
         break;
-        default: compiler_bug("Unsupported operator for comparison operation."); break;
+        default: COMPILER_BUG("Unsupported operator for comparison operation."); break;
         }
 
         IR_Value left = compare->left;
@@ -878,7 +878,7 @@ void X64_emit_instruction(String_Builder* sb, IR_Instruction* instruction, IR_Pr
         free_temp_scratch(temp_table, right.reg, table);
     }
     break;
-    default: compiler_bug("Unhandled IR instruction, was %s", IR_instruction_type_to_string(instruction)); break;
+    default: COMPILER_BUG("Unhandled IR instruction, was %s", IR_instruction_type_to_string(instruction)); break;
     }
 }
 

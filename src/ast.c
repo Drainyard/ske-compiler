@@ -70,7 +70,7 @@ static void pretty_print_operator(Token_Type operator, String_Builder* builder)
     case TOKEN_GREATER:                 sb_append(builder, ">"); break;
     case TOKEN_GREATER_EQUAL:           sb_append(builder, ">="); break;
     case TOKEN_ERROR: sb_append(builder, "ERROR"); break;
-    default: compiler_bug("AST pretty printer: Unknown operator: %s", token_type_to_string(operator));
+    default: COMPILER_BUG("AST pretty printer: Unknown operator: %s", token_type_to_string(operator));
     }
 }
 
@@ -133,13 +133,18 @@ static void pretty_print_string(AST_Node* string, i32 indentation, String_Builde
 static void pretty_print_call(AST_Node* call, i32 indentation, String_Builder* builder)
 {
     sb_indent(builder, indentation);
-    sb_appendf(builder, "(call %s", call->fun_call.name->str);
+    sb_appendf(builder, "(call %s ", call->fun_call.name->str);
 
     AST_Node_List* arguments = &call->fun_call.arguments;
     for (i32 i = 0; i < arguments->count; i++)
     {
         AST_Node* argument = arguments->nodes[i];
         pretty_print_expression(argument, 0, builder);
+
+        if (i == arguments->count - 1)
+        {
+            break;
+        }
         sb_append(builder, " ");
     }
     sb_append(builder, ")");
@@ -181,8 +186,7 @@ static void pretty_print_expression(AST_Node* node, i32 indentation, String_Buil
     break;
     default:
     {
-        compiler_bug("AST pretty printer: Unsupported node type %s\n", AST_type_string(node->type));
-        assert(false);
+        COMPILER_BUG("AST pretty printer: Unsupported node type %s\n", AST_type_string(node->type));
     }
     break;
     }
@@ -228,17 +232,6 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
     case AST_NODE_CALL:
     {
         pretty_print_call(statement, indentation, builder);
-        /* sb_indent(builder, indentation); */
-        /* sb_appendf(builder, "(call %s", statement->fun_call.name->str); */
-
-        /* AST_Node_List* arguments = &statement->fun_call.arguments; */
-        /* for (i32 i = 0; i < arguments->count; i++) */
-        /* { */
-        /*     AST_Node* argument = arguments->nodes[i]; */
-        /*     pretty_print_expression(argument, 0, builder); */
-        /*     sb_append(builder, " "); */
-        /* } */
-        /* sb_append(builder, ")"); */
     }
     break;
     case AST_NODE_BLOCK:
@@ -246,7 +239,7 @@ static void pretty_print_statement(AST_Node* statement, i32 indentation, String_
         pretty_print_block(statement, indentation, builder);
     }
     break;
-    default: compiler_bug("Not a valid statement type %s.", AST_type_string(statement->type)); break;
+    default: COMPILER_BUG("Not a valid statement type %s.", AST_type_string(statement->type)); break;
     }
 }
 
@@ -260,6 +253,29 @@ static void pretty_print_block(AST_Node* block, i32 indentation, String_Builder*
     }
 }
 
+static void pretty_print_type_spec(AST_Node* type_spec, i32 indentation, String_Builder* builder)
+{
+    Type_Specifier spec = type_spec->type_specifier.type;
+    switch(spec)
+    {
+    case TYPE_SPEC_INT:
+    {
+        sb_append(builder, "int");
+    }
+    break;
+    case TYPE_SPEC_UNIT:
+    {
+        sb_append(builder, "unit");
+    }
+    break;
+    case TYPE_SPEC_INVALID:
+    {
+        sb_append(builder, "invalid");
+    }
+    break;
+    }
+}
+
 static void pretty_print_declaration(AST_Node* declaration, i32 indentation, String_Builder* builder)
 {
     switch(declaration->type)
@@ -267,22 +283,42 @@ static void pretty_print_declaration(AST_Node* declaration, i32 indentation, Str
     case AST_NODE_FUN_DECL:
     {
         sb_indent(builder, indentation);
-        sb_appendf(builder, "(fun %s (", declaration->fun_decl.name->str);
+        sb_appendf(builder, "(fun %s ", declaration->fun_decl.name->str);
 
+        sb_append(builder, "[");
+        
         AST_Node_List* argument_list = &declaration->fun_decl.arguments;
         for (i32 i = 0; i < argument_list->count; i++)
         {
-            /* AST_Node* argument = argument_list->nodes[i]; */
-            
-        }
+            AST_Node* argument = argument_list->nodes[i];
+            sb_appendf(builder, "%s : ", argument->fun_argument.name->str);
+            pretty_print_type_spec(argument->fun_argument.type, indentation, builder);
 
-        sb_append(builder, ")");
+            if (i < argument_list->count - 1)
+            {
+                sb_append(builder, ", ");
+            }
+        }
+        
+        sb_append(builder, "]");
+
+
+        sb_append(builder, " -> ");
+
+        if (declaration->fun_decl.return_type)
+        {
+            pretty_print_type_spec(declaration->fun_decl.return_type, indentation, builder);
+        }
+        else
+        {
+            sb_append(builder, "()");
+        }
 
         AST_Node_List block = declaration->fun_decl.body->block.declarations;
 
         if (block.count > 0)
         {
-            sb_append(builder, ",\n");
+            sb_append(builder, "\n");
         }
 
         pretty_print_block(declaration->fun_decl.body, indentation, builder);
@@ -306,6 +342,11 @@ static void pretty_print_program(AST_Node* program_node, i32 indentation, String
     {
         AST_Node* declaration = list.nodes[i];
         pretty_print_declaration(declaration, indentation, builder);
+
+        if (i < list.count - 1)
+        {
+            sb_append(builder, "\n");
+        }
     }
     
     /* pretty_print_expression(program_node->program.expression, indentation, builder); */

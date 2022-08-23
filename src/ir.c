@@ -24,12 +24,9 @@ IR_Register IR_register_alloc(IR_Register_Table* table)
 
 static void IR_error(char* format, ...)
 {
-    fprintf(stderr, "\x1b[1;31m");
     va_list(ap);
     va_start(ap, format);
-    vfprintf(stderr, format, ap);
-    va_end(ap);
-    fprintf(stderr, "\x1b[0m\n");
+    output_error(MAKE_LOCATION(), "IR", format, ap);
 
     exit(1);
 }
@@ -455,6 +452,11 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
 
         return reg;
     }
+    case AST_NODE_VARIABLE:
+    {
+        /* not_implemented("Variables not yet implemented in IR generation"); */
+    }
+    break;
     case AST_NODE_BINARY:
     {
         IR_Register left_reg = IR_translate_expression(node->binary.left, block, NULL, allocator, table);
@@ -584,11 +586,11 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
         break;
         default: IR_error("Unsupported operator for unary operations %s\n", token_type_to_string(operator));
         }
-        
         return reg;
     }
     default:
-    assert("Unsupported AST Node" && false);
+    IR_error("Unsupported AST node: %s", AST_type_string(node->type));
+    return (IR_Register){ .gpr_index = -1};
     }
 }
 
@@ -663,7 +665,7 @@ IR_Block* IR_translate_statement(IR_Block* block, AST_Node* statement, Allocator
                 new_block = IR_translate_statement(end_block, ast_else_arm, allocator, register_table);
             }
             break;
-            default: compiler_bug("Invalid statement type for else statement %s.", AST_type_string(ast_else_arm->type));
+            default: COMPILER_BUG("Invalid statement type for else statement %s.", AST_type_string(ast_else_arm->type));
             }
         }
         return new_block;                    
@@ -681,7 +683,7 @@ IR_Block* IR_translate_statement(IR_Block* block, AST_Node* statement, Allocator
         }
         else
         {
-            compiler_bug("Unknown function %s.", fun_name->str);
+            COMPILER_BUG("Unknown function %s.", fun_name->str);
         }
     }
     break;
@@ -692,7 +694,7 @@ IR_Block* IR_translate_statement(IR_Block* block, AST_Node* statement, Allocator
         IR_translate_expression(statement, block, NULL, allocator, register_table);
     }
     break;
-    default: compiler_bug("Invalid AST node type %s.", AST_type_string(statement->type));
+    default: COMPILER_BUG("Invalid AST node type %s.", AST_type_string(statement->type));
     }
 
     return block;
@@ -742,7 +744,7 @@ void IR_translate_program(IR_Program* program, AST_Node* ast_program, Allocator*
             IR_emit_instruction(block, IR_INS_RET);
         }
         break;
-        default: compiler_bug("Invalid AST node type %s.", AST_type_string(node->type));
+        default: COMPILER_BUG("Invalid AST node type %s.", AST_type_string(node->type));
         }
     }
 }

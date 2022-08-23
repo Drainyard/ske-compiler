@@ -107,7 +107,7 @@ struct AST_Node
         struct
         {
             String* name;
-            AST_Node* type_specifier;
+            AST_Node* return_type;
             AST_Node_List arguments;
             AST_Node* body;
         } fun_decl;

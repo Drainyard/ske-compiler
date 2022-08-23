@@ -114,7 +114,7 @@ bool Compiler_compile(String* source, Compiler_Arguments arguments, Allocator* a
 {
     if(source->length == 0)
     {
-        compiler_bug("Empty input\n");
+        COMPILER_BUG("Empty input\n");
         return false;
     }
     String* out_path = arguments.out_path;

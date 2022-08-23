@@ -19,6 +19,7 @@ char* token_type_to_string(Token_Type token)
     case TOKEN_SLASH:               return "/";
     case TOKEN_SEMICOLON:           return ";";
     case TOKEN_COMMA:               return ",";
+    case TOKEN_ARROW:               return "->";
     case TOKEN_BANG:                return "!";
     case TOKEN_BANG_EQUAL:          return "!=";
     case TOKEN_LESS:                return "<";
@@ -284,7 +285,11 @@ Token Lex_scan_token(Lexer* lexer)
     switch(c)
     {
     case '+': return Lex_make_token(lexer, TOKEN_PLUS);
-    case '-': return Lex_make_token(lexer, TOKEN_MINUS);
+    case '-':
+    {
+        if (Lex_match_character(lexer, '>')) return Lex_make_token(lexer, TOKEN_ARROW);
+        return Lex_make_token(lexer, TOKEN_MINUS);
+    }
     case '*': return Lex_make_token(lexer, TOKEN_STAR);
     case '/': return Lex_make_token(lexer, TOKEN_SLASH);
     case '|':
@@ -421,6 +426,11 @@ String* Lex_pretty_print(Token_List* list, Allocator* allocator)
         case TOKEN_SLASH:
         {
             sb_append(&sb, "SLASH('/')\n");
+        }
+        break;
+        case TOKEN_ARROW:
+        {
+            sb_append(&sb, "ARROW('->')\n");
         }
         break;
         case TOKEN_PIPE:

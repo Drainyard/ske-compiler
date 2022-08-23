@@ -24,7 +24,7 @@ void repl(Allocator* allocator)
         if (!result)
         {
             // TODO: Output errors?
-            compiler_bug("Compilation failed with errors\n");
+            COMPILER_BUG("Compilation failed with errors\n");
         }
     }
 }

@@ -15,6 +15,8 @@ typedef enum
     TOKEN_BANG,
     TOKEN_BANG_EQUAL,
 
+    TOKEN_ARROW,
+
     TOKEN_LESS,
     TOKEN_GREATER,
     TOKEN_LESS_EQUAL,

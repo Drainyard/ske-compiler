@@ -132,13 +132,13 @@ static AST_Node* Parser_number(Parser* parser, AST_Node* previous, AST_Node* par
 
 static Type_Specifier Parser_check_type_specifier(Token type_token)
 {
-    if (type_token.length == 0) compiler_bug("Zero length type spec");
+    if (type_token.length == 0) COMPILER_BUG("Zero length type spec");
     
     if (type_token.start[0] == 'i')
     {
         if (type_token.length != 3)
         {
-            compiler_bug("Type specifier token is invalid: %.*s", type_token.length, type_token.start);
+            COMPILER_BUG("Type specifier token is invalid: %.*s", type_token.length, type_token.start);
         }
         
         if (type_token.start[1] == 'n' && type_token.start[2] == 't')
@@ -153,23 +153,24 @@ static AST_Node* Parser_variable(Parser* parser, AST_Node* previous, AST_Node* p
 {
     Parser_consume(parser, TOKEN_IDENTIFIER, error_message);
     AST_Node* variable = NULL;
-    Token* identifier = &parser->previous;
+    Token identifier = parser->previous;
 
     if (parent->type == AST_NODE_FUN_DECL)
     {
         if (!Parser_check(parser, TOKEN_COLON))
         {
-            compiler_bug("Function argument missing type %.*s", identifier->length, identifier->start);
+            COMPILER_BUG("Function argument missing type %.*s", identifier.length, identifier.start);
         }
         Parser_advance(parser);
+
         // @Note: Function parameter
         variable = Parser_add_node(AST_NODE_FUNCTION_ARGUMENT, parent, parser->allocator);
-        variable->fun_argument.name = string_allocate_empty(identifier->length, parser->allocator);
-        string_set_length(variable->fun_argument.name, identifier->start, identifier->length);
+        variable->fun_argument.name = string_allocate_empty(identifier.length, parser->allocator);
+        string_set_length(variable->fun_argument.name, identifier.start, identifier.length);
 
         if (!Parser_check(parser, TOKEN_IDENTIFIER))
         {
-            compiler_bug("Expected identifier, found: %s", token_type_to_string(parser->current.type));
+            COMPILER_BUG("Expected identifier, found: %s", token_type_to_string(parser->current.type));
         }
         Parser_advance(parser);
         Token* type = &parser->previous;
@@ -217,6 +218,11 @@ static AST_Node* Parser_block(Parser* parser, AST_Node* parent)
 
 static AST_Node* Parser_named_variable(Parser* parser, AST_Node* previous, AST_Node* parent)
 {
+    if (Parser_check(parser, TOKEN_LEFT_PAREN))
+    {
+        return Parser_call(parser, previous, parent);
+    }
+    
     AST_Node* variable = Parser_add_node(AST_NODE_VARIABLE, parent, parser->allocator);
     variable->variable.variable_name = string_allocate_empty(parser->previous.length, parser->allocator);
     string_set_length(variable->variable.variable_name, parser->previous.start, parser->previous.length);
@@ -244,6 +250,17 @@ static AST_Node* Parser_fun_declaration(Parser* parser, Token* identifier, AST_N
     }
 
     Parser_consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+
+    if (Parser_check(parser, TOKEN_ARROW))
+    {
+        // @Note: Return type
+        Parser_advance(parser);
+        Token type = parser->current;
+        fun_node->fun_decl.return_type = Parser_add_node(AST_NODE_TYPE_SPECIFIER, fun_node, parser->allocator);
+        fun_node->fun_decl.return_type->type_specifier.type = Parser_check_type_specifier(type);
+        Parser_advance(parser);
+    }
+    
     Parser_consume(parser, TOKEN_LEFT_BRACE, "Expect '{' function body.");
 
     fun_node->fun_decl.body = Parser_block(parser, parent);
@@ -441,7 +458,7 @@ static AST_Node* Parser_call(Parser* parser, AST_Node* previous, AST_Node* paren
     AST_Node* call = Parser_add_node(AST_NODE_CALL, parent, parser->allocator);
     Token prev = parser->previous;
     call->fun_call.name = string_allocate_empty(prev.length, parser->allocator);
-    sprintf(call->fun_call.name->str, "%.*s", prev.length, prev.start);
+    string_set_length(call->fun_call.name, prev.start, prev.length);
     Parser_advance(parser);
     Parser_argument_list(parser, NULL, call);
     return call;

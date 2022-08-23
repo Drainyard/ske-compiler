@@ -12,7 +12,7 @@ String* create_temp_file(Allocator* allocator)
     i32 fd = mkstemp(path->str);
     if (fd == 1)
     {
-        compiler_bug("mkstemp failed: %s\n", strerror(errno));
+        COMPILER_BUG("mkstemp failed: %s\n", strerror(errno));
     }
     close(fd);
     string_array_push(temp_files, path);
@@ -36,7 +36,7 @@ bool run_subprocess(char** argv)
     if (fork() == 0) // 0 == child process
     {
         execvp(argv[0], argv); // exec* never returns if successful (turns program into new process)
-        generic_error("exec failed: %s: %s\n", argv[0], strerror(errno));
+        GENERIC_ERR("exec failed: %s: %s\n", argv[0], strerror(errno));
         exit(1);
     }
 
