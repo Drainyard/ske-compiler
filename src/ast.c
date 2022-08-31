@@ -253,27 +253,32 @@ static void pretty_print_block(AST_Node* block, i32 indentation, String_Builder*
     }
 }
 
-static void pretty_print_type_spec(AST_Node* type_spec, i32 indentation, String_Builder* builder)
+static char* type_spec_to_string(Type_Specifier type)
 {
-    Type_Specifier spec = type_spec->type_specifier.type;
-    switch(spec)
+    switch(type)
     {
     case TYPE_SPEC_INT:
     {
-        sb_append(builder, "int");
+        return "int";
     }
     break;
     case TYPE_SPEC_UNIT:
     {
-        sb_append(builder, "unit");
+        return "()";
     }
     break;
     case TYPE_SPEC_INVALID:
     {
-        sb_append(builder, "invalid");
+        return "invalid";
     }
     break;
     }
+}
+
+static void pretty_print_type_spec(AST_Node* type_spec, i32 indentation, String_Builder* builder)
+{
+    Type_Specifier spec = type_spec->type_specifier.type;
+    sb_append(builder, type_spec_to_string(spec));
 }
 
 static void pretty_print_declaration(AST_Node* declaration, i32 indentation, String_Builder* builder)

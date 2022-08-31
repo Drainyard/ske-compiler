@@ -114,7 +114,7 @@ struct AST_Node
         struct
         {
             String* name;
-            AST_Node* type; // @Incomplete: Should this be something typesafe?
+            AST_Node* type; // @Incomplete: Should this be something typesafe (hah)?
         } fun_argument;
         struct
         {

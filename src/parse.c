@@ -1,4 +1,3 @@
-
 static void Parser_error_at(Parser* parser, Token* token, const char* message)
 {
     if (parser->panic_mode) return;

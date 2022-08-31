@@ -154,10 +154,20 @@ struct IR_Return
     bool has_return_value;
 };
 
+typedef struct IR_Call_Arguments IR_Call_Arguments;
+struct IR_Call_Arguments
+{
+    IR_Value* values;
+    i32 count;
+    i32 capacity;
+};
+
 typedef struct IR_Call IR_Call;
 struct IR_Call
 {
     i32 function_index;
+    IR_Call_Arguments arguments;
+    IR_Register return_register;
 };
 
 typedef struct IR_Label IR_Label;
@@ -280,10 +290,28 @@ typedef enum
     IR_NODE_FUNCTION_DECL,
 } IR_Node_Type;
 
+typedef struct IR_Argument IR_Argument;
+struct IR_Argument
+{
+    Type_Specifier type;
+    String* name;
+};
+
+typedef struct IR_Argument_Array IR_Argument_Array;
+struct IR_Argument_Array
+{
+    IR_Argument* arguments;
+    i32 count;
+    i32 capacity;
+};
+
 typedef struct IR_Function_Decl IR_Function_Decl;
 struct IR_Function_Decl
 {
     String* name;
+    IR_Argument_Array arguments;
+    b32 has_return_value;
+    Type_Specifier return_type;
     bool export;
 };
 
@@ -329,17 +357,10 @@ typedef struct
     i32 capacity;
 } IR_Block_Array;
 
-typedef struct IR_Function IR_Function;
-struct IR_Function
-{
-    String_View name;
-    bool exported;
-};
-
 typedef struct IR_Function_Array IR_Function_Array;
 struct IR_Function_Array
 {
-    IR_Function* functions;
+    IR_Function_Decl** functions;
     i32 count;
     i32 capacity;
 };

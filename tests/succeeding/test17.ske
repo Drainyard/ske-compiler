@@ -1,4 +1,4 @@
-foo :: (x: int) -> int{
+foo :: (x: int) -> int {
 	return x * x;
 }
 

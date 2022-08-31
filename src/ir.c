@@ -22,14 +22,16 @@ IR_Register IR_register_alloc(IR_Register_Table* table)
     return reg;
 }
 
-static void IR_error(char* format, ...)
+static void IR_error(Source_Location location, char* format, ...)
 {
     va_list(ap);
     va_start(ap, format);
-    output_error(MAKE_LOCATION(), "IR", format, ap);
+    output_error(location, "IR", format, ap);
 
     exit(1);
 }
+
+#define IR_ERROR(format, ...) (IR_error(MAKE_LOCATION(), format, ##__VA_ARGS__))
 
 static char* IR_type_to_string(IR_Node_Type type)
 {
@@ -67,7 +69,7 @@ static char* IR_instruction_type_to_string(IR_Instruction* instruction)
     return "unop";
     case IR_INS_COMPARE:
     return "compare";
-    default: IR_error("Unknown instruction type.");
+    default: IR_ERROR("Unknown instruction type.");
     }
     return NULL;
 }
@@ -136,27 +138,48 @@ IR_Node* IR_emit_node(IR_Block* block, IR_Node_Type node_type)
     return node;
 }
 
-void IR_add_function(IR_Program* program, String* name, bool exported)
+void IR_add_function(IR_Program* program, IR_Function_Decl* function)
 {
     IR_Function_Array* array = &program->function_array;
     if (array->count + 1 > array->capacity)
     {
         array->capacity = array->capacity == 0 ? 256 : array->capacity * 2;
-        array->functions = realloc(array->functions, sizeof(IR_Function) * array->capacity);
+        array->functions = realloc(array->functions, sizeof(IR_Function_Decl*) * array->capacity);
     }
 
-    IR_Function* function = &array->functions[array->count++];
-    function->name = sv_create(name);
-    function->exported = exported;
+    array->functions[array->count++] = function;
+}
+
+void IR_add_argument(IR_Argument_Array* array, IR_Argument argument)
+{
+    if (array->count + 1 > array->capacity)
+    {
+        array->capacity = array->capacity == 0 ? 256 : array->capacity * 2;
+        array->arguments = realloc(array->arguments, sizeof(IR_Argument) * array->capacity);
+    }
+
+    array->arguments[array->count++] = argument;
+}
+
+void IR_add_call_argument(IR_Call_Arguments* array, IR_Value argument)
+{
+    if (array->count + 1 > array->capacity)
+    {
+        array->capacity = array->capacity == 0 ? 256 : array->capacity * 2;
+        array->values = realloc(array->values, sizeof(IR_Value) * array->capacity);
+    }
+
+    array->values[array->count++] = argument;
 }
 
 i32 IR_find_function(IR_Program* program, String* name)
 {
+    // @Speed: Optimize at some point using a hash table
     IR_Function_Array functions = program->function_array;
     for (i32 i = 0; i < functions.count; i++)
     {
-        String_View fun_name = functions.functions[i].name;
-        if (string_equal(name, fun_name.string))
+        String* fun_name = functions.functions[i]->name;
+        if (string_equal(name, fun_name))
         {
             return i;
         }
@@ -164,19 +187,21 @@ i32 IR_find_function(IR_Program* program, String* name)
     return -1;
 }
 
-String_View* IR_get_function_name(IR_Program* program, i32 index)
+String* IR_get_function_name(IR_Program* program, i32 index)
 {
     if (index == -1) return NULL;
     if (program->function_array.count <= index) return NULL;
-    return &program->function_array.functions[index].name;
+    return program->function_array.functions[index]->name;
 }
 
-IR_Node* IR_emit_function_decl(IR_Block* block, String* name, bool export)
+IR_Node* IR_emit_function_decl(IR_Block* block, String* name, bool export, b32 has_return_value, IR_Argument_Array arguments)
 {
     IR_Node* function_decl = IR_emit_node(block, IR_NODE_FUNCTION_DECL);
+    function_decl->function.has_return_value = has_return_value;
     function_decl->function.export = export;
     function_decl->function.name   = name;
-    IR_add_function(block->parent_program, name, export);
+    function_decl->function.arguments = arguments;
+    IR_add_function(block->parent_program, &function_decl->function);
 
     return function_decl;
 }
@@ -369,7 +394,7 @@ IR_Op IR_map_operator(Token_Type source)
     return OP_GREATER;
     case TOKEN_GREATER_EQUAL:
     return OP_GREATER_EQUAL;
-    default: IR_error("Invalid operator %s.", token_type_to_string(source)); exit(1);
+    default: IR_ERROR("Invalid operator %s.", token_type_to_string(source)); exit(1);
     }
 }
 
@@ -452,9 +477,42 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
 
         return reg;
     }
+    case AST_NODE_CALL:
+    {
+        String* fun_name = node->fun_call.name;
+        i32 index = IR_find_function(block->parent_program, fun_name);
+        IR_Function_Decl* function = block->parent_program->function_array.functions[index];
+            
+        if (index != -1)
+        {
+            AST_Node_List ast_arguments = node->fun_call.arguments;
+            IR_Call_Arguments arguments = {0};
+
+            for (i32 i = 0; i < ast_arguments.count; i++)
+            {
+                IR_add_call_argument(&arguments, IR_create_value_register(IR_translate_expression(ast_arguments.nodes[i], block, NULL, allocator, table)));
+            }
+            
+            IR_Node* ir_node = IR_emit_instruction(block, IR_INS_CALL);
+            IR_Call* call = &ir_node->instruction.call;
+            call->arguments = arguments;
+            call->function_index = index;
+            
+            if (function->has_return_value)
+            {
+                call->return_register = IR_register_alloc(table);
+                return call->return_register;
+            }
+        }
+        else
+        {
+            COMPILER_BUG("Unknown function %s.", fun_name->str);
+        }
+    }
+    break;
     case AST_NODE_VARIABLE:
     {
-        /* not_implemented("Variables not yet implemented in IR generation"); */
+        NOT_IMPLEMENTED("Variables not yet implemented in IR generation");
     }
     break;
     case AST_NODE_BINARY:
@@ -543,7 +601,7 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
                 }
             }
             break;
-            default: IR_error("Invalid comparison operator %s", token_type_to_string(operator));
+            default: IR_ERROR("Invalid comparison operator %s", token_type_to_string(operator));
             }
 
             IR_Compare* compare = IR_emit_comparison(block, left_val, right_loc, IR_map_operator(operator), table, allocator);
@@ -564,7 +622,7 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
             return compare->destination;
         }
         default:
-        IR_error("Unsupported operator for binary operations %s\n", token_type_to_string(operator));
+        IR_ERROR("Unsupported operator for binary operations %s\n", token_type_to_string(operator));
         break;
         }
     }
@@ -584,12 +642,12 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
             IR_emit_unop(block, reg, OP_NOT, allocator);
         }
         break;
-        default: IR_error("Unsupported operator for unary operations %s\n", token_type_to_string(operator));
+        default: IR_ERROR("Unsupported operator for unary operations %s\n", token_type_to_string(operator));
         }
         return reg;
     }
     default:
-    IR_error("Unsupported AST node: %s", AST_type_string(node->type));
+    IR_ERROR("Unsupported AST node: %s", AST_type_string(node->type));
     return (IR_Register){ .gpr_index = -1};
     }
 }
@@ -624,7 +682,7 @@ IR_Block* IR_translate_statement(IR_Block* block, AST_Node* statement, Allocator
         AST_Node* ast_then_arm = statement->if_statement.then_arm;
         if (ast_then_arm->type != AST_NODE_BLOCK)
         {
-            IR_error("Then arm for if statement has to be a block, was %s", AST_type_string(ast_then_arm->type));
+            IR_ERROR("Then arm for if statement has to be a block, was %s", AST_type_string(ast_then_arm->type));
         }
 
         IR_Block* then_block = IR_allocate_block(block->parent_program);
@@ -727,21 +785,26 @@ void IR_translate_program(IR_Program* program, AST_Node* ast_program, Allocator*
         case AST_NODE_FUN_DECL:
         {
             IR_Block* block = IR_allocate_block(program);
-            IR_emit_function_decl(block, node->fun_decl.name, true);
+
+            AST_Node_List arguments = node->fun_decl.arguments;
+            IR_Argument_Array argument_array = {0};
+            for(i32 i = 0; i < arguments.count; i++)
+            {
+                AST_Node* node = arguments.nodes[i];
+                AST_Node* type = node->fun_argument.type;
+                String* name  = node->fun_argument.name;
+
+                IR_Argument argument =
+                    {
+                        .type = type->type_specifier.type,
+                        .name = name
+                    };
+                IR_add_argument(&argument_array, argument);
+            }
+            
+            IR_emit_function_decl(block, node->fun_decl.name, true, node->fun_decl.return_type != NULL, argument_array);
 
             IR_translate_block(block, node->fun_decl.body, allocator, register_table);
-        }
-        break;
-        case AST_NODE_LITERAL:
-        case AST_NODE_BINARY:
-        case AST_NODE_UNARY:
-        {
-            IR_Block* block = IR_get_current_block(program);
-            
-            String* name = string_allocate("main", allocator);
-            IR_emit_function_decl(block, name, true);
-            IR_translate_expression(node, block, NULL, allocator, register_table);
-            IR_emit_instruction(block, IR_INS_RET);
         }
         break;
         default: COMPILER_BUG("Invalid AST node type %s.", AST_type_string(node->type));
@@ -998,7 +1061,7 @@ void IR_pretty_print_instruction(String_Builder* sb, IR_Instruction* instruction
             sb_append(sb, " & ");
         }
         break;
-        default: IR_error("Unsupported operator for binary operation\n");
+        default: IR_ERROR("Unsupported operator for binary operation\n");
         }
         IR_pretty_print_value(sb, &binop->right);
 
@@ -1021,8 +1084,34 @@ void IR_pretty_print_instruction(String_Builder* sb, IR_Instruction* instruction
     case IR_INS_CALL:
     {
         IR_Call* call = &instruction->call;
-        String_View name = program->function_array.functions[call->function_index].name;
-        sb_appendf(sb, "call %s\n", name.string->str);
+        IR_Function_Decl* function = program->function_array.functions[call->function_index];
+        String* name = function->name;
+        
+        if (function->has_return_value)
+        {
+            IR_pretty_print_register(sb, &call->return_register);
+            sb_append(sb, " := ");
+        }
+        else
+        {
+            
+        }
+        
+        sb_appendf(sb, "%s(", name->str);
+
+        IR_Call_Arguments arguments = call->arguments;
+        for (i32 i = 0; i < arguments.count; i++)
+        {
+            IR_Value value = arguments.values[i];
+            IR_pretty_print_value(sb, &value);
+
+            if (i < arguments.count - 1)
+            {
+                sb_append(sb, ", ");
+            }
+        }
+        
+        sb_append(sb, ")\n");
     }
     break;
     case IR_INS_UNOP:
@@ -1043,7 +1132,7 @@ void IR_pretty_print_instruction(String_Builder* sb, IR_Instruction* instruction
             sb_append(sb, "!");
         }
         break;
-        default: IR_error("Unsupported operator for unary operation\n");
+        default: IR_ERROR("Unsupported operator for unary operation\n");
         }
         IR_pretty_print_value(sb, &unop->value);
         sb_append(sb, "");
@@ -1100,13 +1189,13 @@ void IR_pretty_print_instruction(String_Builder* sb, IR_Instruction* instruction
             sb_append(sb, " != ");
         }
         break;
-        default: IR_error("Unsupported operator for compare operation\n");
+        default: IR_ERROR("Unsupported operator for compare operation\n");
         }
         IR_pretty_print_location(sb, &compare->right);
         sb_newline(sb);
     }
     break;
-    default: IR_error("IR pretty printer: Unhandled instruction %s", IR_instruction_type_to_string(instruction));
+    default: IR_ERROR("IR pretty printer: Unhandled instruction %s", IR_instruction_type_to_string(instruction));
     break;
     }
 }
@@ -1137,7 +1226,23 @@ String* IR_pretty_print(IR_Program* program, Allocator* allocator)
                 {
                     sb_append(&sb, "export ");
                 }
-                sb_appendf(&sb, "fun %s()\n", fun->name->str);
+                sb_appendf(&sb, "fun %s(", fun->name->str);
+
+                IR_Argument_Array arguments = fun->arguments;
+                for (i32 i = 0; i < arguments.count; i++)
+                {
+                    IR_Argument argument = arguments.arguments[i];
+                    Type_Specifier type = argument.type;
+                    String* name = argument.name;
+                    sb_appendf(&sb, "%s : %s", name->str, type_spec_to_string(type));
+
+                    if (i < arguments.count - 1)
+                    {
+                        sb_append(&sb, ", ");
+                    }
+                }
+
+                sb_append(&sb, ")\n");
             }
             break;
             case IR_NODE_LABEL:

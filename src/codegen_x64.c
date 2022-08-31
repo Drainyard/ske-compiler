@@ -658,8 +658,8 @@ void X64_emit_instruction(String_Builder* sb, IR_Instruction* instruction, IR_Pr
     case IR_INS_CALL:
     {
         IR_Call* call = &instruction->call;
-        String_View* name = IR_get_function_name(program, call->function_index);
-        X64_emit_call(sb, name->string->str);
+        String* name = IR_get_function_name(program, call->function_index);
+        X64_emit_call(sb, name->str);
     }
     break;
     case IR_INS_MOV:
@@ -979,11 +979,11 @@ String* X64_codegen_ir(IR_Program* program, Allocator* allocator)
     
     for (i32 i = 0; i < program->function_array.count; i++)
     {
-        IR_Function function = program->function_array.functions[i];
-        if (function.exported)
+        IR_Function_Decl* function = program->function_array.functions[i];
+        if (function->export)
         {
-            String_View name = program->function_array.functions[i].name;
-            sb_appendf(&sb, ".global %s\n", name.string->str);
+            String* name = program->function_array.functions[i]->name;
+            sb_appendf(&sb, ".global %s\n", name->str);
         }
     }
     
