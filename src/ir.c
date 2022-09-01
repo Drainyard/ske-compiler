@@ -33,19 +33,19 @@ static void IR_error(Source_Location location, char* format, ...)
 
 #define IR_ERROR(format, ...) (IR_error(MAKE_LOCATION(), format, ##__VA_ARGS__))
 
-static char* IR_type_to_string(IR_Node_Type type)
-{
-    switch(type)
-    {
-    case IR_NODE_INSTRUCTION:
-    return "instruction";
-    case IR_NODE_LABEL:
-    return "label";
-    case IR_NODE_FUNCTION_DECL:
-    return "function declaration";
-    }
-    return NULL;
-}
+/* static char* IR_type_to_string(IR_Node_Type type) */
+/* { */
+/*     switch(type) */
+/*     { */
+/*     case IR_NODE_INSTRUCTION: */
+/*     return "instruction"; */
+/*     case IR_NODE_LABEL: */
+/*     return "label"; */
+/*     case IR_NODE_FUNCTION_DECL: */
+/*     return "function declaration"; */
+/*     } */
+/*     return NULL; */
+/* } */
 
 static char* IR_instruction_type_to_string(IR_Instruction* instruction)
 {
@@ -74,28 +74,28 @@ static char* IR_instruction_type_to_string(IR_Instruction* instruction)
     return NULL;
 }
 
-static char* IR_node_to_string(IR_Node* node)
-{
-    switch(node->type)
-    {
-    case IR_NODE_INSTRUCTION:
-    {
-        return IR_instruction_type_to_string(&node->instruction);
-    }
-    break;
-    case IR_NODE_LABEL:
-    {
-        return node->label.label_name->str;
-    }
-    break;
-    case IR_NODE_FUNCTION_DECL:
-    {
-        return node->function.name->str;
-    }
-    break;
-    }
-    return NULL;
-}
+/* static char* IR_node_to_string(IR_Node* node) */
+/* { */
+/*     switch(node->type) */
+/*     { */
+/*     case IR_NODE_INSTRUCTION: */
+/*     { */
+/*         return IR_instruction_type_to_string(&node->instruction); */
+/*     } */
+/*     break; */
+/*     case IR_NODE_LABEL: */
+/*     { */
+/*         return node->label.label_name->str; */
+/*     } */
+/*     break; */
+/*     case IR_NODE_FUNCTION_DECL: */
+/*     { */
+/*         return node->function.name->str; */
+/*     } */
+/*     break; */
+/*     } */
+/*     return NULL; */
+/* } */
 
 String* IR_generate_label_name(IR_Program* program, Allocator* allocator)
 {
@@ -650,6 +650,8 @@ IR_Register IR_translate_expression(AST_Node* node, IR_Block* block, IR_Block* e
     IR_ERROR("Unsupported AST node: %s", AST_type_string(node->type));
     return (IR_Register){ .gpr_index = -1};
     }
+
+    return (IR_Register){ .gpr_index = -1};
 }
 
 IR_Block* IR_translate_block(IR_Block* block, AST_Node* body, Allocator* allocator, IR_Register_Table* register_table);

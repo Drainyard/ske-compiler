@@ -27,17 +27,19 @@ typedef enum
     TYPE_KIND_BUILTIN,
     TYPE_KIND_ALIAS,
     TYPE_KIND_STRUCT,
-    TYPE_KIND_ENUM
+    TYPE_KIND_ENUM,
+    TYPE_KIND_FUNCTION
 } Sem_Type_Kind;
+
+typedef struct Sem_Type Sem_Type;
 
 typedef struct Sem_Type_Alias Sem_Type_Alias;
 struct Sem_Type_Alias
 {
     String* alias_name;
-    Sem_Type
+    Sem_Type* aliased_type;
 };
 
-typedef struct Sem_Type Sem_Type;
 struct Sem_Type
 {
     Sem_Type_Kind kind;
@@ -45,50 +47,65 @@ struct Sem_Type
     union
     {
         Sem_Builtin_Type builtin;
-        
+        Sem_Type_Alias alias;
     };
 };
 
 typedef struct Sem_Variable_Info Sem_Variable_Info;
 struct Sem_Variable_Info
 {
-    
+    String* name;
+    Sem_Type type_info;
+};
+
+typedef struct Sem_Variable_Key Sem_Variable_Key;
+struct Sem_Variable_Key
+{
+    String* key;
+    u32 hash;
 };
 
 typedef struct Sem_Variable_Table Sem_Variable_Table;
 struct Sem_Variable_Table
 {
-    
+    Sem_Variable_Key*  keys;
+    Sem_Variable_Info* entries;
+
+    i32 count;
+    i32 capacity;
 };
 
-Sem_Variable_Table Sem_Check(AST_Node* root, Allocator* allocator)
+#define SEM_TABLE_MAX_LOAD 0.75f
+
+typedef struct Sem_Scope_Handle Sem_Scope_Handle;
+struct Sem_Scope_Handle
 {
-    Sem_Variable_Table table = {0};
+    i32 handle;
+};
+
+#define SEM_HANDLE_VALID(h) (h.handle != -1)
+
+typedef struct Sem_Scope Sem_Scope;
+struct Sem_Scope
+{
+    Sem_Scope_Handle parent_handle;
     
-    AST_Node_List declarations = root->program.declarations;
-    for (i32 i = 0; i < declarations.count; i++)
+    Sem_Variable_Table table;
+};
+
+typedef struct Sem_Checker Sem_Checker;
+struct Sem_Checker
+{
+    struct
     {
-        AST_Node* node = declarations.nodes[i];
+        Sem_Scope* scopes;
+        i32 count;
+        i32 capacity;
+    } scope_list;
 
-        switch(node->type)
-        {
-            case AST_NODE_FUN_DECL:
-            {
-                /* @Incomplete:
-                   - Create a new scope
-                   - Add arguments to current scope
-                   - Type check block
-                   - Get return type of block and compare to function return type
-                */
-
-                
-                
-            }
-            break;
-        }
-    }
-
-    return table;
-}
+    Sem_Scope_Handle current_scope;
+    
+    b32 had_error; // @Incomplete: Replace with an enum for different results, maybe bit flags?
+};
 
 #endif

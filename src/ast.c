@@ -273,6 +273,8 @@ static char* type_spec_to_string(Type_Specifier type)
     }
     break;
     }
+
+    return "";
 }
 
 static void pretty_print_type_spec(AST_Node* type_spec, i32 indentation, String_Builder* builder)

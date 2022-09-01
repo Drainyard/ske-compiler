@@ -389,10 +389,6 @@ const char* scratch_register_names[SCRATCH_COUNT] =
 
 #endif
 
-
-typedef struct Temp_Table_Entry Temp_Table_Entry;
-
-
 typedef struct Temp_Table Temp_Table;
 struct Temp_Table
 {
