@@ -34,8 +34,6 @@ static char* AST_type_string(AST_Node_Type type)
     return "AST block";
     case AST_NODE_LITERAL:
     return "AST literal";
-    case AST_NODE_STRING:
-    return "AST string";
     case AST_NODE_BINARY:
     return "AST binary";
     case AST_NODE_UNARY:
@@ -127,7 +125,8 @@ static void pretty_print_literal(AST_Node* node, i32 indentation, String_Builder
 
 static void pretty_print_string(AST_Node* string, i32 indentation, String_Builder* builder)
 {
-    sb_appendf(builder, "%.*s", string->string->length, string->string->str);
+    String* lit = string->literal.s;
+    sb_appendf(builder, "%.*s", lit->length, lit->str);
 }
 
 static void pretty_print_call(AST_Node* call, i32 indentation, String_Builder* builder)
@@ -167,11 +166,6 @@ static void pretty_print_expression(AST_Node* node, i32 indentation, String_Buil
     case AST_NODE_LITERAL:
     {
         pretty_print_literal(node, 0, builder);
-    }
-    break;
-    case AST_NODE_STRING:
-    {
-        pretty_print_string(node, 0, builder);
     }
     break;
     case AST_NODE_VARIABLE:

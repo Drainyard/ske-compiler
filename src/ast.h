@@ -14,7 +14,6 @@ typedef enum
     AST_NODE_RETURN,
     AST_NODE_BLOCK,
     AST_NODE_LITERAL,
-    AST_NODE_STRING,
     AST_NODE_BINARY,
     AST_NODE_UNARY,
     AST_NODE_TYPE_SPECIFIER,
@@ -65,7 +64,6 @@ struct AST_Node
     union
     {
         AST_Literal literal; // @Incomplete: Should be expanded to other constant types (float, string, etc.)
-        String* string;
         struct
         {
             AST_Node* expression;

@@ -28,10 +28,12 @@ typedef enum
     TYPE_KIND_ALIAS,
     TYPE_KIND_STRUCT,
     TYPE_KIND_ENUM,
-    TYPE_KIND_FUNCTION
+    TYPE_KIND_FUNCTION,
+    TYPE_KIND_INVALID
 } Sem_Type_Kind;
 
 typedef struct Sem_Type Sem_Type;
+typedef struct Sem_Variable_Info Sem_Variable_Info;
 
 typedef struct Sem_Type_Alias Sem_Type_Alias;
 struct Sem_Type_Alias
@@ -39,6 +41,22 @@ struct Sem_Type_Alias
     String* alias_name;
     Sem_Type* aliased_type;
 };
+
+typedef struct Sem_Function_Decl Sem_Function_Decl;
+struct Sem_Function_Decl
+{
+    String* name;
+    Sem_Type* return_type;
+
+    Sem_Variable_Info* arguments;
+    i32 argument_count;
+    i32 argument_capacity;
+};
+
+/* @Note: Global function definitions which are 100% global for now
+   Later we will add module scope and module resolving somehow.
+   Currently we just assume all top level functions are in scope all the time.
+ */
 
 struct Sem_Type
 {
@@ -48,10 +66,12 @@ struct Sem_Type
     {
         Sem_Builtin_Type builtin;
         Sem_Type_Alias alias;
+        Sem_Function_Decl fun_decl;
     };
 };
 
-typedef struct Sem_Variable_Info Sem_Variable_Info;
+#define SEM_MAKE_INVALID_TYPE ((Sem_Type) { .kind = TYPE_KIND_INVALID } )
+
 struct Sem_Variable_Info
 {
     String* name;
@@ -106,6 +126,14 @@ struct Sem_Checker
     Sem_Scope_Handle current_scope;
     
     b32 had_error; // @Incomplete: Replace with an enum for different results, maybe bit flags?
+
+    Allocator* allocator;
+
+    String_View absolute_path;
 };
+
+Sem_Type Sem_check_expression(Sem_Checker* checker, AST_Node* expression, Allocator* allocator);
+void Sem_check_block(Sem_Checker* checker, AST_Node* block, Allocator* allocator);
+void Sem_check_statement(Sem_Checker* checker, AST_Node* statement, Allocator* allocator);
 
 #endif

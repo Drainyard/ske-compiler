@@ -187,9 +187,10 @@ static AST_Node* Parser_variable(Parser* parser, AST_Node* previous, AST_Node* p
 static AST_Node* Parser_string(Parser* parser, AST_Node* previous, AST_Node* parent)
 {
     Token string = parser->current;
-    AST_Node* string_node = Parser_add_node(AST_NODE_STRING, parent, parser->allocator);
-    string_node->string = string_allocate_empty(string.length, parser->allocator);
-    sprintf(string_node->string->str, "%.*s", string.length, string.start);
+    AST_Node* string_node = Parser_add_node(AST_NODE_LITERAL, parent, parser->allocator);
+    string_node->literal.s = string_allocate_empty(string.length, parser->allocator);
+    string_node->literal.type = LIT_STRING;
+    sprintf(string_node->literal.s->str, "%.*s", string.length, string.start);
     return string_node;
 }
 

@@ -170,6 +170,9 @@ bool Compiler_compile(String* source, Compiler_Arguments arguments, Allocator* a
             }
             return true;
         }
+
+        Sem_check(parser.root, arguments.absolute_path, allocator);
+        
         IR_Program program = IR_translate_ast(parser.root, allocator);
         if (has_flag(arguments.options, OPT_IR_OUTPUT))
         {
